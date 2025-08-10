@@ -1,0 +1,187 @@
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+
+interface CreateCampaignModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignModalProps) {
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    rewardPerReferral: 50,
+    startDate: "",
+    endDate: "",
+    goalCount: 100,
+  });
+
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const createCampaignMutation = useMutation({
+    mutationFn: async (campaignData: typeof formData) => {
+      const response = await apiRequest("POST", "/api/campaigns", {
+        ...campaignData,
+        startDate: new Date(campaignData.startDate),
+        endDate: new Date(campaignData.endDate),
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Campaign created successfully.",
+      });
+      setFormData({
+        name: "",
+        description: "",
+        rewardPerReferral: 50,
+        startDate: "",
+        endDate: "",
+        goalCount: 100,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      onClose();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create campaign.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.startDate || !formData.endDate) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (new Date(formData.endDate) <= new Date(formData.startDate)) {
+      toast({
+        title: "Error",
+        description: "End date must be after start date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createCampaignMutation.mutate(formData);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Create New Campaign</DialogTitle>
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="campaignName">Campaign Name</Label>
+            <Input
+              id="campaignName"
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Enter campaign name"
+              required
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="startDate">Start Date</Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="endDate">End Date</Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={formData.endDate}
+                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="rewardPerReferral">Reward per Referral</Label>
+              <Input
+                id="rewardPerReferral"
+                type="number"
+                value={formData.rewardPerReferral}
+                onChange={(e) => setFormData({ ...formData, rewardPerReferral: parseInt(e.target.value) || 0 })}
+                placeholder="Enter points value"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="goalCount">Target Referrals</Label>
+              <Input
+                id="goalCount"
+                type="number"
+                value={formData.goalCount}
+                onChange={(e) => setFormData({ ...formData, goalCount: parseInt(e.target.value) || 0 })}
+                placeholder="Enter goal"
+                required
+              />
+            </div>
+          </div>
+          
+          <div>
+            <Label htmlFor="description">Campaign Description</Label>
+            <Textarea
+              id="description"
+              rows={3}
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Describe the campaign..."
+            />
+          </div>
+          
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              className="bg-primary hover:bg-blue-700 text-white"
+              disabled={createCampaignMutation.isPending}
+            >
+              {createCampaignMutation.isPending ? "Creating..." : "Create Campaign"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

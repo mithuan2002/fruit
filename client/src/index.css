@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(240 10% 3.9%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(240 10% 3.9%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(240 10% 3.9%);
+  --primary: hsl(208.8 88.8% 42.2%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(131.4 41.2% 45.1%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --muted: hsl(240 4.8% 95.9%);
+  --muted-foreground: hsl(240 3.8% 46.1%);
+  --accent: hsl(36 100% 50%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(240 5.9% 90%);
+  --input: hsl(240 5.9% 90%);
+  --ring: hsl(208.8 88.8% 42.2%);
+  --success: hsl(120 39% 54%);
+  --error: hsl(0 84.2% 60.2%);
+  --chart-1: hsl(208.8 88.8% 42.2%);
+  --chart-2: hsl(131.4 41.2% 45.1%);
+  --chart-3: hsl(36 100% 50%);
+  --chart-4: hsl(120 39% 54%);
+  --chart-5: hsl(0 84.2% 60.2%);
+  --sidebar: hsl(0 0% 100%);
+  --sidebar-foreground: hsl(240 10% 3.9%);
+  --sidebar-primary: hsl(208.8 88.8% 42.2%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 4.8% 95.9%);
+  --sidebar-accent-foreground: hsl(240 10% 3.9%);
+  --sidebar-border: hsl(240 5.9% 90%);
+  --sidebar-ring: hsl(208.8 88.8% 42.2%);
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: hsl(240 10% 3.9%);
+  --foreground: hsl(0 0% 98%);
+  --card: hsl(240 10% 3.9%);
+  --card-foreground: hsl(0 0% 98%);
+  --popover: hsl(240 10% 3.9%);
+  --popover-foreground: hsl(0 0% 98%);
+  --primary: hsl(208.8 88.8% 42.2%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(131.4 41.2% 45.1%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --muted: hsl(240 3.7% 15.9%);
+  --muted-foreground: hsl(240 5% 64.9%);
+  --accent: hsl(36 100% 50%);
+  --accent-foreground: hsl(0 0% 100%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(240 3.7% 15.9%);
+  --input: hsl(240 3.7% 15.9%);
+  --ring: hsl(208.8 88.8% 42.2%);
+  --success: hsl(120 39% 54%);
+  --error: hsl(0 84.2% 60.2%);
+  --chart-1: hsl(208.8 88.8% 42.2%);
+  --chart-2: hsl(131.4 41.2% 45.1%);
+  --chart-3: hsl(36 100% 50%);
+  --chart-4: hsl(120 39% 54%);
+  --chart-5: hsl(0 84.2% 60.2%);
+  --sidebar: hsl(240 10% 3.9%);
+  --sidebar-foreground: hsl(0 0% 98%);
+  --sidebar-primary: hsl(208.8 88.8% 42.2%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground: hsl(0 0% 98%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(208.8 88.8% 42.2%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* Custom utility classes */
+.text-primary {
+  color: hsl(var(--primary));
+}
+
+.text-secondary {
+  color: hsl(var(--secondary));
+}
+
+.text-accent {
+  color: hsl(var(--accent));
+}
+
+.text-success {
+  color: hsl(var(--success));
+}
+
+.text-error {
+  color: hsl(var(--error));
+}
+
+.bg-primary {
+  background-color: hsl(var(--primary));
+}
+
+.bg-secondary {
+  background-color: hsl(var(--secondary));
+}
+
+.bg-accent {
+  background-color: hsl(var(--accent));
+}
+
+.bg-success {
+  background-color: hsl(var(--success));
+}
+
+.bg-error {
+  background-color: hsl(var(--error));
+}
+
+.bg-opacity-10 {
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+.font-inter {
+  font-family: 'Inter', sans-serif;
+}
