@@ -101,13 +101,16 @@ export class MemStorage implements IStorage {
     return Array.from(this.customers.values());
   }
 
-  async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
+  async createCustomer(insertCustomer: InsertCustomer & { couponCode?: string }): Promise<Customer> {
     const id = randomUUID();
     const customer: Customer = {
       ...insertCustomer,
       id,
-      points: insertCustomer.points || 0,
       totalReferrals: 0,
+      points: insertCustomer.points || 0,
+      couponCode: insertCustomer.couponCode || null,
+      pointsEarned: 0,
+      pointsRedeemed: 0,
       createdAt: new Date(),
     };
     this.customers.set(id, customer);
@@ -292,14 +295,14 @@ export class MemStorage implements IStorage {
   async generateUniqueCode(): Promise<string> {
     let code: string;
     let exists = true;
-    
+
     while (exists) {
       // Generate a unique code with timestamp and random elements
       code = `REF${randomUUID().slice(0, 8).toUpperCase()}${Date.now().toString().slice(-4)}`;
       const existingCoupon = await this.getCouponByCode(code);
       exists = !!existingCoupon;
     }
-    
+
     return code!;
   }
 

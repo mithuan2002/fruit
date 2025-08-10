@@ -9,6 +9,9 @@ export const customers = pgTable("customers", {
   phoneNumber: text("phone_number").notNull().unique(),
   points: integer("points").notNull().default(0),
   totalReferrals: integer("total_referrals").notNull().default(0),
+  couponCode: text("coupon_code").unique(),
+  pointsEarned: integer("points_earned").notNull().default(0),
+  pointsRedeemed: integer("points_redeemed").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

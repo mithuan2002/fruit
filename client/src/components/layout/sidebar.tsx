@@ -5,7 +5,6 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
   { name: "Campaigns", href: "/campaigns", icon: Megaphone },
   { name: "Customers", href: "/customers", icon: Users },
-  { name: "Coupon Codes", href: "/coupons", icon: Ticket },
   { name: "SMS Center", href: "/sms", icon: MessageSquare },
 
 ];
@@ -26,13 +25,13 @@ export default function Sidebar() {
               <h1 className="ml-3 text-xl font-bold text-gray-900">Fruitbox</h1>
             </div>
           </div>
-          
+
           {/* Navigation Menu */}
           <nav className="mt-8 flex-1 px-2 space-y-1">
             {navigation.map((item) => {
               const isActive = location === item.href || (item.href === "/" && location === "/dashboard");
               const Icon = item.icon;
-              
+
               return (
                 <Link key={item.name} href={item.href} className={`${
                   isActive
@@ -47,7 +46,7 @@ export default function Sidebar() {
               );
             })}
           </nav>
-          
+
           {/* User Profile Section */}
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
             <div className="flex items-center">

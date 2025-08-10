@@ -24,7 +24,7 @@ export default function CustomerAddForm() {
     },
     onSuccess: (data) => {
       console.log("Customer creation response:", data);
-      const couponCode = data.coupon?.code;
+      const couponCode = data.couponCode;
       const smsStatus = data.smsStatus;
       
       toast({
@@ -34,7 +34,6 @@ export default function CustomerAddForm() {
       setCustomerForm({ name: "", phoneNumber: "", points: 0 });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
     },
     onError: (error: any) => {
       toast({
