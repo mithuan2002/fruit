@@ -15,9 +15,11 @@ export default function CouponRedemption() {
     customerId: "",
     referredCustomerName: "",
     referredCustomerPhone: "",
+    saleAmount: 0,
+    pointsToAssign: 0,
   });
-  const [step, setStep] = useState<"enter-code" | "verify-details" | "success">("enter-code");
-  const [couponDetails, setCouponDetails] = useState<any>(null);
+  const [step, setStep] = useState<"enter-code" | "verify-details" | "assign-points" | "success">("enter-code");
+  const [referralData, setReferralData] = useState<any>(null);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -36,7 +38,7 @@ export default function CouponRedemption() {
         title: "Referral Processed!",
         description: `${data.pointsEarned} points awarded to referrer. Total points: ${data.totalPoints}`,
       });
-      setStep("success");
+      setStep("success" as any);
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
     },
@@ -53,11 +55,12 @@ export default function CouponRedemption() {
     // In a real implementation, you would verify the coupon code here
     // For demo purposes, we'll simulate this
     if (redemptionForm.couponCode.length >= 6) {
-      setCouponDetails({
+      setReferralData({
         code: redemptionForm.couponCode,
-        value: 50,
         referrerName: "John Smith",
         referrerPhone: "+1 (555) 123-4567",
+        referrerCurrentPoints: 150,
+        defaultPointsPerReferral: 50,
       });
       setStep("verify-details");
     } else {
@@ -69,12 +72,24 @@ export default function CouponRedemption() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleVerifyDetails = () => {
     if (!redemptionForm.referredCustomerName || !redemptionForm.referredCustomerPhone) {
       toast({
         title: "Missing Information",
         description: "Please provide referred customer details.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setStep("assign-points");
+  };
+
+  const handleFinalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (redemptionForm.pointsToAssign <= 0) {
+      toast({
+        title: "Invalid Points",
+        description: "Please assign points based on the sale amount.",
         variant: "destructive",
       });
       return;
@@ -88,9 +103,11 @@ export default function CouponRedemption() {
       customerId: "",
       referredCustomerName: "",
       referredCustomerPhone: "",
+      saleAmount: 0,
+      pointsToAssign: 0,
     });
     setStep("enter-code");
-    setCouponDetails(null);
+    setReferralData(null);
   };
 
   return (
@@ -124,8 +141,8 @@ export default function CouponRedemption() {
           </div>
         )}
 
-        {step === "verify-details" && couponDetails && (
-          <form onSubmit={handleSubmit} className="space-y-4">
+        {step === "verify-details" && referralData && (
+          <div className="space-y-4">
             {/* Referrer Information */}
             <div className="bg-green-50 p-4 rounded-lg border border-green-200">
               <div className="flex items-center mb-2">
@@ -133,11 +150,9 @@ export default function CouponRedemption() {
                 <span className="text-sm font-medium text-green-800">Referrer Identified</span>
               </div>
               <div className="text-sm text-green-700">
-                <p><strong>{couponDetails.referrerName}</strong></p>
-                <p>{couponDetails.referrerPhone}</p>
-                <Badge className="mt-1 bg-green-100 text-green-800">
-                  Will earn {couponDetails.value} points
-                </Badge>
+                <p><strong>{referralData.referrerName}</strong></p>
+                <p>{referralData.referrerPhone}</p>
+                <p>Current Points: {referralData.referrerCurrentPoints}</p>
               </div>
             </div>
 
@@ -171,11 +186,75 @@ export default function CouponRedemption() {
                 Back
               </Button>
               <Button 
-                type="submit" 
+                onClick={handleVerifyDetails}
                 className="flex-1 bg-primary hover:bg-blue-700 text-white"
+              >
+                Next: Assign Points
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === "assign-points" && referralData && (
+          <form onSubmit={handleFinalSubmit} className="space-y-4">
+            {/* Sale Information */}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <h4 className="text-sm font-medium text-blue-800 mb-2">Transaction Details</h4>
+              <div className="text-sm text-blue-700">
+                <p>Customer: <strong>{redemptionForm.referredCustomerName}</strong></p>
+                <p>Referrer: <strong>{referralData.referrerName}</strong></p>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="saleAmount">Sale Amount ($)</Label>
+              <Input
+                id="saleAmount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={redemptionForm.saleAmount}
+                onChange={(e) => {
+                  const amount = Number(e.target.value);
+                  const points = Math.floor(amount / 10); // 1 point per $10 spent
+                  setRedemptionForm({ 
+                    ...redemptionForm, 
+                    saleAmount: amount,
+                    pointsToAssign: points 
+                  });
+                }}
+                placeholder="0.00"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">Points will be calculated automatically</p>
+            </div>
+
+            <div>
+              <Label htmlFor="pointsToAssign">Points to Assign</Label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  id="pointsToAssign"
+                  type="number"
+                  min="0"
+                  value={redemptionForm.pointsToAssign}
+                  onChange={(e) => setRedemptionForm({ ...redemptionForm, pointsToAssign: Number(e.target.value) })}
+                  className="flex-1"
+                />
+                <p className="text-sm text-gray-500">points</p>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Adjust based on sale amount and store policy</p>
+            </div>
+
+            <div className="flex space-x-3">
+              <Button type="button" variant="outline" onClick={() => setStep("verify-details")} className="flex-1">
+                Back
+              </Button>
+              <Button 
+                type="submit"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                 disabled={redeemCouponMutation.isPending}
               >
-                {redeemCouponMutation.isPending ? "Processing..." : "Process Referral"}
+                {redeemCouponMutation.isPending ? "Processing..." : "Award Points"}
               </Button>
             </div>
           </form>
@@ -183,14 +262,14 @@ export default function CouponRedemption() {
 
         {step === "success" && (
           <div className="text-center space-y-4">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-              <Gift className="h-8 w-8 text-green-600" />
+            <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
             <div>
-              <h4 className="text-lg font-medium text-gray-900">Referral Processed!</h4>
-              <p className="text-sm text-gray-500">Points awarded and SMS sent to referrer</p>
+              <h3 className="text-lg font-medium text-gray-900">Referral Processed Successfully!</h3>
+              <p className="text-sm text-gray-500">Points have been awarded to the referrer.</p>
             </div>
-            <Button onClick={resetForm} className="w-full bg-primary hover:bg-blue-700 text-white">
+            <Button onClick={resetForm} className="w-full">
               Process Another Referral
             </Button>
           </div>
