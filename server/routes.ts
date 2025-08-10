@@ -55,9 +55,18 @@ async function sendSMS(phoneNumber: string, message: string): Promise<{ success:
     if (response.ok) {
       const result = await response.json();
       console.log(`SMS sent successfully. Message ID: ${result.sid}`);
+      console.log(`Message status: ${result.status}`);
+      console.log(`Price: ${result.price} ${result.price_unit}`);
+      console.log(`Direction: ${result.direction}`);
+      
+      // Check if there are any immediate error codes
+      if (result.error_code) {
+        console.warn(`Twilio warning - Error code: ${result.error_code}, Message: ${result.error_message}`);
+      }
+      
       return { 
         success: true, 
-        messageId: result.sid 
+        messageId: result.sid
       };
     } else {
       const errorData = await response.json();
@@ -541,8 +550,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Check Twilio message status
-  app.get("/api/sms/check-status/:messageId", async (req, res) => {
+  // Check Twilio message status - updated route
+  app.get("/api/sms/status/:messageId", async (req, res) => {
     try {
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -552,6 +561,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Twilio credentials not configured" });
       }
 
+      console.log(`Checking status for message: ${messageId}`);
+
       const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages/${messageId}.json`, {
         headers: {
           'Authorization': `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
@@ -560,6 +571,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (response.ok) {
         const messageStatus = await response.json();
+        console.log(`Message ${messageId} status:`, messageStatus.status);
+        
         res.json({
           messageId: messageStatus.sid,
           status: messageStatus.status,
@@ -571,10 +584,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           to: messageStatus.to,
           from: messageStatus.from,
           price: messageStatus.price,
-          priceUnit: messageStatus.price_unit
+          priceUnit: messageStatus.price_unit,
+          direction: messageStatus.direction,
+          numSegments: messageStatus.num_segments
         });
       } else {
         const errorData = await response.json();
+        console.error('Twilio API error when checking status:', errorData);
         res.status(response.status).json({ error: errorData.message || 'Failed to check message status' });
       }
     } catch (error) {

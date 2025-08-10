@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MessageSquare, CheckCircle, AlertTriangle, Clock, RefreshCw } from "lucide-react";
+import { MessageSquare, CheckCircle, AlertTriangle, Clock, RefreshCw, Search } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 interface SmsMessage {
   id: string;
@@ -16,12 +17,40 @@ interface SmsMessage {
   type: string;
 }
 
+interface TwilioStatus {
+  messageId: string;
+  status: string;
+  errorCode?: string;
+  errorMessage?: string;
+  dateCreated: string;
+  dateUpdated: string;
+  dateSent?: string;
+  to: string;
+  from: string;
+  price?: string;
+  priceUnit?: string;
+}
+
 export default function SmsTroubleshoot() {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [twilioStatus, setTwilioStatus] = useState<TwilioStatus | null>(null);
 
   const { data: messages, refetch } = useQuery<SmsMessage[]>({
     queryKey: ["/api/sms"],
     refetchInterval: 10000, // Refresh every 10 seconds
+  });
+
+  const checkTwilioStatus = useMutation({
+    mutationFn: async (messageId: string) => {
+      const response = await apiRequest("GET", `/api/sms/status/${messageId}`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setTwilioStatus(data);
+    },
+    onError: (error) => {
+      console.error('Failed to check Twilio status:', error);
+    }
   });
 
   const handleRefresh = async () => {
@@ -30,7 +59,23 @@ export default function SmsTroubleshoot() {
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
+  const handleCheckTwilioStatus = () => {
+    if (latestMessage?.messageId) {
+      checkTwilioStatus.mutate(latestMessage.messageId);
+    }
+  };
+
   const latestMessage = messages?.[0];
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'sent': return 'bg-blue-100 text-blue-800';
+      case 'delivered': return 'bg-green-100 text-green-800';
+      case 'failed': case 'undelivered': return 'bg-red-100 text-red-800';
+      case 'queued': case 'accepted': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   const getTroubleshootingSteps = (phoneNumber: string) => {
     const countryCode = phoneNumber.startsWith('+91') ? 'India' : 
@@ -91,16 +136,55 @@ export default function SmsTroubleshoot() {
             <Alert>
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>
-                <strong>Latest SMS Status:</strong> Message sent to {latestMessage.phoneNumber} at{' '}
-                {new Date(latestMessage.sentAt).toLocaleTimeString()}
-                <Badge
-                  variant={latestMessage.status === 'sent' ? 'default' : 'destructive'}
-                  className="ml-2"
-                >
-                  {latestMessage.status}
-                </Badge>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <strong>Latest SMS Status:</strong> Message sent to {latestMessage.phoneNumber} at{' '}
+                    {new Date(latestMessage.sentAt).toLocaleTimeString()}
+                    <Badge className={`ml-2 ${getStatusColor(latestMessage.status)}`}>
+                      {latestMessage.status}
+                    </Badge>
+                  </div>
+                  {latestMessage.messageId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCheckTwilioStatus}
+                      disabled={checkTwilioStatus.isPending}
+                      className="flex items-center gap-1"
+                    >
+                      <Search className="h-3 w-3" />
+                      Check Twilio Status
+                    </Button>
+                  )}
+                </div>
               </AlertDescription>
             </Alert>
+
+            {twilioStatus && (
+              <Alert>
+                <MessageSquare className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <div className="font-medium">Twilio Message Status:</div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><strong>Status:</strong> <Badge className={getStatusColor(twilioStatus.status)}>{twilioStatus.status}</Badge></div>
+                      <div><strong>Price:</strong> {twilioStatus.price} {twilioStatus.priceUnit}</div>
+                      <div><strong>Created:</strong> {new Date(twilioStatus.dateCreated).toLocaleString()}</div>
+                      <div><strong>Updated:</strong> {new Date(twilioStatus.dateUpdated).toLocaleString()}</div>
+                      {twilioStatus.dateSent && (
+                        <div><strong>Sent:</strong> {new Date(twilioStatus.dateSent).toLocaleString()}</div>
+                      )}
+                    </div>
+                    {twilioStatus.errorCode && (
+                      <div className="mt-2 p-2 bg-red-50 rounded">
+                        <strong className="text-red-800">Error {twilioStatus.errorCode}:</strong>
+                        <span className="text-red-700 ml-1">{twilioStatus.errorMessage}</span>
+                      </div>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
 
             <div className="space-y-3">
               <h4 className="font-medium text-gray-900">Troubleshooting Checklist:</h4>
