@@ -119,13 +119,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/campaigns", async (req, res) => {
     try {
-      const validatedData = insertCampaignSchema.parse(req.body);
-      const campaign = await storage.createCampaign(validatedData);
+      // Validate required fields manually first
+      const { name, rewardPerReferral, startDate, endDate } = req.body;
+      
+      if (!name || !rewardPerReferral || !startDate || !endDate) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Create campaign data with proper types
+      const campaignData = {
+        name: String(name),
+        description: req.body.description || null,
+        rewardPerReferral: Number(rewardPerReferral),
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        isActive: req.body.isActive ?? true,
+        goalCount: Number(req.body.goalCount) || 100,
+      };
+
+      // Validate dates
+      if (isNaN(campaignData.startDate.getTime()) || isNaN(campaignData.endDate.getTime())) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+
+      if (campaignData.endDate <= campaignData.startDate) {
+        return res.status(400).json({ message: "End date must be after start date" });
+      }
+
+      const campaign = await storage.createCampaign(campaignData);
       res.status(201).json(campaign);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid data", errors: error.errors });
-      }
+      console.error("Campaign creation error:", error);
       res.status(500).json({ message: "Failed to create campaign" });
     }
   });

@@ -103,6 +103,7 @@ export class MemStorage implements IStorage {
     const customer: Customer = {
       ...insertCustomer,
       id,
+      points: insertCustomer.points || 0,
       totalReferrals: 0,
       createdAt: new Date(),
     };
@@ -141,6 +142,9 @@ export class MemStorage implements IStorage {
     const campaign: Campaign = {
       ...insertCampaign,
       id,
+      description: insertCampaign.description || null,
+      isActive: insertCampaign.isActive ?? true,
+      goalCount: insertCampaign.goalCount || 100,
       participantCount: 0,
       referralsCount: 0,
       createdAt: new Date(),
@@ -184,6 +188,9 @@ export class MemStorage implements IStorage {
     const coupon: Coupon = {
       ...insertCoupon,
       id,
+      campaignId: insertCoupon.campaignId || null,
+      isActive: insertCoupon.isActive ?? true,
+      usageLimit: insertCoupon.usageLimit || 100,
       usageCount: 0,
       createdAt: new Date(),
     };
@@ -230,6 +237,10 @@ export class MemStorage implements IStorage {
     const referral: Referral = {
       ...insertReferral,
       id,
+      campaignId: insertReferral.campaignId || null,
+      referredCustomerId: insertReferral.referredCustomerId || null,
+      couponCode: insertReferral.couponCode || null,
+      status: insertReferral.status || "pending",
       createdAt: new Date(),
     };
     this.referrals.set(id, referral);
@@ -265,6 +276,8 @@ export class MemStorage implements IStorage {
     const smsMessage: SmsMessage = {
       ...insertSmsMessage,
       id,
+      customerId: insertSmsMessage.customerId || null,
+      status: insertSmsMessage.status || "sent",
       sentAt: new Date(),
     };
     this.smsMessages.set(id, smsMessage);

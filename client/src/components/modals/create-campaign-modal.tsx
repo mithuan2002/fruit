@@ -29,11 +29,7 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
 
   const createCampaignMutation = useMutation({
     mutationFn: async (campaignData: typeof formData) => {
-      const response = await apiRequest("POST", "/api/campaigns", {
-        ...campaignData,
-        startDate: new Date(campaignData.startDate),
-        endDate: new Date(campaignData.endDate),
-      });
+      const response = await apiRequest("POST", "/api/campaigns", campaignData);
       return response.json();
     },
     onSuccess: () => {

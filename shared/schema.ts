@@ -70,6 +70,9 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   participantCount: true,
   referralsCount: true,
   createdAt: true,
+}).extend({
+  startDate: z.union([z.date(), z.string().transform(str => new Date(str))]),
+  endDate: z.union([z.date(), z.string().transform(str => new Date(str))]),
 });
 
 export const insertCouponSchema = createInsertSchema(coupons).omit({
