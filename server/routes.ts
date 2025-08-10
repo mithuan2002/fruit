@@ -77,7 +77,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const customer = await storage.createCustomer(validatedData);
-      res.status(201).json(customer);
+      
+      // Generate unique coupon code for the new customer
+      const couponCode = await storage.generateUniqueCode();
+      
+      // Create coupon for the customer
+      const coupon = await storage.createCoupon({
+        code: couponCode,
+        customerId: customer.id,
+        value: 10, // Default points value
+        isActive: true,
+        usageLimit: 50, // Allow 50 uses per customer
+      });
+      
+      // Send welcome SMS with referral code
+      const message = `Thanks for purchasing! Share your referral code ${couponCode} with your friends and family, earn points and avail special offers & rewards!`;
+      const smsSuccess = await sendSMS(customer.phoneNumber, message);
+      
+      // Log SMS
+      await storage.createSmsMessage({
+        customerId: customer.id,
+        phoneNumber: customer.phoneNumber,
+        message,
+        type: "welcome_referral",
+        status: smsSuccess ? "sent" : "failed",
+      });
+
+      res.status(201).json({ 
+        customer, 
+        coupon: {
+          code: coupon.code,
+          id: coupon.id
+        },
+        smsStatus: smsSuccess ? "sent" : "failed"
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });

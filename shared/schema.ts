@@ -91,6 +91,8 @@ export const insertReferralSchema = createInsertSchema(referrals).omit({
 export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({
   id: true,
   sentAt: true,
+}).extend({
+  type: z.enum(["coupon_generated", "reward_earned", "broadcast", "welcome_referral"]),
 });
 
 // Types

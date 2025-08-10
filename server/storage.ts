@@ -52,6 +52,9 @@ export interface IStorage {
   getSmsMessagesByCustomer(customerId: string): Promise<SmsMessage[]>;
   createSmsMessage(smsMessage: InsertSmsMessage): Promise<SmsMessage>;
 
+  // Utility operations
+  generateUniqueCode(): Promise<string>;
+
   // Analytics
   getTopReferrers(limit?: number): Promise<Customer[]>;
   getCampaignStats(campaignId: string): Promise<{
@@ -283,6 +286,21 @@ export class MemStorage implements IStorage {
     };
     this.smsMessages.set(id, smsMessage);
     return smsMessage;
+  }
+
+  // Utility methods
+  async generateUniqueCode(): Promise<string> {
+    let code: string;
+    let exists = true;
+    
+    while (exists) {
+      // Generate a unique code with timestamp and random elements
+      code = `REF${randomUUID().slice(0, 8).toUpperCase()}${Date.now().toString().slice(-4)}`;
+      const existingCoupon = await this.getCouponByCode(code);
+      exists = !!existingCoupon;
+    }
+    
+    return code!;
   }
 
   // Analytics
