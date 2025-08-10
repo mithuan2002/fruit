@@ -541,6 +541,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check Twilio message status
+  app.get("/api/sms/check-status/:messageId", async (req, res) => {
+    try {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const messageId = req.params.messageId;
+
+      if (!accountSid || !authToken) {
+        return res.status(400).json({ error: "Twilio credentials not configured" });
+      }
+
+      const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages/${messageId}.json`, {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
+        },
+      });
+
+      if (response.ok) {
+        const messageStatus = await response.json();
+        res.json({
+          messageId: messageStatus.sid,
+          status: messageStatus.status,
+          errorCode: messageStatus.error_code,
+          errorMessage: messageStatus.error_message,
+          dateCreated: messageStatus.date_created,
+          dateUpdated: messageStatus.date_updated,
+          dateSent: messageStatus.date_sent,
+          to: messageStatus.to,
+          from: messageStatus.from,
+          price: messageStatus.price,
+          priceUnit: messageStatus.price_unit
+        });
+      } else {
+        const errorData = await response.json();
+        res.status(response.status).json({ error: errorData.message || 'Failed to check message status' });
+      }
+    } catch (error) {
+      console.error('Failed to check SMS status:', error);
+      res.status(500).json({ error: 'Failed to check message status' });
+    }
+  });
+
   // Send broadcast SMS to all customers
   app.post("/api/sms/broadcast", async (req, res) => {
     try {
