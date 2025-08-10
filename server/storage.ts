@@ -1,5 +1,5 @@
-import { 
-  type Customer, 
+import {
+  type Customer,
   type InsertCustomer,
   type Campaign,
   type InsertCampaign,
@@ -337,8 +337,8 @@ export class MemStorage implements IStorage {
     );
 
     const totalRewards = referrals.reduce((sum, ref) => sum + ref.pointsEarned, 0);
-    const conversionRate = campaign.participantCount > 0 
-      ? (referrals.length / campaign.participantCount) * 100 
+    const conversionRate = campaign.participantCount > 0
+      ? (referrals.length / campaign.participantCount) * 100
       : 0;
 
     return {

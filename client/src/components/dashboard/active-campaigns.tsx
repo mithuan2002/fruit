@@ -8,9 +8,10 @@ import type { Campaign } from "@shared/schema";
 
 interface ActiveCampaignsProps {
   onCreateCampaign: () => void;
+  onCampaignClick?: (campaign: Campaign) => void;
 }
 
-export default function ActiveCampaigns({ onCreateCampaign }: ActiveCampaignsProps) {
+export default function ActiveCampaigns({ onCreateCampaign, onCampaignClick }: ActiveCampaignsProps) {
   const { data: campaigns, isLoading, refetch } = useQuery({
     queryKey: ["/api/campaigns/active"],
     refetchOnWindowFocus: true,
@@ -48,7 +49,7 @@ export default function ActiveCampaigns({ onCreateCampaign }: ActiveCampaignsPro
             const isActive = new Date(campaign.endDate) > new Date();
             
             return (
-              <div key={campaign.id} className="p-6">
+              <div key={campaign.id} className="p-6 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => onCampaignClick?.(campaign)}>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center">
@@ -72,7 +73,14 @@ export default function ActiveCampaigns({ onCreateCampaign }: ActiveCampaignsPro
                       <div className="text-sm font-medium text-gray-900">{campaign.referralsCount} referrals</div>
                       <div className="text-xs text-gray-500">Goal: {campaign.goalCount}</div>
                     </div>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCampaignClick?.(campaign);
+                      }}
+                    >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </div>

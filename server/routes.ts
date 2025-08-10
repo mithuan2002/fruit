@@ -69,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers", async (req, res) => {
     try {
       const validatedData = insertCustomerSchema.parse(req.body);
-      
+
       // Check if phone number already exists
       const existingCustomer = await storage.getCustomerByPhone(validatedData.phoneNumber);
       if (existingCustomer) {
@@ -78,17 +78,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate unique coupon code for the new customer
       const couponCode = await storage.generateUniqueCode();
-      
+
       // Create customer with coupon code
       const customer = await storage.createCustomer({
         ...validatedData,
         couponCode
       });
-      
+
       // Send welcome SMS with referral code
       const message = `Thanks for purchasing! Share your referral code ${couponCode} with your friends and family, earn points and avail special offers & rewards!`;
       const smsSuccess = await sendSMS(customer.phoneNumber, message);
-      
+
       // Log SMS
       await storage.createSmsMessage({
         customerId: customer.id,
@@ -147,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Validate required fields manually first
       const { name, rewardPerReferral, startDate, endDate } = req.body;
-      
+
       if (!name || !rewardPerReferral || !startDate || !endDate) {
         return res.status(400).json({ message: "Missing required fields" });
       }
@@ -177,6 +177,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Campaign creation error:", error);
       res.status(500).json({ message: "Failed to create campaign" });
+    }
+  });
+
+  // Update campaign
+  app.put("/api/campaigns/:id", async (req, res) => {
+    try {
+      const campaign = await storage.updateCampaign(req.params.id, req.body);
+      if (!campaign) {
+        return res.status(404).json({ error: "Campaign not found" });
+      }
+      res.json(campaign);
+    } catch (error) {
+      console.error("Failed to update campaign:", error);
+      res.status(500).json({ error: "Failed to update campaign" });
+    }
+  });
+
+  // Send campaign messages to all customers
+  app.post("/api/campaigns/:id/send-messages", async (req, res) => {
+    try {
+      const { message } = req.body;
+      if (!message) {
+        return res.status(400).json({ error: "Message is required" });
+      }
+
+      const customers = await storage.getAllCustomers();
+      const sentMessages = [];
+
+      for (const customer of customers) {
+        const personalizedMessage = message.replace(/\[COUPON_CODE\]/g, customer.couponCode);
+
+        // Simulate SMS sending (replace with actual SMS service)
+        console.log(`SMS would be sent to ${customer.phoneNumber}: ${personalizedMessage}`);
+
+        // Store SMS record
+        const smsRecord = await storage.createSMSRecord({
+          phoneNumber: customer.phoneNumber,
+          message: personalizedMessage,
+          status: "sent",
+          customerId: customer.id,
+        });
+
+        sentMessages.push(smsRecord);
+      }
+
+      res.json({ 
+        success: true, 
+        messagesSent: sentMessages.length,
+        messages: sentMessages 
+      });
+    } catch (error) {
+      console.error("Failed to send campaign messages:", error);
+      res.status(500).json({ error: "Failed to send campaign messages" });
     }
   });
 
@@ -214,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/coupons", async (req, res) => {
     try {
       const validatedData = insertCouponSchema.parse(req.body);
-      
+
       // Check if code already exists
       const existingCoupon = await storage.getCouponByCode(validatedData.code);
       if (existingCoupon) {
@@ -248,13 +301,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { campaignId } = req.body;
       const coupon = await storage.generateCouponForCustomer(req.params.id, campaignId);
-      
+
       // Send SMS with coupon code
       const customer = await storage.getCustomer(req.params.id);
       if (customer) {
         const message = `Your referral code is: ${coupon.code}. Share this with friends to earn points when they make a purchase!`;
         const smsSuccess = await sendSMS(customer.phoneNumber, message);
-        
+
         // Log SMS
         await storage.createSmsMessage({
           customerId: customer.id,
@@ -299,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/coupons/:code/redeem", async (req, res) => {
     try {
       const { referredCustomerName, referredCustomerPhone, saleAmount, pointsToAssign } = req.body;
-      
+
       const customer = await storage.getCustomerByCouponCode(req.params.code);
       if (!customer) {
         return res.status(404).json({ message: "Invalid coupon code" });
@@ -344,7 +397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send SMS notification
       const message = `Congratulations! You've earned ${finalPointsEarned} points for your referral. Your total points: ${customer.points + finalPointsEarned}. Thank you for spreading the word!`;
       const smsSuccess = await sendSMS(customer.phoneNumber, message);
-      
+
       // Log SMS
       await storage.createSmsMessage({
         customerId: customer.id,
@@ -398,7 +451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sms/broadcast", async (req, res) => {
     try {
       const { message, customerIds } = req.body;
-      
+
       if (!message) {
         return res.status(400).json({ message: "Message is required" });
       }
@@ -418,7 +471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const results = await Promise.all(
         customers.map(async (customer) => {
           const success = await sendSMS(customer.phoneNumber, message);
-          
+
           // Log SMS
           await storage.createSmsMessage({
             customerId: customer.id,
