@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,7 +37,8 @@ export default function CouponRedemption() {
         customerId: data.referrerId,
         couponCode: data.code 
       }));
-      setStep("verify-details");
+      // Directly transition to billing after successful verification
+      setStep("billing");
     },
     onError: (error: any) => {
       toast({
@@ -90,18 +90,6 @@ export default function CouponRedemption() {
     }
   };
 
-  const handleVerifyDetails = () => {
-    if (!redemptionForm.referredCustomerName || !redemptionForm.referredCustomerPhone) {
-      toast({
-        title: "Missing Information",
-        description: "Please provide referred customer details.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setStep("billing");
-  };
-
   const handleFinalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (redemptionForm.saleAmount <= 0) {
@@ -139,7 +127,7 @@ export default function CouponRedemption() {
         <h3 className="text-lg font-medium text-gray-900">Process Referral Sale</h3>
         <p className="text-sm text-gray-500">Enter coupon code to identify referrer and process sale</p>
       </div>
-      
+
       <CardContent className="p-6">
         {step === "enter-code" && (
           <div className="space-y-4">
@@ -164,9 +152,10 @@ export default function CouponRedemption() {
           </div>
         )}
 
-        {step === "verify-details" && referralData && (
-          <div className="space-y-4">
-            {/* Referrer Information */}
+        {/* Removed the 'verify-details' step and directly moved to 'billing' */}
+        {step === "billing" && referralData && (
+          <form onSubmit={handleFinalSubmit} className="space-y-4">
+            {/* Referrer Information (shown before billing details) */}
             <div className="bg-green-50 p-4 rounded-lg border border-green-200">
               <div className="flex items-center mb-2">
                 <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
@@ -179,52 +168,10 @@ export default function CouponRedemption() {
               </div>
             </div>
 
-            {/* New Customer Details */}
-            <div>
-              <Label htmlFor="referredName">New Customer Name</Label>
-              <Input
-                id="referredName"
-                type="text"
-                value={redemptionForm.referredCustomerName}
-                onChange={(e) => setRedemptionForm({ ...redemptionForm, referredCustomerName: e.target.value })}
-                placeholder="Enter customer name"
-                required
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="referredPhone">New Customer Phone</Label>
-              <Input
-                id="referredPhone"
-                type="tel"
-                value={redemptionForm.referredCustomerPhone}
-                onChange={(e) => setRedemptionForm({ ...redemptionForm, referredCustomerPhone: e.target.value })}
-                placeholder="+1 (555) 123-4567"
-                required
-              />
-            </div>
-
-            <div className="flex space-x-3">
-              <Button type="button" variant="outline" onClick={() => setStep("enter-code")} className="flex-1">
-                Back
-              </Button>
-              <Button 
-                onClick={handleVerifyDetails}
-                className="flex-1 bg-primary hover:bg-blue-700 text-white"
-              >
-                Next: Enter Sale Amount
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {step === "billing" && referralData && (
-          <form onSubmit={handleFinalSubmit} className="space-y-4">
             {/* Sale Information */}
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
               <h4 className="text-sm font-medium text-blue-800 mb-2">Transaction Details</h4>
               <div className="text-sm text-blue-700">
-                <p>Customer: <strong>{redemptionForm.referredCustomerName}</strong></p>
                 <p>Referrer: <strong>{referralData.referrerName}</strong></p>
                 <p>Coupon Code: <strong className="font-mono">{redemptionForm.couponCode}</strong></p>
               </div>
@@ -276,7 +223,7 @@ export default function CouponRedemption() {
             </div>
 
             <div className="flex space-x-3">
-              <Button type="button" variant="outline" onClick={() => setStep("verify-details")} className="flex-1">
+              <Button type="button" variant="outline" onClick={() => setStep("enter-code")} className="flex-1">
                 Back
               </Button>
               <Button 
