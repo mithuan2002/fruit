@@ -217,10 +217,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate coupon for customer
+  app.post("/api/customers/:id/generate-coupon", async (req, res) => {
+    try {
+      const { campaignId } = req.body;
+      const coupon = await storage.generateCouponForCustomer(req.params.id, campaignId);
+      
+      // Send SMS with coupon code
+      const customer = await storage.getCustomer(req.params.id);
+      if (customer) {
+        const message = `Your referral code is: ${coupon.code}. Share this with friends to earn points when they make a purchase!`;
+        const smsSuccess = await sendSMS(customer.phoneNumber, message);
+        
+        // Log SMS
+        await storage.createSmsMessage({
+          customerId: customer.id,
+          phoneNumber: customer.phoneNumber,
+          message,
+          type: "coupon_generated",
+          status: smsSuccess ? "sent" : "failed",
+        });
+      }
+
+      res.status(201).json(coupon);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate coupon" });
+    }
+  });
+
+  // Coupon verification
+  app.get("/api/coupons/verify/:code", async (req, res) => {
+    try {
+      const coupon = await storage.getCouponByCode(req.params.code);
+      if (!coupon || !coupon.isActive) {
+        return res.status(404).json({ message: "Invalid or inactive coupon code" });
+      }
+
+      if (coupon.usageCount >= coupon.usageLimit) {
+        return res.status(400).json({ message: "Coupon usage limit exceeded" });
+      }
+
+      // Get referrer details
+      const referrer = await storage.getCustomer(coupon.customerId);
+      if (!referrer) {
+        return res.status(404).json({ message: "Referrer not found" });
+      }
+
+      res.json({
+        code: coupon.code,
+        referrerId: referrer.id,
+        referrerName: referrer.name,
+        referrerPhone: referrer.phoneNumber,
+        referrerCurrentPoints: referrer.points,
+        value: coupon.value,
+        usageCount: coupon.usageCount,
+        usageLimit: coupon.usageLimit,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to verify coupon" });
+    }
+  });
+
   // Coupon redemption
   app.post("/api/coupons/:code/redeem", async (req, res) => {
     try {
-      const { customerId, referredCustomerName, referredCustomerPhone } = req.body;
+      const { customerId, referredCustomerName, referredCustomerPhone, saleAmount, pointsToAssign } = req.body;
       
       const coupon = await storage.getCouponByCode(req.params.code);
       if (!coupon || !coupon.isActive) {
@@ -251,19 +312,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Use provided points or calculate from sale amount or fall back to coupon value
+      const finalPointsEarned = pointsToAssign || Math.floor((saleAmount || 0) / 10) || coupon.value;
+
       // Create referral record
       const referral = await storage.createReferral({
         referrerId: customerId,
         referredCustomerId: referredCustomer?.id || null,
         campaignId: coupon.campaignId,
         couponCode: coupon.code,
-        pointsEarned: coupon.value,
+        pointsEarned: finalPointsEarned,
         status: "completed",
+        saleAmount: saleAmount || 0,
       });
 
       // Update customer points and referral count
       await storage.updateCustomer(customerId, {
-        points: customer.points + coupon.value,
+        points: customer.points + finalPointsEarned,
         totalReferrals: customer.totalReferrals + 1,
       });
 
@@ -283,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Send SMS notification
-      const message = `Congratulations! You've earned ${coupon.value} points for your referral. Your total points: ${customer.points + coupon.value}. Thank you for spreading the word!`;
+      const message = `Congratulations! You've earned ${finalPointsEarned} points for your referral. Your total points: ${customer.points + finalPointsEarned}. Thank you for spreading the word!`;
       const smsSuccess = await sendSMS(customer.phoneNumber, message);
       
       // Log SMS
@@ -297,8 +362,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ 
         success: true, 
-        pointsEarned: coupon.value, 
-        totalPoints: customer.points + coupon.value,
+        pointsEarned: finalPointsEarned, 
+        totalPoints: customer.points + finalPointsEarned,
+        saleAmount: saleAmount || 0,
         referral 
       });
     } catch (error) {

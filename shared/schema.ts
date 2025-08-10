@@ -29,6 +29,7 @@ export const campaigns = pgTable("campaigns", {
 export const coupons = pgTable("coupons", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   code: text("code").notNull().unique(),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   campaignId: varchar("campaign_id").references(() => campaigns.id),
   value: integer("value").notNull(),
   usageLimit: integer("usage_limit").notNull().default(100),
@@ -44,6 +45,7 @@ export const referrals = pgTable("referrals", {
   campaignId: varchar("campaign_id").references(() => campaigns.id),
   couponCode: text("coupon_code").references(() => coupons.code),
   pointsEarned: integer("points_earned").notNull(),
+  saleAmount: integer("sale_amount").default(0),
   status: text("status").notNull().default("pending"), // pending, completed, expired
   createdAt: timestamp("created_at").defaultNow(),
 });

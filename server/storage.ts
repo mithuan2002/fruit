@@ -114,7 +114,7 @@ export class MemStorage implements IStorage {
   async updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer | undefined> {
     const customer = this.customers.get(id);
     if (!customer) return undefined;
-    
+
     const updatedCustomer = { ...customer, ...updates };
     this.customers.set(id, updatedCustomer);
     return updatedCustomer;
@@ -156,7 +156,7 @@ export class MemStorage implements IStorage {
   async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined> {
     const campaign = this.campaigns.get(id);
     if (!campaign) return undefined;
-    
+
     const updatedCampaign = { ...campaign, ...updates };
     this.campaigns.set(id, updatedCampaign);
     return updatedCampaign;
@@ -201,7 +201,7 @@ export class MemStorage implements IStorage {
   async updateCoupon(id: string, updates: Partial<Coupon>): Promise<Coupon | undefined> {
     const coupon = this.coupons.get(id);
     if (!coupon) return undefined;
-    
+
     const updatedCoupon = { ...coupon, ...updates };
     this.coupons.set(id, updatedCoupon);
     return updatedCoupon;
@@ -237,10 +237,11 @@ export class MemStorage implements IStorage {
     const referral: Referral = {
       ...insertReferral,
       id,
-      campaignId: insertReferral.campaignId || null,
       referredCustomerId: insertReferral.referredCustomerId || null,
+      campaignId: insertReferral.campaignId || null,
       couponCode: insertReferral.couponCode || null,
       status: insertReferral.status || "pending",
+      saleAmount: insertReferral.saleAmount || 0,
       createdAt: new Date(),
     };
     this.referrals.set(id, referral);
@@ -250,7 +251,7 @@ export class MemStorage implements IStorage {
   async updateReferral(id: string, updates: Partial<Referral>): Promise<Referral | undefined> {
     const referral = this.referrals.get(id);
     if (!referral) return undefined;
-    
+
     const updatedReferral = { ...referral, ...updates };
     this.referrals.set(id, updatedReferral);
     return updatedReferral;
@@ -330,10 +331,10 @@ export class MemStorage implements IStorage {
     const activeReferrals = Array.from(this.referrals.values()).filter(
       ref => ref.status === "pending" || ref.status === "completed"
     ).length;
-    
+
     const allReferrals = Array.from(this.referrals.values());
     const rewardsDistributed = allReferrals.reduce((sum, ref) => sum + ref.pointsEarned, 0);
-    
+
     const completedReferrals = allReferrals.filter(ref => ref.status === "completed").length;
     const conversionRate = totalCustomers > 0 ? (completedReferrals / totalCustomers) * 100 : 0;
 
