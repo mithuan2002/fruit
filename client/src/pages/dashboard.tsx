@@ -2,7 +2,6 @@ import { useState } from "react";
 import Header from "@/components/layout/header";
 import StatsGrid from "@/components/dashboard/stats-grid";
 import ActiveCampaigns from "@/components/dashboard/active-campaigns";
-import QuickActions from "@/components/dashboard/quick-actions";
 import CouponManagement from "@/components/dashboard/coupon-management";
 import TopPerformers from "@/components/dashboard/top-performers";
 import CreateCampaignModal from "@/components/modals/create-campaign-modal";
@@ -29,7 +28,6 @@ export default function Dashboard() {
               <ActiveCampaigns onCreateCampaign={() => setShowCreateCampaignModal(true)} />
             </div>
             <div className="space-y-6">
-              <QuickActions />
               <CouponRedemption />
             </div>
           </div>

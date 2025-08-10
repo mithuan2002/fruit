@@ -9,7 +9,7 @@ import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
 import Coupons from "@/pages/coupons";
 import SMSCenter from "@/pages/sms-center";
-import Reports from "@/pages/reports";
+
 import Sidebar from "@/components/layout/sidebar";
 
 function Router() {
@@ -24,7 +24,7 @@ function Router() {
           <Route path="/customers" component={Customers} />
           <Route path="/coupons" component={Coupons} />
           <Route path="/sms" component={SMSCenter} />
-          <Route path="/reports" component={Reports} />
+
           <Route component={NotFound} />
         </Switch>
       </div>

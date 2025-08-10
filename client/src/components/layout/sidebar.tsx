@@ -7,7 +7,7 @@ const navigation = [
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Coupon Codes", href: "/coupons", icon: Ticket },
   { name: "SMS Center", href: "/sms", icon: MessageSquare },
-  { name: "Reports", href: "/reports", icon: PieChart },
+
 ];
 
 export default function Sidebar() {
