@@ -22,14 +22,19 @@ export default function CustomerAddForm() {
       const response = await apiRequest("POST", "/api/customers", customerData);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Customer creation response:", data);
+      const couponCode = data.coupon?.code;
+      const smsStatus = data.smsStatus;
+      
       toast({
         title: "Success!",
-        description: "Customer added successfully.",
+        description: `Customer added successfully. ${couponCode ? `Referral code: ${couponCode}` : ''}${smsStatus === 'sent' ? ' SMS sent!' : smsStatus === 'failed' ? ' SMS failed to send.' : ''}`,
       });
       setCustomerForm({ name: "", phoneNumber: "", points: 0 });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       queryClient.invalidateQueries({ queryKey: ["/api/analytics/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/coupons"] });
     },
     onError: (error: any) => {
       toast({

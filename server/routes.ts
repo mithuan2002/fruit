@@ -107,9 +107,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         customer, 
         coupon: {
           code: coupon.code,
-          id: coupon.id
+          id: coupon.id,
+          value: coupon.value,
+          usageLimit: coupon.usageLimit
         },
-        smsStatus: smsSuccess ? "sent" : "failed"
+        smsStatus: smsSuccess ? "sent" : "failed",
+        message: `Customer created successfully. Referral code: ${couponCode}`
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
