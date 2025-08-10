@@ -1,13 +1,19 @@
+import { useState } from "react";
 import Header from "@/components/layout/header";
 import SmsActivity from "@/components/sms-activity";
+import SendBroadcastModal from "@/components/modals/send-broadcast-modal";
+import SmsStats from "@/components/sms-stats";
 
 export default function SMSCenter() {
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+
   return (
     <>
       <Header
         title="SMS Center"
         description="Send messages and track SMS communication with your customers."
         createButtonText="Send Broadcast"
+        onCreateClick={() => setShowBroadcastModal(true)}
         showCreateButton={true}
       />
       
@@ -18,14 +24,16 @@ export default function SMSCenter() {
               <SmsActivity />
             </div>
             <div className="lg:col-span-1">
-              <div className="text-center py-12">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">SMS Features</h3>
-                <p className="text-gray-500">Additional SMS management features will be available soon.</p>
-              </div>
+              <SmsStats />
             </div>
           </div>
         </div>
       </main>
+
+      <SendBroadcastModal
+        isOpen={showBroadcastModal}
+        onClose={() => setShowBroadcastModal(false)}
+      />
     </>
   );
 }

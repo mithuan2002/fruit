@@ -10,18 +10,34 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
-// SMS Service (Twilio integration)
-async function sendSMS(phoneNumber: string, message: string): Promise<boolean> {
+// Enhanced SMS Service with Twilio integration and better error handling
+async function sendSMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    // Use Twilio API
-    const accountSid = process.env.TWILIO_ACCOUNT_SID || process.env.TWILIO_SID || "default_sid";
-    const authToken = process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_TOKEN || "default_token";
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_FROM || "+1234567890";
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
 
-    if (accountSid === "default_sid" || authToken === "default_token") {
-      console.log(`SMS would be sent to ${phoneNumber}: ${message}`);
-      return true; // Return success for demo purposes when no real credentials
+    // Validate required credentials
+    if (!accountSid || !authToken || !fromNumber) {
+      console.warn('Twilio credentials not configured - SMS functionality disabled');
+      return { 
+        success: false, 
+        error: 'SMS service not configured. Please set Twilio credentials.' 
+      };
     }
+
+    // Validate phone number format (basic validation)
+    if (!phoneNumber || phoneNumber.length < 10) {
+      return { 
+        success: false, 
+        error: 'Invalid phone number format' 
+      };
+    }
+
+    // Ensure phone number has country code
+    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+1${phoneNumber.replace(/\D/g, '')}`;
+
+    console.log(`Sending SMS to ${formattedPhone}...`);
 
     const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
       method: 'POST',
@@ -31,16 +47,62 @@ async function sendSMS(phoneNumber: string, message: string): Promise<boolean> {
       },
       body: new URLSearchParams({
         From: fromNumber,
-        To: phoneNumber,
+        To: formattedPhone,
         Body: message,
       }),
     });
 
-    return response.ok;
+    if (response.ok) {
+      const result = await response.json();
+      console.log(`SMS sent successfully. Message ID: ${result.sid}`);
+      return { 
+        success: true, 
+        messageId: result.sid 
+      };
+    } else {
+      const errorData = await response.json();
+      console.error('Twilio API error:', errorData);
+      return { 
+        success: false, 
+        error: errorData.message || 'Failed to send SMS' 
+      };
+    }
   } catch (error) {
     console.error('SMS sending failed:', error);
-    return false;
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+    };
   }
+}
+
+// Batch SMS sending with rate limiting
+async function sendBatchSMS(recipients: Array<{ phoneNumber: string; message: string; customerId?: string }>): Promise<Array<{ phoneNumber: string; success: boolean; messageId?: string; error?: string }>> {
+  const results = [];
+  const batchSize = 5; // Send 5 SMS at a time to avoid rate limits
+  const delay = 1000; // 1 second delay between batches
+
+  for (let i = 0; i < recipients.length; i += batchSize) {
+    const batch = recipients.slice(i, i + batchSize);
+    const batchPromises = batch.map(async (recipient) => {
+      const result = await sendSMS(recipient.phoneNumber, recipient.message);
+      return {
+        phoneNumber: recipient.phoneNumber,
+        customerId: recipient.customerId,
+        ...result
+      };
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    results.push(...batchResults);
+
+    // Add delay between batches (except for the last batch)
+    if (i + batchSize < recipients.length) {
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  return results;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -87,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send welcome SMS with referral code
       const message = `Thanks for purchasing! Share your referral code ${couponCode} with your friends and family, earn points and avail special offers & rewards!`;
-      const smsSuccess = await sendSMS(customer.phoneNumber, message);
+      const smsResult = await sendSMS(customer.phoneNumber, message);
 
       // Log SMS
       await storage.createSmsMessage({
@@ -95,13 +157,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneNumber: customer.phoneNumber,
         message,
         type: "welcome_referral",
-        status: smsSuccess ? "sent" : "failed",
+        status: smsResult.success ? "sent" : "failed",
       });
 
       res.status(201).json({ 
         customer, 
         couponCode,
-        smsStatus: smsSuccess ? "sent" : "failed",
+        smsStatus: smsResult.success ? "sent" : "failed",
         message: `Customer created successfully. Referral code: ${couponCode}`
       });
     } catch (error) {
@@ -203,30 +265,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const customers = await storage.getAllCustomers();
-      const sentMessages = [];
-
-      for (const customer of customers) {
-        const personalizedMessage = message.replace(/\[COUPON_CODE\]/g, customer.couponCode);
-
-        // Simulate SMS sending (replace with actual SMS service)
-        console.log(`SMS would be sent to ${customer.phoneNumber}: ${personalizedMessage}`);
-
-        // Store SMS record
-        const smsRecord = await storage.createSmsMessage({
-          phoneNumber: customer.phoneNumber,
-          message: personalizedMessage,
-          status: "sent",
-          customerId: customer.id,
-          type: "broadcast",
-        });
-
-        sentMessages.push(smsRecord);
+      
+      if (customers.length === 0) {
+        return res.status(400).json({ error: "No customers found to send messages to" });
       }
 
+      // Prepare batch SMS recipients
+      const recipients = customers.map(customer => ({
+        phoneNumber: customer.phoneNumber,
+        message: message.replace(/\[COUPON_CODE\]/g, customer.couponCode || 'N/A'),
+        customerId: customer.id
+      }));
+
+      // Send messages in batches to avoid rate limits
+      const results = await sendBatchSMS(recipients);
+      const sentMessages = [];
+
+      // Log all SMS messages
+      for (const result of results) {
+        const customer = customers.find(c => c.phoneNumber === result.phoneNumber);
+        const smsRecord = await storage.createSmsMessage({
+          phoneNumber: result.phoneNumber,
+          message: recipients.find(r => r.phoneNumber === result.phoneNumber)?.message || message,
+          status: result.success ? "sent" : "failed",
+          customerId: customer?.id || null,
+          type: "broadcast",
+        });
+        sentMessages.push({ ...smsRecord, messageId: result.messageId, error: result.error });
+      }
+
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.filter(r => !r.success).length;
+
       res.json({ 
-        success: true, 
-        messagesSent: sentMessages.length,
-        messages: sentMessages 
+        success: successCount > 0, 
+        totalRecipients: customers.length,
+        messagesSent: successCount,
+        messagesFailed: failureCount,
+        messages: sentMessages,
+        summary: `${successCount} messages sent successfully, ${failureCount} failed`
       });
     } catch (error) {
       console.error("Failed to send campaign messages:", error);
@@ -318,7 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const customer = await storage.getCustomer(req.params.id);
       if (customer) {
         const message = `Your referral code is: ${coupon.code}. Share this with friends to earn points when they make a purchase!`;
-        const smsSuccess = await sendSMS(customer.phoneNumber, message);
+        const smsResult = await sendSMS(customer.phoneNumber, message);
 
         // Log SMS
         await storage.createSmsMessage({
@@ -326,7 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phoneNumber: customer.phoneNumber,
           message,
           type: "coupon_generated",
-          status: smsSuccess ? "sent" : "failed",
+          status: smsResult.success ? "sent" : "failed",
         });
       }
 
@@ -408,7 +485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send SMS notification
       const message = `Congratulations! You've earned ${finalPointsEarned} points for your referral. Your total points: ${customer.points + finalPointsEarned}. Thank you for spreading the word!`;
-      const smsSuccess = await sendSMS(customer.phoneNumber, message);
+      const smsResult = await sendSMS(customer.phoneNumber, message);
 
       // Log SMS
       await storage.createSmsMessage({
@@ -416,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneNumber: customer.phoneNumber,
         message,
         type: "reward_earned",
-        status: smsSuccess ? "sent" : "failed",
+        status: smsResult.success ? "sent" : "failed",
       });
 
       res.json({ 
@@ -454,63 +531,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/sms", async (req, res) => {
     try {
       const messages = await storage.getAllSmsMessages();
-      res.json(messages.slice(0, 50)); // Return latest 50 messages
+      // Sort by most recent first and limit to 100
+      const sortedMessages = messages
+        .sort((a, b) => (b.sentAt ? new Date(b.sentAt).getTime() : 0) - (a.sentAt ? new Date(a.sentAt).getTime() : 0))
+        .slice(0, 100);
+      res.json(sortedMessages);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch SMS messages" });
     }
   });
 
+  // Send broadcast SMS to all customers
   app.post("/api/sms/broadcast", async (req, res) => {
     try {
-      const { message, customerIds } = req.body;
-
-      if (!message) {
-        return res.status(400).json({ message: "Message is required" });
+      const { message, recipients = "all" } = req.body;
+      
+      if (!message || message.trim().length === 0) {
+        return res.status(400).json({ error: "Message content is required" });
       }
 
-      let customers;
-      if (customerIds && customerIds.length > 0) {
-        // Send to specific customers
-        customers = await Promise.all(
-          customerIds.map((id: string) => storage.getCustomer(id))
-        );
-        customers = customers.filter(Boolean);
-      } else {
-        // Send to all customers
+      if (message.length > 1600) {
+        return res.status(400).json({ error: "Message too long. Maximum 1600 characters allowed." });
+      }
+
+      let customers = [];
+      
+      if (recipients === "all") {
         customers = await storage.getAllCustomers();
+      } else if (Array.isArray(recipients)) {
+        // Custom recipient list by phone numbers
+        for (const phoneNumber of recipients) {
+          const customer = await storage.getCustomerByPhone(phoneNumber);
+          if (customer) {
+            customers.push(customer);
+          }
+        }
       }
 
-      const results = await Promise.all(
-        customers.map(async (customer) => {
-          const success = await sendSMS(customer.phoneNumber, message);
+      if (customers.length === 0) {
+        return res.status(400).json({ error: "No valid recipients found" });
+      }
 
-          // Log SMS
-          await storage.createSmsMessage({
-            customerId: customer.id,
-            phoneNumber: customer.phoneNumber,
-            message,
-            type: "broadcast",
-            status: success ? "sent" : "failed",
-          });
+      // Prepare recipients for batch sending
+      const smsRecipients = customers.map(customer => ({
+        phoneNumber: customer.phoneNumber,
+        message: message.replace(/\[COUPON_CODE\]/g, customer.couponCode || 'N/A').replace(/\[NAME\]/g, customer.name),
+        customerId: customer.id
+      }));
 
-          return { customerId: customer.id, success };
-        })
-      );
+      // Send messages in batches
+      const results = await sendBatchSMS(smsRecipients);
+      const sentMessages = [];
+
+      // Log all SMS messages
+      for (const result of results) {
+        const customer = customers.find(c => c.phoneNumber === result.phoneNumber);
+        const smsRecord = await storage.createSmsMessage({
+          phoneNumber: result.phoneNumber,
+          message: smsRecipients.find(r => r.phoneNumber === result.phoneNumber)?.message || message,
+          status: result.success ? "sent" : "failed",
+          customerId: customer?.id || null,
+          type: "broadcast",
+        });
+        sentMessages.push({ 
+          ...smsRecord, 
+          messageId: result.messageId, 
+          error: result.error,
+          customerName: customer?.name 
+        });
+      }
 
       const successCount = results.filter(r => r.success).length;
-      const failureCount = results.length - successCount;
+      const failureCount = results.filter(r => !r.success).length;
 
-      res.json({ 
-        message: "Broadcast completed",
-        totalSent: results.length,
-        successCount,
-        failureCount,
-        results 
+      res.json({
+        success: successCount > 0,
+        totalRecipients: customers.length,
+        messagesSent: successCount,
+        messagesFailed: failureCount,
+        messages: sentMessages,
+        summary: `${successCount} messages sent successfully${failureCount > 0 ? `, ${failureCount} failed` : ''}`
       });
+
     } catch (error) {
-      res.status(500).json({ message: "Failed to send broadcast" });
+      console.error("Failed to send broadcast SMS:", error);
+      res.status(500).json({ error: "Failed to send broadcast messages" });
     }
   });
+
+  // SMS statistics
+  app.get("/api/sms/stats", async (req, res) => {
+    try {
+      const messages = await storage.getAllSmsMessages();
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      const todayMessages = messages.filter(msg => msg.sentAt && new Date(msg.sentAt) >= startOfDay);
+      const sentToday = todayMessages.filter(msg => msg.status === "sent").length;
+      const failedToday = todayMessages.filter(msg => msg.status === "failed").length;
+      
+      const totalSent = messages.filter(msg => msg.status === "sent").length;
+      const totalFailed = messages.filter(msg => msg.status === "failed").length;
+      
+      const messagesByType = messages.reduce((acc, msg) => {
+        acc[msg.type] = (acc[msg.type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      res.json({
+        today: {
+          sent: sentToday,
+          failed: failedToday,
+          total: todayMessages.length
+        },
+        allTime: {
+          sent: totalSent,
+          failed: totalFailed,
+          total: messages.length
+        },
+        messagesByType,
+        deliveryRate: totalSent + totalFailed > 0 ? Math.round((totalSent / (totalSent + totalFailed)) * 100) : 0
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch SMS statistics" });
+    }
+  });
+
+
 
   // Analytics routes
   app.get("/api/analytics/dashboard", async (req, res) => {
