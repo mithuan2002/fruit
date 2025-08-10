@@ -212,11 +212,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`SMS would be sent to ${customer.phoneNumber}: ${personalizedMessage}`);
 
         // Store SMS record
-        const smsRecord = await storage.createSMSRecord({
+        const smsRecord = await storage.createSmsMessage({
           phoneNumber: customer.phoneNumber,
           message: personalizedMessage,
           status: "sent",
           customerId: customer.id,
+          type: "broadcast",
         });
 
         sentMessages.push(smsRecord);
@@ -300,7 +301,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers/:id/generate-coupon", async (req, res) => {
     try {
       const { campaignId } = req.body;
-      const coupon = await storage.generateCouponForCustomer(req.params.id, campaignId);
+      // Generate unique coupon code
+      const couponCode = await storage.generateUniqueCode();
+      
+      // Create coupon for customer  
+      const coupon = await storage.createCoupon({
+        code: couponCode,
+        customerId: req.params.id,
+        campaignId: campaignId || null,
+        value: 50, // Default value, could be configurable
+        usageLimit: 100,
+        isActive: true,
+      });
 
       // Send SMS with coupon code
       const customer = await storage.getCustomer(req.params.id);

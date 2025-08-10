@@ -173,6 +173,7 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
               type="submit" 
               className="bg-primary hover:bg-blue-700 text-white"
               disabled={createCampaignMutation.isPending}
+              data-testid="button-submit-campaign"
             >
               {createCampaignMutation.isPending ? "Creating..." : "Create Campaign"}
             </Button>

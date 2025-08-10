@@ -104,6 +104,30 @@ export default function CampaignDetailsModal({
     },
   });
 
+  const toggleCampaignStatusMutation = useMutation({
+    mutationFn: async (isActive: boolean) => {
+      const response = await apiRequest("PATCH", `/api/campaigns/${campaign?.id}`, {
+        isActive
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Success!",
+        description: `Campaign ${data.isActive ? 'activated' : 'deactivated'} successfully.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/active"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update campaign status.",
+        variant: "destructive",
+      });
+    },
+  });
+
   if (!campaign) return null;
 
   const progress = campaign.goalCount > 0 ? (campaign.referralsCount / campaign.goalCount) * 100 : 0;
@@ -116,6 +140,10 @@ export default function CampaignDetailsModal({
 
   const handleSendMessages = () => {
     sendCampaignMessagesMutation.mutate();
+  };
+
+  const handleToggleStatus = () => {
+    toggleCampaignStatusMutation.mutate(!campaign?.isActive);
   };
 
   return (
@@ -132,13 +160,28 @@ export default function CampaignDetailsModal({
                 {isActive ? "Active" : "Ended"}
               </Badge>
             </DialogTitle>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setIsEditing(!isEditing)}
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleToggleStatus}
+                disabled={toggleCampaignStatusMutation.isPending}
+                data-testid={`button-toggle-campaign-${campaign.isActive ? 'deactivate' : 'activate'}`}
+              >
+                {toggleCampaignStatusMutation.isPending 
+                  ? "Updating..." 
+                  : campaign.isActive ? "Deactivate" : "Activate"
+                }
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsEditing(!isEditing)}
+                data-testid="button-edit-campaign"
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
@@ -318,6 +361,7 @@ export default function CampaignDetailsModal({
                 onClick={handleSendMessages}
                 disabled={sendCampaignMessagesMutation.isPending || !customMessage.trim()}
                 className="w-full"
+                data-testid="button-send-campaign-messages"
               >
                 <Send className="h-4 w-4 mr-2" />
                 {sendCampaignMessagesMutation.isPending ? "Sending..." : "Send to All Customers"}

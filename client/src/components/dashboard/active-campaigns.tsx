@@ -12,7 +12,7 @@ interface ActiveCampaignsProps {
 }
 
 export default function ActiveCampaigns({ onCreateCampaign, onCampaignClick }: ActiveCampaignsProps) {
-  const { data: campaigns, isLoading, refetch } = useQuery({
+  const { data: campaigns, isLoading, refetch } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns/active"],
     refetchOnWindowFocus: true,
     staleTime: 0,
@@ -43,20 +43,31 @@ export default function ActiveCampaigns({ onCreateCampaign, onCampaignClick }: A
         </div>
       </div>
       <div className="divide-y divide-gray-200">
-        {campaigns?.length > 0 ? (
+        {campaigns && campaigns.length > 0 ? (
           campaigns.map((campaign: Campaign) => {
             const progress = campaign.goalCount > 0 ? (campaign.referralsCount / campaign.goalCount) * 100 : 0;
             const isActive = new Date(campaign.endDate) > new Date();
             
             return (
-              <div key={campaign.id} className="p-6 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => onCampaignClick?.(campaign)}>
+              <div 
+                key={campaign.id} 
+                className="p-6 cursor-pointer hover:bg-gray-50 transition-colors" 
+                onClick={() => onCampaignClick?.(campaign)}
+                data-testid={`card-campaign-${campaign.id}`}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center">
-                      <h4 className="text-sm font-medium text-gray-900">{campaign.name}</h4>
+                      <h4 
+                        className="text-sm font-medium text-gray-900"
+                        data-testid={`text-campaign-name-${campaign.id}`}
+                      >
+                        {campaign.name}
+                      </h4>
                       <Badge 
                         variant={isActive ? "default" : "secondary"} 
                         className={`ml-2 ${isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
+                        data-testid={`badge-campaign-status-${campaign.id}`}
                       >
                         {isActive ? "Active" : "Upcoming"}
                       </Badge>
@@ -80,6 +91,7 @@ export default function ActiveCampaigns({ onCreateCampaign, onCampaignClick }: A
                         e.stopPropagation();
                         onCampaignClick?.(campaign);
                       }}
+                      data-testid={`button-campaign-details-${campaign.id}`}
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
@@ -106,6 +118,7 @@ export default function ActiveCampaigns({ onCreateCampaign, onCampaignClick }: A
           variant="ghost" 
           onClick={onCreateCampaign}
           className="text-primary hover:text-blue-700 text-sm font-medium"
+          data-testid="button-create-campaign"
         >
           <Plus className="h-4 w-4 mr-2" />
           Create New Campaign
