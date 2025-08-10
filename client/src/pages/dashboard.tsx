@@ -5,6 +5,7 @@ import ActiveCampaigns from "@/components/dashboard/active-campaigns";
 import TopPerformers from "@/components/dashboard/top-performers";
 import CouponManagement from "@/components/dashboard/coupon-management";
 import QuickActions from "@/components/dashboard/quick-actions";
+import CouponRedemption from "@/components/coupon-redemption";
 
 export default function Dashboard() {
   return (

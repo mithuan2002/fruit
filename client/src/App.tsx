@@ -9,6 +9,10 @@ import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
 import Coupons from "@/pages/coupons";
 import SMSCenter from "@/pages/sms-center";
+import Reports from "@/pages/reports"; // Added Reports import
+import CouponRedemption from "@/pages/coupon-redemption"; // Added CouponRedemption import
+import QuickActions from "@/pages/quick-actions"; // Added QuickActions import
+
 
 import Sidebar from "@/components/layout/sidebar";
 
@@ -24,6 +28,8 @@ function Router() {
           <Route path="/customers" component={Customers} />
           <Route path="/coupons" component={Coupons} />
           <Route path="/sms" component={SMSCenter} />
+          <Route path="/reports" component={Reports} /> {/* Added Route for Reports */}
+
 
           <Route component={NotFound} />
         </Switch>
