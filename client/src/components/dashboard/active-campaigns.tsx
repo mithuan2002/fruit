@@ -11,8 +11,10 @@ interface ActiveCampaignsProps {
 }
 
 export default function ActiveCampaigns({ onCreateCampaign }: ActiveCampaignsProps) {
-  const { data: campaigns, isLoading } = useQuery({
+  const { data: campaigns, isLoading, refetch } = useQuery({
     queryKey: ["/api/campaigns/active"],
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   if (isLoading) {
@@ -40,7 +42,7 @@ export default function ActiveCampaigns({ onCreateCampaign }: ActiveCampaignsPro
         </div>
       </div>
       <div className="divide-y divide-gray-200">
-        {campaigns && campaigns.length > 0 ? (
+        {campaigns?.length > 0 ? (
           campaigns.map((campaign: Campaign) => {
             const progress = campaign.goalCount > 0 ? (campaign.referralsCount / campaign.goalCount) * 100 : 0;
             const isActive = new Date(campaign.endDate) > new Date();
@@ -53,9 +55,9 @@ export default function ActiveCampaigns({ onCreateCampaign }: ActiveCampaignsPro
                       <h4 className="text-sm font-medium text-gray-900">{campaign.name}</h4>
                       <Badge 
                         variant={isActive ? "default" : "secondary"} 
-                        className={`ml-2 ${isActive ? "bg-success bg-opacity-10 text-success" : "bg-accent bg-opacity-10 text-accent"}`}
+                        className={`ml-2 ${isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
                       >
-                        {isActive ? "Active" : "Launching Soon"}
+                        {isActive ? "Active" : "Upcoming"}
                       </Badge>
                     </div>
                     <div className="mt-1 flex items-center text-sm text-gray-500">

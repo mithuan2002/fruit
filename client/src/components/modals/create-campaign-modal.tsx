@@ -46,6 +46,7 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
         goalCount: 100,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/active"] });
       onClose();
     },
     onError: (error: any) => {
