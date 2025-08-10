@@ -6,6 +6,7 @@ import QuickActions from "@/components/dashboard/quick-actions";
 import CouponManagement from "@/components/dashboard/coupon-management";
 import TopPerformers from "@/components/dashboard/top-performers";
 import CreateCampaignModal from "@/components/modals/create-campaign-modal";
+import CouponRedemption from "@/components/coupon-redemption";
 
 export default function Dashboard() {
   const [showCreateCampaignModal, setShowCreateCampaignModal] = useState(false);
@@ -29,6 +30,7 @@ export default function Dashboard() {
             </div>
             <div className="space-y-6">
               <QuickActions />
+              <CouponRedemption />
             </div>
           </div>
 

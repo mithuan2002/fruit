@@ -34,17 +34,15 @@ export default function Sidebar() {
               const Icon = item.icon;
               
               return (
-                <Link key={item.name} href={item.href}>
-                  <a className={`${
-                    isActive
-                      ? "bg-primary text-white"
-                      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                  } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}>
-                    <Icon className={`${
-                      isActive ? "text-white" : "text-gray-400 group-hover:text-gray-500"
-                    } mr-3 h-5 w-5`} />
-                    {item.name}
-                  </a>
+                <Link key={item.name} href={item.href} className={`${
+                  isActive
+                    ? "bg-primary text-white"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}>
+                  <Icon className={`${
+                    isActive ? "text-white" : "text-gray-400 group-hover:text-gray-500"
+                  } mr-3 h-5 w-5`} />
+                  {item.name}
                 </Link>
               );
             })}
