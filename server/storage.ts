@@ -16,6 +16,7 @@ export interface IStorage {
   // Customer operations
   getCustomer(id: string): Promise<Customer | undefined>;
   getCustomerByPhone(phoneNumber: string): Promise<Customer | undefined>;
+  getCustomerByCouponCode(couponCode: string): Promise<Customer | undefined>;
   getAllCustomers(): Promise<Customer[]>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer | undefined>;
@@ -94,6 +95,12 @@ export class MemStorage implements IStorage {
   async getCustomerByPhone(phoneNumber: string): Promise<Customer | undefined> {
     return Array.from(this.customers.values()).find(
       customer => customer.phoneNumber === phoneNumber
+    );
+  }
+
+  async getCustomerByCouponCode(couponCode: string): Promise<Customer | undefined> {
+    return Array.from(this.customers.values()).find(
+      customer => customer.couponCode === couponCode
     );
   }
 
