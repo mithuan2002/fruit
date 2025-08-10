@@ -1,17 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { 
-  insertCustomerSchema, 
-  insertCampaignSchema, 
-  insertCouponSchema, 
+import {
+  insertCustomerSchema,
+  insertCampaignSchema,
+  insertCouponSchema,
   insertReferralSchema,
   insertSmsMessageSchema
 } from "@shared/schema";
 import { z } from "zod";
 
-// Enhanced SMS Service with Twilio integration and better error handling
-async function sendSMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+// Twilio SMS Service
+async function sendTwilioSMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -20,17 +20,17 @@ async function sendSMS(phoneNumber: string, message: string): Promise<{ success:
     // Validate required credentials
     if (!accountSid || !authToken || !fromNumber) {
       console.warn('Twilio credentials not configured - SMS functionality disabled');
-      return { 
-        success: false, 
-        error: 'SMS service not configured. Please set Twilio credentials.' 
+      return {
+        success: false,
+        error: 'SMS service not configured. Please set Twilio credentials.'
       };
     }
 
     // Validate phone number format (basic validation)
     if (!phoneNumber || phoneNumber.length < 10) {
-      return { 
-        success: false, 
-        error: 'Invalid phone number format' 
+      return {
+        success: false,
+        error: 'Invalid phone number format'
       };
     }
 
@@ -58,30 +58,247 @@ async function sendSMS(phoneNumber: string, message: string): Promise<{ success:
       console.log(`Message status: ${result.status}`);
       console.log(`Price: ${result.price} ${result.price_unit}`);
       console.log(`Direction: ${result.direction}`);
-      
+
       // Check if there are any immediate error codes
       if (result.error_code) {
         console.warn(`Twilio warning - Error code: ${result.error_code}, Message: ${result.error_message}`);
       }
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         messageId: result.sid
       };
     } else {
       const errorData = await response.json();
       console.error('Twilio API error:', errorData);
-      return { 
-        success: false, 
-        error: errorData.message || 'Failed to send SMS' 
+      return {
+        success: false,
+        error: errorData.message || 'Failed to send SMS'
       };
     }
   } catch (error) {
     console.error('SMS sending failed:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error occurred' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     };
+  }
+}
+
+// TextMagic SMS Service
+async function sendTextMagicSMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const username = process.env.TEXTMAGIC_USERNAME;
+    const apiKey = process.env.TEXTMAGIC_API_KEY;
+
+    if (!username || !apiKey) {
+      console.warn('TextMagic credentials not configured - SMS functionality disabled');
+      return {
+        success: false,
+        error: 'SMS service not configured. Please set TextMagic credentials.'
+      };
+    }
+
+    // TextMagic expects phone numbers without country code, but with leading zero for some regions.
+    // For simplicity, we'll strip country code and ensure it starts with a valid number.
+    const formattedPhone = phoneNumber.replace(/[^0-9]/g, '');
+
+    console.log(`Sending SMS to ${formattedPhone} via TextMagic...`);
+
+    const response = await fetch(`https://api.textmagic.com/v2/sms`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: username,
+        apiv2: apiKey,
+        phones: [{
+          number: formattedPhone,
+          list_id: 0, // Use 0 for sending to a single number
+          client_id: 0 // Use 0 for sending to a single number
+        }],
+        text: message,
+        source: 'api'
+      }),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log(`TextMagic SMS sent successfully. Message ID: ${result.id}`);
+      // TextMagic returns a list of message statuses, we assume the first one is for our number
+      const messageStatus = result.messages && result.messages.length > 0 ? result.messages[0] : null;
+      if (messageStatus && messageStatus.status === 'delivered') {
+        return { success: true, messageId: messageStatus.id };
+      } else {
+        console.warn(`TextMagic message status: ${messageStatus?.status}, Error: ${messageStatus?.error}`);
+        return { success: false, error: messageStatus?.error || 'Message not delivered' };
+      }
+    } else {
+      const errorData = await response.json();
+      console.error('TextMagic API error:', errorData);
+      return {
+        success: false,
+        error: errorData.message || 'Failed to send SMS via TextMagic'
+      };
+    }
+  } catch (error) {
+    console.error('SMS sending failed via TextMagic:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+// Fast2SMS Service (Indian provider - very affordable)
+async function sendFast2SMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const apiKey = process.env.FAST2SMS_API_KEY;
+    const senderId = process.env.FAST2SMS_SENDER_ID || 'FAST2S';
+
+    if (!apiKey) {
+      return {
+        success: false,
+        error: 'Fast2SMS API key not configured'
+      };
+    }
+
+    const formattedPhone = phoneNumber.startsWith('+91') ? phoneNumber.substring(3) : phoneNumber.replace(/\D/g, '');
+
+    const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+      method: 'POST',
+      headers: {
+        'Authorization': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        route: 'q',
+        message,
+        language: 'english',
+        flash: 0,
+        numbers: formattedPhone,
+        sender_id: senderId,
+      }),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log(`Fast2SMS response:`, result);
+
+      if (result.return === true) {
+        console.log(`Fast2SMS sent successfully. Job ID: ${result.job_id}`);
+        return {
+          success: true,
+          messageId: result.job_id || result.request_id
+        };
+      } else {
+        console.error('Fast2SMS error:', result.message);
+        return {
+          success: false,
+          error: result.message || 'Failed to send SMS via Fast2SMS'
+        };
+      }
+    } else {
+      const errorData = await response.json();
+      console.error('Fast2SMS API error:', errorData);
+      return {
+        success: false,
+        error: errorData.message || 'Fast2SMS API request failed'
+      };
+    }
+  } catch (error) {
+    console.error('Fast2SMS sending failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+// MSG91 SMS Service (Indian provider)
+async function sendMSG91SMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    const authKey = process.env.MSG91_AUTH_KEY;
+    const senderId = process.env.MSG91_SENDER_ID;
+    const countryCode = "91"; // Default to India
+
+    if (!authKey || !senderId) {
+      console.warn('MSG91 credentials not configured - SMS functionality disabled');
+      return {
+        success: false,
+        error: 'SMS service not configured. Please set MSG91 credentials.'
+      };
+    }
+
+    // MSG91 expects phone number with country code
+    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber.replace(/\D/g, '') : `${countryCode}${phoneNumber.replace(/\D/g, '')}`;
+
+    console.log(`Sending SMS to ${formattedPhone} via MSG91...`);
+
+    const response = await fetch(`https://api.msg91.com/api/v5/flow`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        flow_id: '65f2131b2327111982074a80', // Replace with your actual flow ID if needed
+        sender: senderId,
+        country_code: countryCode,
+        to: formattedPhone,
+        message: message,
+        authkey: authKey,
+      }),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log(`MSG91 response:`, result);
+
+      if (result.type === 'success') {
+        console.log(`MSG91 SMS sent successfully. Message ID: ${result.message_id}`);
+        return {
+          success: true,
+          messageId: result.message_id
+        };
+      } else {
+        console.error('MSG91 error:', result.message);
+        return {
+          success: false,
+          error: result.message || 'Failed to send SMS via MSG91'
+        };
+      }
+    } else {
+      const errorData = await response.json();
+      console.error('MSG91 API error:', errorData);
+      return {
+        success: false,
+        error: errorData.message || 'MSG91 API request failed'
+      };
+    }
+  } catch (error) {
+    console.error('SMS sending failed via MSG91:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+
+// Enhanced SMS Service with multiple provider support
+async function sendSMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const provider = process.env.SMS_PROVIDER || 'twilio'; // 'twilio', 'textmagic', 'msg91', 'fast2sms'
+
+  switch (provider) {
+    case 'fast2sms':
+      return sendFast2SMS(phoneNumber, message);
+    case 'textmagic':
+      return sendTextMagicSMS(phoneNumber, message);
+    case 'msg91':
+      return sendMSG91SMS(phoneNumber, message);
+    default:
+      return sendTwilioSMS(phoneNumber, message);
   }
 }
 
@@ -169,8 +386,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: smsResult.success ? "sent" : "failed",
       });
 
-      res.status(201).json({ 
-        customer, 
+      res.status(201).json({
+        customer,
         couponCode,
         smsStatus: smsResult.success ? "sent" : "failed",
         message: `Customer created successfully. Referral code: ${couponCode}`
@@ -274,7 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const customers = await storage.getAllCustomers();
-      
+
       if (customers.length === 0) {
         return res.status(400).json({ error: "No customers found to send messages to" });
       }
@@ -306,8 +523,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const successCount = results.filter(r => r.success).length;
       const failureCount = results.filter(r => !r.success).length;
 
-      res.json({ 
-        success: successCount > 0, 
+      res.json({
+        success: successCount > 0,
         totalRecipients: customers.length,
         messagesSent: successCount,
         messagesFailed: failureCount,
@@ -389,8 +606,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { campaignId } = req.body;
       // Generate unique coupon code
       const couponCode = await storage.generateUniqueCode();
-      
-      // Create coupon for customer  
+
+      // Create coupon for customer
       const coupon = await storage.createCoupon({
         code: couponCode,
         customerId: req.params.id,
@@ -505,12 +722,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: smsResult.success ? "sent" : "failed",
       });
 
-      res.json({ 
-        success: true, 
-        pointsEarned: finalPointsEarned, 
+      res.json({
+        success: true,
+        pointsEarned: finalPointsEarned,
         totalPoints: customer.points + finalPointsEarned,
         saleAmount: saleAmount || 0,
-        referral 
+        referral
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to redeem coupon" });
@@ -572,7 +789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (response.ok) {
         const messageStatus = await response.json();
         console.log(`Message ${messageId} status:`, messageStatus.status);
-        
+
         res.json({
           messageId: messageStatus.sid,
           status: messageStatus.status,
@@ -603,7 +820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sms/broadcast", async (req, res) => {
     try {
       const { message, recipients = "all" } = req.body;
-      
+
       if (!message || message.trim().length === 0) {
         return res.status(400).json({ error: "Message content is required" });
       }
@@ -613,7 +830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let customers = [];
-      
+
       if (recipients === "all") {
         customers = await storage.getAllCustomers();
       } else if (Array.isArray(recipients)) {
@@ -651,11 +868,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customerId: customer?.id || null,
           type: "broadcast",
         });
-        sentMessages.push({ 
-          ...smsRecord, 
-          messageId: result.messageId, 
+        sentMessages.push({
+          ...smsRecord,
+          messageId: result.messageId,
           error: result.error,
-          customerName: customer?.name 
+          customerName: customer?.name
         });
       }
 
@@ -683,14 +900,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const messages = await storage.getAllSmsMessages();
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      
+
       const todayMessages = messages.filter(msg => msg.sentAt && new Date(msg.sentAt) >= startOfDay);
       const sentToday = todayMessages.filter(msg => msg.status === "sent").length;
       const failedToday = todayMessages.filter(msg => msg.status === "failed").length;
-      
+
       const totalSent = messages.filter(msg => msg.status === "sent").length;
       const totalFailed = messages.filter(msg => msg.status === "failed").length;
-      
+
       const messagesByType = messages.reduce((acc, msg) => {
         acc[msg.type] = (acc[msg.type] || 0) + 1;
         return acc;
