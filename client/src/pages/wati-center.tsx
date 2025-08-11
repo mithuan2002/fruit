@@ -171,7 +171,9 @@ export default function WatiCenter() {
 
                 <div className="flex items-center justify-between">
                   <span>Automation Type</span>
-                  <Badge variant="outline">WhatsApp Web + Puppeteer</Badge>
+                  <Badge variant="outline" className="bg-green-50 text-green-800 border-green-300">
+                    Real WhatsApp Messaging
+                  </Badge>
                 </div>
 
                 {!status?.connected && (
@@ -298,11 +300,11 @@ export default function WatiCenter() {
                   </p>
                 </div>
 
-                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
-                  <p className="text-xs text-amber-800">
-                    <strong>Demo Note:</strong> This uses WhatsApp Web automation via Puppeteer.
-                    Messages are sent from your actual WhatsApp account (+919600267509).
-                    Perfect for demonstrations without API verification delays!
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-xs text-green-800">
+                    <strong>Real Messaging:</strong> This sends actual WhatsApp messages through WhatsApp Web.
+                    Messages are sent from your real WhatsApp account (+919600267509).
+                    Recipients will receive real messages instantly!
                   </p>
                 </div>
               </CardContent>

@@ -1,5 +1,7 @@
+
 import puppeteer, { Browser, Page } from 'puppeteer';
 import { storage } from './storage';
+import { execSync } from 'child_process';
 
 class WhatsAppWebService {
   private browser: Browser | null = null;
@@ -11,7 +13,42 @@ class WhatsAppWebService {
 
   constructor() {
     console.log('🤖 WhatsApp Web Service initializing...');
-    console.log('📱 Demo mode with Puppeteer automation');
+    console.log('📱 Real-time WhatsApp automation mode');
+  }
+
+  private findChromiumExecutable(): string {
+    try {
+      // Try to find chromium in various locations
+      const possiblePaths = [
+        '/nix/store/*/bin/chromium',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/google-chrome',
+        'chromium',
+        'google-chrome'
+      ];
+
+      for (const path of possiblePaths) {
+        try {
+          if (path.includes('*')) {
+            // Use find command for nix store paths
+            const result = execSync(`find /nix/store -name chromium -type f -executable 2>/dev/null | head -1`, { encoding: 'utf8' }).trim();
+            if (result) return result;
+          } else {
+            execSync(`which ${path}`, { encoding: 'utf8' });
+            return path;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      console.log('⚠️ No Chromium executable found, using Puppeteer default');
+      return '';
+    } catch (error) {
+      console.log('⚠️ Error finding Chromium, using Puppeteer default');
+      return '';
+    }
   }
 
   async initialize(): Promise<{ success: boolean; qrCode?: string; error?: string }> {
@@ -23,42 +60,54 @@ class WhatsAppWebService {
       this.isInitializing = true;
       console.log('🚀 Starting WhatsApp Web automation...');
 
+      const chromiumPath = this.findChromiumExecutable();
+      console.log(`🔍 Using Chromium at: ${chromiumPath || 'default'}`);
+
       this.browser = await puppeteer.launch({
-        headless: true, // Run headless in Replit environment
+        headless: false, // Non-headless for real interaction
+        executablePath: chromiumPath || undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
           '--disable-renderer-backgrounding',
-          '--single-process',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-default-apps',
           '--no-first-run',
-          '--disable-default-apps'
-        ],
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+          '--disable-infobars',
+          '--window-size=1200,800',
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor'
+        ]
       });
 
       this.page = await this.browser.newPage();
-      await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+      
+      // Set a realistic user agent
+      await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      
+      // Set viewport
+      await this.page.setViewport({ width: 1200, height: 800 });
 
       console.log('📱 Opening WhatsApp Web...');
-      await this.page.goto('https://web.whatsapp.com', { waitUntil: 'networkidle2' });
+      await this.page.goto('https://web.whatsapp.com', { 
+        waitUntil: 'networkidle2',
+        timeout: 30000 
+      });
 
-      // Wait for QR code or main interface
+      // Wait for page to load
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
       try {
-        console.log('⏳ Waiting for QR code to appear...');
+        console.log('⏳ Waiting for QR code or login state...');
 
         // Wait for either QR code or already logged in state
         const result = await Promise.race([
-          this.page.waitForSelector('canvas[aria-label="Scan me!"], canvas[aria-label*="scan"], div[data-testid="qr-canvas"] canvas', { timeout: 15000 }).then(() => 'qr'),
-          this.page.waitForSelector('[data-testid="chat-list"], [data-testid="side"]', { timeout: 15000 }).then(() => 'logged-in')
+          this.page.waitForSelector('canvas[aria-label="Scan me!"], canvas[aria-label*="scan"], div[data-testid="qr-canvas"] canvas', { timeout: 20000 }).then(() => 'qr'),
+          this.page.waitForSelector('[data-testid="chat-list"], [data-testid="side"], div[data-testid="default-user"]', { timeout: 20000 }).then(() => 'logged-in')
         ]);
 
         if (result === 'logged-in') {
@@ -68,7 +117,7 @@ class WhatsAppWebService {
         }
 
         if (result === 'qr') {
-          console.log('📷 QR Code appeared - capturing for display');
+          console.log('📷 QR Code detected - capturing...');
 
           // Try multiple selectors for QR code
           const qrSelectors = [
@@ -88,7 +137,7 @@ class WhatsAppWebService {
           }
 
           if (qrElement) {
-            // Wait a moment for QR code to fully render
+            // Wait for QR code to fully render
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             const qrCodeBase64 = await qrElement.screenshot({
@@ -111,6 +160,7 @@ class WhatsAppWebService {
       }
     } catch (error) {
       console.error('❌ Failed to initialize WhatsApp Web:', error);
+      await this.cleanup();
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     } finally {
       this.isInitializing = false;
@@ -121,13 +171,20 @@ class WhatsAppWebService {
     if (!this.page) return false;
 
     try {
-      // Wait for the main chat interface to appear
-      await this.page.waitForSelector('[data-testid="chat-list"]', { timeout: 60000 });
+      console.log('⏳ Waiting for WhatsApp Web connection...');
+      
+      // Wait for the main interface to appear (multiple possible selectors)
+      await Promise.race([
+        this.page.waitForSelector('[data-testid="chat-list"]', { timeout: 60000 }),
+        this.page.waitForSelector('[data-testid="side"]', { timeout: 60000 }),
+        this.page.waitForSelector('div[data-testid="default-user"]', { timeout: 60000 })
+      ]);
+
       this.isConnected = true;
-      console.log('✅ WhatsApp Web connected and ready');
+      console.log('✅ WhatsApp Web connected and ready for messaging');
       return true;
     } catch (error) {
-      console.error('❌ Connection timeout');
+      console.error('❌ Connection timeout or failed');
       return false;
     }
   }
@@ -139,40 +196,73 @@ class WhatsAppWebService {
 
     try {
       const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+      console.log(`📤 Attempting to send real WhatsApp message to ${phoneNumber}...`);
+
+      // Use WhatsApp Web send URL
       const whatsappUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+      
+      // Navigate to the send URL
+      await this.page.goto(whatsappUrl, { 
+        waitUntil: 'networkidle2',
+        timeout: 15000 
+      });
 
-      console.log(`📤 Sending WhatsApp message to ${phoneNumber}...`);
+      // Wait for the page to load and message to appear
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
-      // Navigate to send message URL
-      await this.page.goto(whatsappUrl, { waitUntil: 'networkidle2' });
+      try {
+        // Wait for message composition area
+        await this.page.waitForSelector('[data-testid="conversation-compose-box-input"], [data-testid="msg-container"]', { timeout: 10000 });
+        
+        // Wait a bit more for message to populate
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Wait for message input box and send button
-      await this.page.waitForSelector('[data-testid="msg-container"]', { timeout: 15000 });
+        // Look for send button and click it
+        const sendButtonSelectors = [
+          '[data-testid="send-button"]',
+          'button[aria-label="Send"]',
+          'span[data-testid="send"]',
+          'button span[data-icon="send"]'
+        ];
 
-      // Wait a moment for the message to load in the input
-      await new Promise(resolve => setTimeout(resolve, 2000));
+        let sendButton = null;
+        for (const selector of sendButtonSelectors) {
+          sendButton = await this.page.$(selector);
+          if (sendButton) {
+            console.log(`🎯 Found send button with selector: ${selector}`);
+            break;
+          }
+        }
 
-      // Click send button
-      const sendButton = await this.page.$('[data-testid="send-button"]');
-      if (sendButton) {
-        await sendButton.click();
-        console.log(`✅ Message sent to ${phoneNumber}`);
+        if (sendButton) {
+          // Click the send button
+          await sendButton.click();
+          console.log(`✅ Real WhatsApp message sent to ${phoneNumber}`);
 
-        // Log to database
-        await storage.createWhatsappMessage({
-          phoneNumber,
-          message,
-          status: 'sent',
-          type,
-          customerId: null
-        });
+          // Wait to confirm sending
+          await new Promise(resolve => setTimeout(resolve, 2000));
 
-        return { success: true, messageId: `wp_${Date.now()}` };
-      } else {
-        throw new Error('Send button not found');
+          // Log successful message to database
+          await storage.createWhatsappMessage({
+            phoneNumber,
+            message,
+            status: 'sent',
+            type,
+            customerId: null
+          });
+
+          return { success: true, messageId: `real_wp_${Date.now()}` };
+        } else {
+          throw new Error('Send button not found - message may not have loaded properly');
+        }
+
+      } catch (buttonError) {
+        console.error('❌ Failed to find/click send button:', buttonError);
+        throw new Error('Could not send message - UI elements not found');
       }
+
     } catch (error) {
-      console.error(`❌ Failed to send message to ${phoneNumber}:`, error);
+      console.error(`❌ Failed to send real WhatsApp message to ${phoneNumber}:`, error);
 
       // Log failed message to database
       await storage.createWhatsappMessage({
@@ -199,6 +289,7 @@ Share this code with friends and family to earn points and rewards!
 
 Happy shopping! 🛍️`;
 
+    console.log(`🎊 Sending real welcome message to ${customerPhone}`);
     return this.sendMessage(customerPhone, message, 'welcome_referral');
   }
 
@@ -211,6 +302,7 @@ Your total points are now available for redemption. Keep referring friends to ea
 
 Thank you for being part of ${this.businessName}! 🌟`;
 
+    console.log(`🎯 Sending real points earned message to ${customerPhone}`);
     return this.sendMessage(customerPhone, message, 'points_earned');
   }
 
@@ -223,6 +315,7 @@ Your reward is being processed. Keep shopping and referring friends to earn more
 
 Thanks for choosing ${this.businessName}! 🎁`;
 
+    console.log(`🎁 Sending real points redeemed message to ${customerPhone}`);
     return this.sendMessage(customerPhone, message, 'points_redeemed');
   }
 
@@ -231,7 +324,11 @@ Thanks for choosing ${this.businessName}! 🎁`;
     let failureCount = 0;
     const results = [];
 
+    console.log(`📢 Starting real WhatsApp broadcast to ${phoneNumbers.length} recipients...`);
+
     for (const phoneNumber of phoneNumbers) {
+      console.log(`📤 Broadcasting to ${phoneNumber}...`);
+      
       const result = await this.sendMessage(phoneNumber, message, 'broadcast');
       if (result.success) {
         successCount++;
@@ -240,11 +337,12 @@ Thanks for choosing ${this.businessName}! 🎁`;
       }
       results.push({ phoneNumber, ...result });
 
-      // Add delay between messages to avoid being blocked
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Add delay between messages to avoid being blocked (important for real messaging)
+      console.log('⏳ Waiting 5 seconds before next message...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
     }
 
-    console.log(`📊 Broadcast completed: ${successCount} sent, ${failureCount} failed`);
+    console.log(`📊 Real broadcast completed: ${successCount} sent, ${failureCount} failed`);
 
     return {
       successCount,
@@ -268,7 +366,7 @@ Thanks for choosing ${this.businessName}! 🎁`;
       for (const selector of qrSelectors) {
         const qrElement = await this.page.$(selector);
         if (qrElement) {
-          console.log(`📷 Capturing QR code with selector: ${selector}`);
+          console.log(`📷 Capturing fresh QR code with selector: ${selector}`);
           const qrCodeBase64 = await qrElement.screenshot({
             encoding: 'base64',
             type: 'png'
@@ -291,19 +389,30 @@ Thanks for choosing ${this.businessName}! 🎁`;
       businessNumber: this.demoOwnerPhone,
       businessName: this.businessName,
       configured: true,
-      demoMode: true,
-      automationType: 'WhatsApp Web + Puppeteer'
+      demoMode: false, // Real messaging mode
+      automationType: 'Real WhatsApp Web Automation'
     };
   }
 
-  async disconnect() {
-    if (this.browser) {
-      await this.browser.close();
-      this.browser = null;
-      this.page = null;
-      this.isConnected = false;
-      console.log('🔌 WhatsApp Web disconnected');
+  private async cleanup() {
+    try {
+      if (this.page) {
+        await this.page.close();
+        this.page = null;
+      }
+      if (this.browser) {
+        await this.browser.close();
+        this.browser = null;
+      }
+    } catch (error) {
+      console.error('Error during cleanup:', error);
     }
+  }
+
+  async disconnect() {
+    await this.cleanup();
+    this.isConnected = false;
+    console.log('🔌 WhatsApp Web disconnected');
   }
 }
 
