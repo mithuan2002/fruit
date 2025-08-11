@@ -45,14 +45,27 @@ export default function WatiCenter() {
           });
         }
         
-        // Start polling for QR code and connection updates
+        // Start aggressive polling for QR code and connection updates
+        let pollCount = 0;
+        const maxPolls = 90; // 3 minutes at 2-second intervals
+        
         const qrInterval = setInterval(() => {
+          pollCount++;
+          console.log(`🔄 QR polling attempt ${pollCount}/${maxPolls}`);
           fetchQRCode();
           refetch(); // Also check connection status
+          
+          if (pollCount >= maxPolls) {
+            clearInterval(qrInterval);
+            console.log('⏰ QR polling timeout reached');
+          }
         }, 2000);
         
-        // Clear interval after 3 minutes
-        setTimeout(() => clearInterval(qrInterval), 180000);
+        // Also store interval reference to clear it if user navigates away
+        setTimeout(() => {
+          clearInterval(qrInterval);
+          console.log('⏰ QR polling stopped after timeout');
+        }, 180000);
       }
       setIsInitializing(false);
     },
@@ -68,17 +81,18 @@ export default function WatiCenter() {
 
   const fetchQRCode = async () => {
     try {
+      console.log('🔄 Fetching QR code...');
       const response = await apiRequest("GET", "/api/whatsapp/qr-code", {});
       const result = await response.json();
       if (result.success && result.qrCode) {
-        console.log('QR code received:', result.qrCode.substring(0, 50) + '...');
+        console.log('✅ QR code received:', result.qrCode.substring(0, 50) + '...');
         setQrCodeImage(result.qrCode);
       } else {
-        console.log('No QR code available yet');
+        console.log('❌ No QR code available yet:', result.error || 'No error message');
         setQrCodeImage(null);
       }
     } catch (error) {
-      console.error('Failed to fetch QR code:', error);
+      console.error('❌ Failed to fetch QR code:', error);
       setQrCodeImage(null);
     }
   };

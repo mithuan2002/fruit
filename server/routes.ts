@@ -507,14 +507,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/whatsapp/qr-code", async (req, res) => {
     try {
+      console.log('🔍 QR code request received');
       const qrCode = await whatsappWebService.getCurrentQRCode();
       if (qrCode) {
+        console.log(`✅ QR code returned (${qrCode.length} chars)`);
         res.json({ success: true, qrCode });
       } else {
+        console.log('❌ No QR code available');
         res.json({ success: false, error: 'No QR code available' });
       }
     } catch (error) {
+      console.error('❌ QR code endpoint error:', error);
       res.status(500).json({ success: false, error: 'Failed to get QR code' });
+    }
+  });
+
+  // Debug endpoint
+  app.get("/api/whatsapp/debug", async (req, res) => {
+    try {
+      const status = whatsappWebService.getStatus();
+      res.json({
+        status,
+        debug: {
+          nodeVersion: process.version,
+          platform: process.platform,
+          memory: process.memoryUsage()
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Debug failed' });
     }
   });
 

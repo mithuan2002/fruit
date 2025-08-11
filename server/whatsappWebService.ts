@@ -64,12 +64,13 @@ class WhatsAppWebService {
       console.log(`🔍 Using Chromium at: ${chromiumPath || 'default'}`);
 
       this.browser = await puppeteer.launch({
-        headless: true, // Keep headless for Replit environment
+        headless: true,
         executablePath: chromiumPath || undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
+          '--disable-gpu',
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
           '--disable-renderer-backgrounding',
@@ -80,7 +81,9 @@ class WhatsAppWebService {
           '--disable-infobars',
           '--window-size=1200,800',
           '--disable-web-security',
-          '--disable-features=VizDisplayCompositor'
+          '--disable-features=VizDisplayCompositor',
+          '--single-process',
+          '--no-zygote'
         ]
       });
 
@@ -94,69 +97,93 @@ class WhatsAppWebService {
 
       console.log('📱 Opening WhatsApp Web...');
       await this.page.goto('https://web.whatsapp.com', { 
-        waitUntil: 'networkidle2',
-        timeout: 30000 
+        waitUntil: 'domcontentloaded',
+        timeout: 60000 
       });
 
-      // Wait for page to load
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      console.log('⏳ Waiting for page to fully load...');
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+      // Check page content to debug loading issues
+      const title = await this.page.title();
+      console.log(`📄 Page title: ${title}`);
 
       try {
-        console.log('⏳ Waiting for QR code or login state...');
+        console.log('🔍 Looking for QR code or login state...');
 
-        // Wait for either QR code or already logged in state
-        const result = await Promise.race([
-          this.page.waitForSelector('canvas[aria-label="Scan me!"], canvas[aria-label*="scan"], div[data-testid="qr-canvas"] canvas', { timeout: 20000 }).then(() => 'qr'),
-          this.page.waitForSelector('[data-testid="chat-list"], [data-testid="side"], div[data-testid="default-user"]', { timeout: 20000 }).then(() => 'logged-in')
-        ]);
+        // Give more time and check multiple states
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        while (attempts < maxAttempts) {
+          attempts++;
+          console.log(`🔄 Attempt ${attempts}/${maxAttempts} - Checking page state...`);
 
-        if (result === 'logged-in') {
-          this.isConnected = true;
-          console.log('✅ WhatsApp Web already connected');
-          return { success: true };
-        }
+          // Check if already logged in
+          const loggedInElement = await this.page.$('[data-testid="chat-list"], [data-testid="side"], div[data-testid="default-user"], .two._aigs');
+          if (loggedInElement) {
+            this.isConnected = true;
+            console.log('✅ WhatsApp Web already connected');
+            return { success: true };
+          }
 
-        if (result === 'qr') {
-          console.log('📷 QR Code detected - capturing...');
-
-          // Try multiple selectors for QR code
+          // Look for QR code with more selectors
           const qrSelectors = [
             'canvas[aria-label="Scan me!"]',
-            'canvas[aria-label*="scan"]',
+            'canvas[aria-label*="scan"]', 
             'div[data-testid="qr-canvas"] canvas',
-            'canvas'
+            'canvas',
+            'div[data-ref] canvas',
+            '.landing-wrapper canvas'
           ];
 
           let qrElement = null;
           for (const selector of qrSelectors) {
-            qrElement = await this.page.$(selector);
-            if (qrElement) {
-              console.log(`📷 Found QR code with selector: ${selector}`);
-              break;
+            const elements = await this.page.$$(selector);
+            for (const element of elements) {
+              // Check if canvas has actual content
+              const box = await element.boundingBox();
+              if (box && box.width > 50 && box.height > 50) {
+                qrElement = element;
+                console.log(`📷 Found QR code canvas with selector: ${selector} (${box.width}x${box.height})`);
+                break;
+              }
             }
+            if (qrElement) break;
           }
 
           if (qrElement) {
-            // Wait for QR code to fully render
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            console.log('📸 Capturing QR code...');
+            // Wait a bit more for QR to fully render
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
-            const qrCodeBase64 = await qrElement.screenshot({
-              encoding: 'base64',
-              type: 'png'
-            });
+            try {
+              const qrCodeBase64 = await qrElement.screenshot({
+                encoding: 'base64',
+                type: 'png'
+              });
 
-            console.log('✅ QR code captured successfully');
-            return { success: true, qrCode: `data:image/png;base64,${qrCodeBase64}` };
-          } else {
-            console.log('❌ QR code element not found');
-            return { success: true, qrCode: null };
+              if (qrCodeBase64 && qrCodeBase64.length > 1000) {
+                console.log(`✅ QR code captured successfully (${qrCodeBase64.length} chars)`);
+                return { success: true, qrCode: `data:image/png;base64,${qrCodeBase64}` };
+              } else {
+                console.log('⚠️ QR code image seems too small, retrying...');
+              }
+            } catch (screenshotError) {
+              console.error('❌ Screenshot failed:', screenshotError);
+            }
           }
+
+          // Wait before next attempt
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
 
-        throw new Error('Unexpected state during initialization');
+        console.log('❌ Could not find QR code after all attempts');
+        return { success: true, qrCode: null };
+
       } catch (error) {
-        console.error('❌ Failed during QR code detection:', error);
-        throw new Error('Failed to load WhatsApp Web or capture QR code');
+        console.error('❌ Error during QR code detection:', error);
+        return { success: true, qrCode: null };
       }
     } catch (error) {
       console.error('❌ Failed to initialize WhatsApp Web:', error);
@@ -404,27 +431,44 @@ Thanks for choosing ${this.businessName}! 🎁`;
     if (!this.page || this.isConnected) return null;
 
     try {
+      console.log('🔍 Fetching current QR code...');
+
       // Try multiple selectors for QR code
       const qrSelectors = [
         'canvas[aria-label="Scan me!"]',
         'canvas[aria-label*="scan"]',
         'div[data-testid="qr-canvas"] canvas',
-        'canvas'
+        'canvas',
+        'div[data-ref] canvas',
+        '.landing-wrapper canvas'
       ];
 
       for (const selector of qrSelectors) {
-        const qrElement = await this.page.$(selector);
-        if (qrElement) {
-          console.log(`📷 Capturing fresh QR code with selector: ${selector}`);
-          const qrCodeBase64 = await qrElement.screenshot({
-            encoding: 'base64',
-            type: 'png'
-          });
-          return `data:image/png;base64,${qrCodeBase64}`;
+        const elements = await this.page.$$(selector);
+        for (const element of elements) {
+          try {
+            // Check if canvas has content
+            const box = await element.boundingBox();
+            if (box && box.width > 50 && box.height > 50) {
+              console.log(`📷 Capturing fresh QR code with selector: ${selector}`);
+              const qrCodeBase64 = await element.screenshot({
+                encoding: 'base64',
+                type: 'png'
+              });
+              
+              if (qrCodeBase64 && qrCodeBase64.length > 1000) {
+                console.log(`✅ Fresh QR code captured (${qrCodeBase64.length} chars)`);
+                return `data:image/png;base64,${qrCodeBase64}`;
+              }
+            }
+          } catch (err) {
+            console.log(`⚠️ Error with element ${selector}:`, err.message);
+            continue;
+          }
         }
       }
 
-      console.log('📷 No QR code element found');
+      console.log('📷 No valid QR code element found');
       return null;
     } catch (error) {
       console.error('❌ Error capturing QR code:', error);
