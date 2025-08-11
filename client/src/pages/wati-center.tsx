@@ -215,22 +215,29 @@ export default function WatiCenter() {
                     
                     {qrCodeImage ? (
                       <div className="flex justify-center py-4">
-                        <div className="bg-white p-4 rounded-lg border-2 border-blue-200 shadow-lg">
-                          <img 
-                            src={qrCodeImage} 
-                            alt="WhatsApp QR Code" 
-                            className="w-64 h-64 object-contain"
-                          />
-                          <p className="text-center text-sm text-gray-600 mt-2">
-                            Scan this QR code with WhatsApp
+                        <div className="bg-white p-6 rounded-xl border-4 border-blue-300 shadow-2xl">
+                          <div className="bg-white p-2 rounded-lg border border-gray-200">
+                            <img 
+                              src={qrCodeImage} 
+                              alt="WhatsApp QR Code" 
+                              className="w-72 h-72 object-contain mx-auto"
+                              style={{
+                                filter: 'contrast(1.2) brightness(1.1)',
+                                backgroundColor: 'white'
+                              }}
+                            />
+                          </div>
+                          <p className="text-center text-sm font-medium text-gray-800 mt-3 bg-yellow-100 p-2 rounded">
+                            📱 Scan this QR code with WhatsApp on +919600267509
                           </p>
                         </div>
                       </div>
                     ) : (
                       <div className="flex justify-center py-8">
-                        <div className="bg-gray-100 p-8 rounded-lg border-2 border-dashed border-gray-300">
-                          <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin text-gray-400" />
-                          <p className="text-center text-gray-600">Loading QR Code...</p>
+                        <div className="bg-white p-8 rounded-lg border-2 border-dashed border-blue-300 shadow-lg">
+                          <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin text-blue-500" />
+                          <p className="text-center text-gray-800 font-medium">Loading QR Code...</p>
+                          <p className="text-center text-gray-600 text-sm mt-1">Opening WhatsApp Web...</p>
                         </div>
                       </div>
                     )}
