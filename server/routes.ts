@@ -10,8 +10,8 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
-// WATI Service Import
-import { watiService } from './watiService';
+// WhatsApp Web Service Import
+import { whatsappWebService } from './whatsappWebService';
 
 
 
@@ -59,8 +59,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         couponCode
       });
 
-      // Send automated WATI welcome message
-      watiService.sendWelcomeMessage(customer.phoneNumber, customer.name, couponCode);
+      // Send automated WhatsApp Web welcome message
+      whatsappWebService.sendWelcomeMessage(customer.phoneNumber, customer.name, couponCode);
 
       res.status(201).json({
         customer,
@@ -355,8 +355,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalReferrals: customer.totalReferrals + 1,
       });
 
-      // Send WATI points earned notification
-      await watiService.sendPointsEarnedMessage(customer.phoneNumber, customer.name, finalPointsEarned);
+      // Send WhatsApp Web points earned notification
+      await whatsappWebService.sendPointsEarnedMessage(customer.phoneNumber, customer.name, finalPointsEarned);
 
       res.json({
         success: true,
@@ -409,8 +409,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pointsRedeemed: customer.pointsRedeemed + pointsToRedeem,
       });
 
-      // Send WATI points redemption notification
-      await watiService.sendPointsRedeemedMessage(customer.phoneNumber, customer.name, pointsToRedeem);
+      // Send WhatsApp Web points redemption notification
+      await whatsappWebService.sendPointsRedeemedMessage(customer.phoneNumber, customer.name, pointsToRedeem);
 
       res.json({
         success: true,
@@ -437,24 +437,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // WATI WhatsApp status
+  // WhatsApp Web status
   app.get("/api/whatsapp/status", async (req, res) => {
     try {
-      const status = watiService.getStatus();
+      const status = whatsappWebService.getStatus();
       res.json(status);
     } catch (error) {
-      res.status(500).json({ error: "Failed to get WATI status" });
+      res.status(500).json({ error: "Failed to get WhatsApp Web status" });
     }
   });
 
-  // Demo mode control
-  app.post("/api/whatsapp/demo-mode", async (req, res) => {
+  // Initialize WhatsApp Web connection
+  app.post("/api/whatsapp/initialize", async (req, res) => {
     try {
-      const { enabled } = req.body;
-      const result = watiService.setDemoMode(enabled);
+      const result = await whatsappWebService.initialize();
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: "Failed to set demo mode" });
+      res.status(500).json({ error: "Failed to initialize WhatsApp Web" });
+    }
+  });
+
+  // Wait for WhatsApp Web connection
+  app.post("/api/whatsapp/wait-connection", async (req, res) => {
+    try {
+      const connected = await whatsappWebService.waitForConnection();
+      res.json({ success: connected });
+    } catch (error) {
+      res.status(500).json({ error: "Connection failed" });
     }
   });
 
@@ -519,8 +528,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const phoneNumbers = customers.map(customer => customer.phoneNumber);
       const personalizedMessage = message.replace(/\[COUPON_CODE\]/g, 'your referral code').replace(/\[NAME\]/g, 'valued customer');
 
-      // Send WATI broadcast
-      const results = await watiService.sendBroadcastMessage(phoneNumbers, personalizedMessage);
+      // Send WhatsApp Web broadcast
+      const results = await whatsappWebService.sendBroadcastMessage(phoneNumbers, personalizedMessage);
 
       const successCount = results.successCount;
       const failureCount = results.failureCount;
