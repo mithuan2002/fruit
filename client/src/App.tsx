@@ -8,6 +8,7 @@ import Dashboard from "@/pages/dashboard";
 import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
 import WatiCenter from "@/pages/wati-center";
+import Scorecard from "./pages/scorecard";
 import Reports from "@/pages/reports";
 
 
@@ -24,6 +25,7 @@ function Router() {
           <Route path="/campaigns" component={Campaigns} />
           <Route path="/customers" component={Customers} />
           <Route path="/whatsapp" component={WatiCenter} />
+          <Route path="/scorecard" component={Scorecard} />
           <Route path="/reports" component={Reports} />
 
 
