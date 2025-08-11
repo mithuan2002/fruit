@@ -423,6 +423,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Register business WhatsApp number
+  app.post("/api/whatsapp/register", async (req, res) => {
+    try {
+      const { phoneNumber, businessName } = req.body;
+      
+      if (!phoneNumber) {
+        return res.status(400).json({ error: "Phone number is required" });
+      }
+
+      const result = whatsappService.registerBusinessNumber(phoneNumber, businessName);
+      res.json(result);
+    } catch (error) {
+      res.status(400).json({ error: error instanceof Error ? error.message : "Registration failed" });
+    }
+  });
+
+  // Unregister business WhatsApp
+  app.post("/api/whatsapp/unregister", async (req, res) => {
+    try {
+      const result = whatsappService.unregisterBusiness();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to unregister" });
+    }
+  });
+
   // Send broadcast WhatsApp to all customers
   app.post("/api/whatsapp/broadcast", async (req, res) => {
     try {
