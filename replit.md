@@ -4,12 +4,15 @@ Fruitbox is a comprehensive referral marketing management system built as a full
 
 ## Recent Changes (January 2025)
 
-Successfully migrated from SMS to WhatsApp automation:
-- Replaced SMS functionality with WhatsApp Web.js integration
-- Updated database schema for WhatsApp messages instead of SMS
-- Created automated messaging triggers for new customers
-- Updated UI components (WhatsApp Center instead of SMS Center)
-- Implemented QR code authentication for business WhatsApp registration
+Successfully migrated from SMS to WATI WhatsApp integration:
+- Completely replaced SMS functionality with WATI API integration
+- Removed WhatsApp Web.js simulation and implemented real WATI messaging
+- Created automated messaging triggers for new customers, points earned, and points redeemed
+- Updated UI components (WATI Center instead of SMS Center)
+- Implemented WATI API token and business number configuration interface
+- Added automatic welcome messages with referral codes for new customers
+- Added points earned notifications when customers refer others
+- Added points redemption confirmation messages
 
 # User Preferences
 
@@ -42,7 +45,8 @@ Preferred communication style: Simple, everyday language.
 - **API Protection**: Middleware-based request logging and error handling
 
 ## External Integrations
-- **SMS Service**: Twilio API integration for customer communication
+- **WhatsApp Service**: WATI API integration for WhatsApp Business messaging
+- **Real-time Messaging**: Automated customer notifications for welcome, points earned, and redemption
 - **Environment Configuration**: Support for multiple deployment environments with fallback defaults
 - **Development Tools**: Replit-specific plugins for cloud development environment
 
@@ -57,7 +61,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Core Services
 - **Neon Database**: Serverless PostgreSQL database hosting
-- **Twilio**: SMS messaging service for customer communications
+- **WATI**: WhatsApp Business API service for customer communications
 
 ## Development & Deployment
 - **Replit**: Cloud development environment with specialized tooling

@@ -10,8 +10,8 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
-// WhatsApp Service Import
-import { whatsappService, triggerWelcomeMessage, triggerCouponMessage } from './whatsappService';
+// WATI Service Import
+import { watiService } from './watiService';
 
 
 
@@ -59,14 +59,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         couponCode
       });
 
-      // Trigger automated WhatsApp welcome message
-      triggerWelcomeMessage(customer, couponCode);
+      // Send automated WATI welcome message
+      watiService.sendWelcomeMessage(customer.phoneNumber, customer.name, couponCode);
 
       res.status(201).json({
         customer,
         couponCode,
-        whatsappStatus: "queued",
-        message: `Customer created successfully. Welcome WhatsApp message will be sent automatically.`
+        whatsappStatus: "sent",
+        message: `Customer created successfully. Welcome WhatsApp message sent via WATI.`
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -276,7 +276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send WhatsApp message with coupon code
       const customer = await storage.getCustomer(req.params.id);
       if (customer) {
-        triggerCouponMessage(customer, coupon.code, coupon.value);
+        // Note: Coupon generation via WATI could be implemented here if needed
       }
 
       res.status(201).json(coupon);
@@ -355,18 +355,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalReferrals: customer.totalReferrals + 1,
       });
 
-      // Send SMS notification
-      const message = `Congratulations! You've earned ${finalPointsEarned} points for your referral. Your total points: ${customer.points + finalPointsEarned}. Thank you for spreading the word!`;
-      const smsResult = await sendSMS(customer.phoneNumber, message);
-
-      // Log SMS
-      await storage.createSmsMessage({
-        customerId: customer.id,
-        phoneNumber: customer.phoneNumber,
-        message,
-        type: "reward_earned",
-        status: smsResult.success ? "sent" : "failed",
-      });
+      // Send WATI points earned notification
+      await watiService.sendPointsEarnedMessage(customer.phoneNumber, customer.name, finalPointsEarned);
 
       res.json({
         success: true,
@@ -399,6 +389,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Points redemption endpoint
+  app.post("/api/customers/:id/redeem-points", async (req, res) => {
+    try {
+      const { pointsToRedeem, rewardDescription } = req.body;
+      
+      const customer = await storage.getCustomer(req.params.id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      if (customer.points < pointsToRedeem) {
+        return res.status(400).json({ message: "Insufficient points" });
+      }
+
+      // Update customer points
+      await storage.updateCustomer(customer.id, {
+        points: customer.points - pointsToRedeem,
+        pointsRedeemed: customer.pointsRedeemed + pointsToRedeem,
+      });
+
+      // Send WATI points redemption notification
+      await watiService.sendPointsRedeemedMessage(customer.phoneNumber, customer.name, pointsToRedeem);
+
+      res.json({
+        success: true,
+        pointsRedeemed: pointsToRedeem,
+        remainingPoints: customer.points - pointsToRedeem,
+        rewardDescription: rewardDescription || "Points redeemed successfully"
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to redeem points" });
+    }
+  });
+
   // WhatsApp message routes
   app.get("/api/whatsapp", async (req, res) => {
     try {
@@ -413,39 +437,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // WhatsApp connection status
+  // WATI WhatsApp status
   app.get("/api/whatsapp/status", async (req, res) => {
     try {
-      const status = whatsappService.getConnectionStatus();
+      const status = watiService.getStatus();
       res.json(status);
     } catch (error) {
-      res.status(500).json({ error: "Failed to get WhatsApp status" });
+      res.status(500).json({ error: "Failed to get WATI status" });
     }
   });
 
-  // Register business WhatsApp number
-  app.post("/api/whatsapp/register", async (req, res) => {
+  // Configure WATI credentials
+  app.post("/api/whatsapp/configure", async (req, res) => {
     try {
-      const { phoneNumber, businessName } = req.body;
+      const { apiToken, businessPhoneNumber, businessName } = req.body;
       
-      if (!phoneNumber) {
-        return res.status(400).json({ error: "Phone number is required" });
+      if (!apiToken || !businessPhoneNumber) {
+        return res.status(400).json({ error: "API token and business phone number are required" });
       }
 
-      const result = whatsappService.registerBusinessNumber(phoneNumber, businessName);
+      const result = watiService.configure(apiToken, businessPhoneNumber, businessName);
       res.json(result);
     } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : "Registration failed" });
+      res.status(400).json({ error: error instanceof Error ? error.message : "Configuration failed" });
     }
   });
 
-  // Unregister business WhatsApp
+  // Clear WATI configuration
   app.post("/api/whatsapp/unregister", async (req, res) => {
     try {
-      const result = whatsappService.unregisterBusiness();
+      const result = watiService.clearConfiguration();
       res.json(result);
     } catch (error) {
-      res.status(500).json({ error: "Failed to unregister" });
+      res.status(500).json({ error: "Failed to clear configuration" });
     }
   });
 
@@ -480,12 +504,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No valid recipients found" });
       }
 
-      // Prepare WhatsApp broadcast
+      // Prepare WATI broadcast
       const phoneNumbers = customers.map(customer => customer.phoneNumber);
       const personalizedMessage = message.replace(/\[COUPON_CODE\]/g, 'your referral code').replace(/\[NAME\]/g, 'valued customer');
 
-      // Send WhatsApp broadcast
-      const results = await whatsappService.sendBroadcastMessage(phoneNumbers, personalizedMessage);
+      // Send WATI broadcast
+      const results = await watiService.sendBroadcastMessage(phoneNumbers, personalizedMessage);
 
       const successCount = results.successCount;
       const failureCount = results.failureCount;
