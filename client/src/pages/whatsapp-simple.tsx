@@ -154,6 +154,11 @@ export default function WhatsAppSimple() {
               </div>
 
               <div className="space-y-3">
+                {/* Debug info */}
+                <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
+                  Debug: connected={status?.connected ? 'true' : 'false'}, showForm={showRegisterForm ? 'true' : 'false'}
+                </div>
+                
                 {!status?.connected && !showRegisterForm && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                     <p className="text-sm text-yellow-800 mb-2">
@@ -171,7 +176,8 @@ export default function WhatsAppSimple() {
                   </div>
                 )}
 
-                {!status?.connected && showRegisterForm && (
+                {/* Always show this for debugging */}
+                {(!status?.connected || showRegisterForm) && (
                   <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                     <h4 className="text-sm font-semibold text-blue-800 mb-3">Register Your Business WhatsApp</h4>
                     <form onSubmit={handleRegister} className="space-y-3">
@@ -224,6 +230,8 @@ export default function WhatsAppSimple() {
                     </form>
                   </div>
                 )}
+
+
 
                 {status?.connected && (
                   <div className="bg-green-50 border border-green-200 rounded-md p-3">
