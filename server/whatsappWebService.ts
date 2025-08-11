@@ -1,5 +1,6 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 import { storage } from './storage';
+import { execSync } from 'child_process';
 
 class WhatsAppWebService {
   private browser: Browser | null = null;
@@ -14,6 +15,41 @@ class WhatsAppWebService {
     console.log('📱 Demo mode with Puppeteer automation');
   }
 
+  private findChromiumExecutable(): string {
+    try {
+      // Try to find chromium in various locations
+      const possiblePaths = [
+        '/nix/store/*/bin/chromium',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser',
+        '/usr/bin/google-chrome',
+        'chromium',
+        'google-chrome'
+      ];
+
+      for (const path of possiblePaths) {
+        try {
+          if (path.includes('*')) {
+            // Use find command for nix store paths
+            const result = execSync(`find /nix/store -name chromium -type f -executable 2>/dev/null | head -1`, { encoding: 'utf8' }).trim();
+            if (result) return result;
+          } else {
+            execSync(`which ${path}`, { encoding: 'utf8' });
+            return path;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      console.log('⚠️ No Chromium executable found, using Puppeteer default');
+      return '';
+    } catch (error) {
+      console.log('⚠️ Error finding Chromium, using Puppeteer default');
+      return '';
+    }
+  }
+
   async initialize(): Promise<{ success: boolean; qrCode?: string; error?: string }> {
     if (this.isInitializing) {
       return { success: false, error: 'Already initializing' };
@@ -23,8 +59,12 @@ class WhatsAppWebService {
       this.isInitializing = true;
       console.log('🚀 Starting WhatsApp Web automation...');
 
+      const chromiumPath = this.findChromiumExecutable();
+      console.log(`🔍 Using Chromium at: ${chromiumPath || 'default'}`);
+
       this.browser = await puppeteer.launch({
         headless: true, // Run headless in Replit environment
+        executablePath: chromiumPath || undefined,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -39,10 +79,13 @@ class WhatsAppWebService {
           '--disable-backgrounding-occluded-windows',
           '--disable-renderer-backgrounding',
           '--single-process',
-          '--no-first-run',
-          '--disable-default-apps'
-        ],
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+          '--disable-default-apps',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-images',
+          '--disable-javascript',
+          '--virtual-time-budget=5000'
+        ]
       });
 
       this.page = await this.browser.newPage();
