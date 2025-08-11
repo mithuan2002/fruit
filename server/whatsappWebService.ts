@@ -25,7 +25,7 @@ class WhatsAppWebService {
       console.log('🚀 Starting WhatsApp Web automation...');
 
       this.browser = await puppeteer.launch({
-        headless: false, // Show browser for QR code scanning
+        headless: true, // Run headless in Replit environment
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -46,8 +46,16 @@ class WhatsAppWebService {
       // Wait for QR code or main interface
       try {
         await this.page.waitForSelector('canvas[aria-label="Scan me!"]', { timeout: 10000 });
-        console.log('📷 QR Code appeared - please scan with your phone (+919600267509)');
-        return { success: true, qrCode: 'QR Code displayed in browser window' };
+        console.log('📷 QR Code appeared - capturing for display');
+        
+        // Capture QR code as base64 image
+        const qrElement = await this.page.$('canvas[aria-label="Scan me!"]');
+        if (qrElement) {
+          const qrCodeBase64 = await qrElement.screenshot({ encoding: 'base64' });
+          return { success: true, qrCode: `data:image/png;base64,${qrCodeBase64}` };
+        }
+        
+        return { success: true, qrCode: 'QR Code captured but unable to extract image' };
       } catch (error) {
         // Maybe already logged in
         try {
@@ -201,6 +209,21 @@ Thanks for choosing ${this.businessName}! 🎁`;
       failureCount,
       results
     };
+  }
+
+  async getCurrentQRCode(): Promise<string | null> {
+    if (!this.page || this.isConnected) return null;
+    
+    try {
+      const qrElement = await this.page.$('canvas[aria-label="Scan me!"]');
+      if (qrElement) {
+        const qrCodeBase64 = await qrElement.screenshot({ encoding: 'base64' });
+        return `data:image/png;base64,${qrCodeBase64}`;
+      }
+    } catch (error) {
+      console.log('No QR code available');
+    }
+    return null;
   }
 
   getStatus() {
