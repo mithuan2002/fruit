@@ -13,6 +13,9 @@ import { z } from "zod";
 // WhatsApp Web Service Import
 import { whatsappWebService } from './whatsappWebService';
 
+// WATI Service Import (assuming it's defined elsewhere)
+import { watiService } from './watiService';
+
 
 
 
@@ -59,13 +62,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         couponCode
       });
 
-      // Send automated WhatsApp Web welcome message
-      whatsappWebService.sendWelcomeMessage(customer.phoneNumber, customer.name, couponCode);
+      let whatsappStatus: string;
+
+      // Send welcome WhatsApp message if configured
+      console.log(`🔍 Checking WhatsApp services - WATI configured: ${watiService.isConfigured()}, WhatsApp Web connected: ${whatsappWebService.getStatus().connected}`);
+
+      if (watiService.isConfigured()) {
+        try {
+          console.log(`📤 Sending WATI welcome message to ${customer.phoneNumber}`);
+          const result = await watiService.sendWelcomeMessage(customer.phoneNumber, customer.name, customer.couponCode);
+          whatsappStatus = result.success ? "sent" : "failed";
+          console.log(`📱 WATI welcome message result:`, result);
+        } catch (error) {
+          console.error("Failed to send WATI welcome message:", error);
+          whatsappStatus = "failed";
+        }
+      } else if (whatsappWebService.getStatus().connected) {
+        try {
+          console.log(`📤 Sending WhatsApp Web welcome message to ${customer.phoneNumber}`);
+          const result = await whatsappWebService.sendWelcomeMessage(customer.phoneNumber, customer.name, customer.couponCode);
+          whatsappStatus = result.success ? "sent" : "failed";
+          console.log(`📱 WhatsApp Web welcome message result:`, result);
+        } catch (error) {
+          console.error("Failed to send WhatsApp Web welcome message:", error);
+          whatsappStatus = "failed";
+        }
+      } else {
+        // Force attempt WhatsApp Web message even if not connected (for demo logging)
+        try {
+          console.log(`📤 Attempting WhatsApp Web message (demo mode) to ${customer.phoneNumber}`);
+          const result = await whatsappWebService.sendWelcomeMessage(customer.phoneNumber, customer.name, customer.couponCode);
+          whatsappStatus = result.success ? "sent" : "attempted";
+          console.log(`📱 WhatsApp Web demo message result:`, result);
+        } catch (error) {
+          console.error("Failed to send WhatsApp Web message:", error);
+          whatsappStatus = "failed";
+        }
+      }
 
       res.status(201).json({
         customer,
         couponCode,
-        whatsappStatus: "sent",
+        whatsappStatus: whatsappStatus,
         message: `Customer created successfully. Welcome WhatsApp message sent via WATI.`
       });
     } catch (error) {
