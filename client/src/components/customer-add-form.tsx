@@ -25,11 +25,11 @@ export default function CustomerAddForm() {
     onSuccess: (data) => {
       console.log("Customer creation response:", data);
       const couponCode = data.couponCode;
-      const smsStatus = data.smsStatus;
+      const whatsappStatus = data.whatsappStatus;
       
       toast({
         title: "Success!",
-        description: `Customer added successfully. ${couponCode ? `Referral code: ${couponCode}` : ''}${smsStatus === 'sent' ? ' SMS sent!' : smsStatus === 'failed' ? ' SMS failed to send.' : ''}`,
+        description: `Customer added successfully. ${couponCode ? `Referral code: ${couponCode}` : ''}${whatsappStatus === 'sent' ? ' 🎭 Demo WhatsApp message sent!' : whatsappStatus === 'failed' ? ' WhatsApp failed to send.' : ''}`,
       });
       setCustomerForm({ name: "", phoneNumber: "", points: 0 });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });

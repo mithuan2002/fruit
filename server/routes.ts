@@ -447,6 +447,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Demo mode control
+  app.post("/api/whatsapp/demo-mode", async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      const result = watiService.setDemoMode(enabled);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to set demo mode" });
+    }
+  });
+
   // Configure WATI credentials
   app.post("/api/whatsapp/configure", async (req, res) => {
     try {

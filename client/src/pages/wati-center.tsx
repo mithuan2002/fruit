@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { MessageSquare, Settings, LogOut, Key, Phone, User } from "lucide-react";
+import { MessageSquare, Settings, LogOut, Key, Phone, User, RefreshCw } from "lucide-react";
 import Header from "@/components/layout/header";
 import type { WhatsappStatus } from "@shared/schema";
 
@@ -107,7 +107,7 @@ export default function WatiCenter() {
         description="Configure WATI integration for automated WhatsApp messaging."
         showCreateButton={false}
       />
-      
+
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="space-y-6">
@@ -117,6 +117,11 @@ export default function WatiCenter() {
                 <CardTitle className="flex items-center space-x-2">
                   <MessageSquare className="h-5 w-5" />
                   <span>WATI Integration Status</span>
+                  {status?.demoMode && (
+                    <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 ml-2">
+                      DEMO MODE
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>
                   Connect your WATI account to send automated WhatsApp messages
@@ -127,12 +132,12 @@ export default function WatiCenter() {
                   <div className="flex items-center space-x-2">
                     <div>
                       <div className="text-sm font-medium">Status</div>
-                      <Badge 
+                      <Badge
                         variant={status?.configured ? "default" : "secondary"}
                         className={`text-xs ${status?.configured ? "bg-green-500" : "bg-gray-400"}`}
                         data-testid="badge-wati-status"
                       >
-                        {isLoading ? 'Checking...' : status?.configured ? 'Connected' : 'Not Configured'}
+                        {isLoading ? 'Checking...' : status?.configured ? (status?.demoMode ? 'Demo Ready' : 'Connected') : 'Not Configured'}
                       </Badge>
                     </div>
                   </div>
@@ -202,9 +207,9 @@ export default function WatiCenter() {
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                        <Button 
-                          type="submit" 
-                          size="sm" 
+                        <Button
+                          type="submit"
+                          size="sm"
                           disabled={configureMutation.isPending}
                           data-testid="button-configure"
                         >
@@ -212,9 +217,9 @@ export default function WatiCenter() {
                           {configureMutation.isPending ? "Configuring..." : "Configure WATI"}
                         </Button>
                         {status?.configured && (
-                          <Button 
-                            type="button" 
-                            variant="outline" 
+                          <Button
+                            type="button"
+                            variant="outline"
                             size="sm"
                             onClick={() => setShowConfigForm(false)}
                             data-testid="button-cancel-config"
@@ -233,13 +238,19 @@ export default function WatiCenter() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-green-800 font-medium">
-                          ✅ WATI Connected & Ready!
+                          {status?.demoMode ?
+                            '🎭 Demo mode active! All WhatsApp messages will be simulated for presentation.' :
+                            '✅ WATI Connected & Ready!'
+                          }
                         </p>
                         <p className="text-xs text-green-700">
                           Business: {status.businessNumber} ({status.businessName})
                         </p>
                         <p className="text-xs text-green-600 mt-1">
-                          Automatic messages will be sent for new customers, points earned, and redemptions.
+                          {status?.demoMode ?
+                            'Automatic messages will be logged as "sent" for demonstration.' :
+                            'Automatic messages will be sent for new customers, points earned, and redemptions.'
+                          }
                         </p>
                       </div>
                       <div className="flex space-x-2">
@@ -264,6 +275,15 @@ export default function WatiCenter() {
                         </Button>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {status?.demoMode && (
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800">
+                      <strong>Demo Setup:</strong> Shop owner phone: +919600267509<br/>
+                      All automated messages will be logged as "sent" for demonstration.
+                    </p>
                   </div>
                 )}
               </CardContent>
@@ -298,10 +318,10 @@ export default function WatiCenter() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
                   <p className="text-xs text-amber-800">
-                    <strong>Note:</strong> You need a WATI account and WhatsApp Business API access to use this feature. 
+                    <strong>Note:</strong> You need a WATI account and WhatsApp Business API access to use this feature.
                     All messages will be sent from your registered business WhatsApp number.
                   </p>
                 </div>

@@ -15,12 +15,23 @@ class WatiService {
   private businessPhoneNumber: string = '';
   private businessName: string = '';
   private isConfigured: boolean = false;
+  private demoMode: boolean = true; // Enable demo mode by default
+  private demoOwnerPhone: string = '+919600267509'; // Your phone number as shop owner
   private baseUrl: string = 'https://live-server-113452.wati.io/api/v1';
 
   constructor() {
     console.log('WATI Service initializing...');
     console.log('📱 WATI WhatsApp Service ready for configuration');
     console.log('💡 Configure your WATI API token and business number via the frontend');
+    console.log('🎭 Demo mode ENABLED - Messages will be simulated for presentation');
+    
+    // Auto-configure demo settings
+    if (this.demoMode) {
+      this.businessPhoneNumber = this.demoOwnerPhone;
+      this.businessName = 'Demo Shop';
+      this.isConfigured = true;
+      console.log('✅ Demo mode configured automatically');
+    }
   }
 
   // Configure WATI credentials
@@ -61,13 +72,14 @@ class WatiService {
       connected: this.isConfigured,
       businessNumber: this.businessPhoneNumber,
       businessName: this.businessName,
-      configured: this.isConfigured
+      configured: this.isConfigured,
+      demoMode: this.demoMode
     };
   }
 
   // Send welcome message with coupon code
   async sendWelcomeMessage(customerPhone: string, customerName: string, couponCode: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    if (!this.isConfigured) {
+    if (!this.isConfigured && !this.demoMode) {
       return {
         success: false,
         error: 'WATI not configured. Please add your API token and business number first.'
@@ -87,7 +99,7 @@ Happy shopping! 🛍️`;
 
   // Send points earned notification
   async sendPointsEarnedMessage(customerPhone: string, customerName: string, pointsEarned: number): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    if (!this.isConfigured) {
+    if (!this.isConfigured && !this.demoMode) {
       return {
         success: false,
         error: 'WATI not configured. Please add your API token and business number first.'
@@ -107,7 +119,7 @@ Thank you for being part of ${this.businessName}! 🌟`;
 
   // Send points redemption notification
   async sendPointsRedeemedMessage(customerPhone: string, customerName: string, pointsRedeemed: number): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    if (!this.isConfigured) {
+    if (!this.isConfigured && !this.demoMode) {
       return {
         success: false,
         error: 'WATI not configured. Please add your API token and business number first.'
@@ -128,7 +140,36 @@ Thanks for choosing ${this.businessName}! 🎁`;
   // Generic message sender
   private async sendMessage(phoneNumber: string, text: string, type: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
-      // Clean and format phone number (remove + and ensure it starts with country code)
+      // Demo mode - simulate successful message sending
+      if (this.demoMode) {
+        const messageId = `demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        console.log(`📤 DEMO: WhatsApp message simulated successfully:`);
+        console.log(`   From: ${this.businessPhoneNumber} (${this.businessName})`);
+        console.log(`   To: ${phoneNumber}`);
+        console.log(`   Type: ${type}`);
+        console.log(`   Message ID: ${messageId}`);
+        console.log(`   Message Preview: ${text.substring(0, 100)}...`);
+
+        // Log to database as sent
+        await storage.createWhatsappMessage({
+          phoneNumber,
+          message: text,
+          status: 'sent',
+          type,
+          customerId: null
+        });
+
+        // Simulate small delay for realism
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        return {
+          success: true,
+          messageId: messageId
+        };
+      }
+
+      // Real WATI API call (when demo mode is off)
       const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
       
       const response = await fetch(`${this.baseUrl}/sendSessionMessage/${cleanPhone}`, {
@@ -182,7 +223,7 @@ Thanks for choosing ${this.businessName}! 🎁`;
 
   // Send broadcast message to multiple recipients
   async sendBroadcastMessage(phoneNumbers: string[], message: string) {
-    if (!this.isConfigured) {
+    if (!this.isConfigured && !this.demoMode) {
       return {
         successCount: 0,
         failureCount: phoneNumbers.length,
@@ -203,8 +244,8 @@ Thanks for choosing ${this.businessName}! 🎁`;
       }
       results.push({ phoneNumber, ...result });
       
-      // Add small delay between messages to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Add small delay between messages (shorter in demo mode)
+      await new Promise(resolve => setTimeout(resolve, this.demoMode ? 200 : 1000));
     }
 
     console.log(`📊 Broadcast completed: ${successCount} sent, ${failureCount} failed`);
@@ -214,6 +255,24 @@ Thanks for choosing ${this.businessName}! 🎁`;
       failureCount,
       results
     };
+  }
+
+  // Demo mode controls
+  setDemoMode(enabled: boolean) {
+    this.demoMode = enabled;
+    if (enabled) {
+      this.businessPhoneNumber = this.demoOwnerPhone;
+      this.businessName = 'Demo Shop';
+      this.isConfigured = true;
+      console.log('🎭 Demo mode ENABLED');
+    } else {
+      console.log('🎭 Demo mode DISABLED');
+    }
+    return { demoMode: this.demoMode, configured: this.isConfigured };
+  }
+
+  getDemoMode() {
+    return this.demoMode;
   }
 }
 
