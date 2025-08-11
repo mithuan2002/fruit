@@ -5,7 +5,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
   { name: "Campaigns", href: "/campaigns", icon: Megaphone },
   { name: "Customers", href: "/customers", icon: Users },
-
+  { name: "WATI Center", href: "/whatsapp", icon: MessageSquare },
 
 ];
 

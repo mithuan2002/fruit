@@ -17,7 +17,6 @@ export default function WatiCenter() {
 
   const [isInitializing, setIsInitializing] = useState(false);
   const [showQRInstructions, setShowQRInstructions] = useState(false);
-  const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -28,33 +27,14 @@ export default function WatiCenter() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        if (data.qrCode) {
-          // QR code was captured during initialization
-          setQrCodeImage(data.qrCode);
-          setShowQRInstructions(true);
-          toast({
-            title: "WhatsApp Web Opened!",
-            description: "QR code is ready - scan it with your phone (+919600267509)",
-          });
-        } else {
-          // Need to wait for QR code
-          setShowQRInstructions(true);
-          toast({
-            title: "WhatsApp Web Opening...",
-            description: "Loading QR code, please wait...",
-          });
-        }
-        
-        // Start polling for QR code and connection updates
-        const qrInterval = setInterval(() => {
-          fetchQRCode();
-          refetch(); // Also check connection status
-        }, 2000);
-        
-        // Clear interval after 3 minutes
-        setTimeout(() => clearInterval(qrInterval), 180000);
+        setShowQRInstructions(true);
+        toast({
+          title: "WhatsApp Web Opened!",
+          description: "Please scan the QR code with your phone (+919600267509)",
+        });
+        // Start checking for connection
+        checkConnection();
       }
-      setIsInitializing(false);
     },
     onError: (error: any) => {
       toast({
@@ -65,23 +45,6 @@ export default function WatiCenter() {
       setIsInitializing(false);
     },
   });
-
-  const fetchQRCode = async () => {
-    try {
-      const response = await apiRequest("GET", "/api/whatsapp/qr-code", {});
-      const result = await response.json();
-      if (result.success && result.qrCode) {
-        console.log('QR code received:', result.qrCode.substring(0, 50) + '...');
-        setQrCodeImage(result.qrCode);
-      } else {
-        console.log('No QR code available yet');
-        setQrCodeImage(null);
-      }
-    } catch (error) {
-      console.error('Failed to fetch QR code:', error);
-      setQrCodeImage(null);
-    }
-  };
 
   const checkConnection = async () => {
     setIsInitializing(true);
@@ -95,7 +58,6 @@ export default function WatiCenter() {
           description: "WhatsApp Web is now ready to send messages",
         });
         setShowQRInstructions(false);
-        setQrCodeImage(null);
         queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/status"] });
       }
     } catch (error) {
@@ -171,9 +133,7 @@ export default function WatiCenter() {
 
                 <div className="flex items-center justify-between">
                   <span>Automation Type</span>
-                  <Badge variant="outline" className="bg-green-50 text-green-800 border-green-300">
-                    Real WhatsApp Messaging
-                  </Badge>
+                  <Badge variant="outline">WhatsApp Web + Puppeteer</Badge>
                 </div>
 
                 {!status?.connected && (
@@ -211,38 +171,11 @@ export default function WatiCenter() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 text-blue-800">
-                    <p><strong>Step 1:</strong> Open WhatsApp on your phone (+919600267509)</p>
-                    <p><strong>Step 2:</strong> Go to Settings → Linked Devices</p>
-                    <p><strong>Step 3:</strong> Tap "Link a Device" and scan the QR code below</p>
-                    
-                    {qrCodeImage ? (
-                      <div className="flex justify-center py-4">
-                        <div className="bg-white p-6 rounded-xl border-4 border-blue-300 shadow-2xl">
-                          <div className="bg-white p-2 rounded-lg border border-gray-200">
-                            <img 
-                              src={qrCodeImage} 
-                              alt="WhatsApp QR Code" 
-                              className="w-72 h-72 object-contain mx-auto"
-                              style={{
-                                filter: 'contrast(1.2) brightness(1.1)',
-                                backgroundColor: 'white'
-                              }}
-                            />
-                          </div>
-                          <p className="text-center text-sm font-medium text-gray-800 mt-3 bg-yellow-100 p-2 rounded">
-                            📱 Scan this QR code with WhatsApp on +919600267509
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex justify-center py-8">
-                        <div className="bg-white p-8 rounded-lg border-2 border-dashed border-blue-300 shadow-lg">
-                          <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin text-blue-500" />
-                          <p className="text-center text-gray-800 font-medium">Loading QR Code...</p>
-                          <p className="text-center text-gray-600 text-sm mt-1">Opening WhatsApp Web...</p>
-                        </div>
-                      </div>
-                    )}
+                    <p><strong>Step 1:</strong> A browser window opened with WhatsApp Web</p>
+                    <p><strong>Step 2:</strong> Open WhatsApp on your phone (+919600267509)</p>
+                    <p><strong>Step 3:</strong> Go to Settings → Linked Devices</p>
+                    <p><strong>Step 4:</strong> Tap "Link a Device" and scan the QR code</p>
+                    <p><strong>Step 5:</strong> Wait for connection confirmation</p>
                   </div>
                   <div className="mt-4">
                     <Button
@@ -300,11 +233,11 @@ export default function WatiCenter() {
                   </p>
                 </div>
 
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                  <p className="text-xs text-green-800">
-                    <strong>Real Messaging:</strong> This sends actual WhatsApp messages through WhatsApp Web.
-                    Messages are sent from your real WhatsApp account (+919600267509).
-                    Recipients will receive real messages instantly!
+                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                  <p className="text-xs text-amber-800">
+                    <strong>Demo Note:</strong> This uses WhatsApp Web automation via Puppeteer.
+                    Messages are sent from your actual WhatsApp account (+919600267509).
+                    Perfect for demonstrations without API verification delays!
                   </p>
                 </div>
               </CardContent>

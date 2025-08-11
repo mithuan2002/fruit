@@ -393,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers/:id/redeem-points", async (req, res) => {
     try {
       const { pointsToRedeem, rewardDescription } = req.body;
-
+      
       const customer = await storage.getCustomer(req.params.id);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
@@ -463,62 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const connected = await whatsappWebService.waitForConnection();
       res.json({ success: connected });
     } catch (error) {
-      res.status(500).json({ success: false, error: 'Connection failed' });
-    }
-  });
-
-  app.get("/api/whatsapp/qr-code", async (req, res) => {
-    try {
-      const qrCode = await whatsappWebService.getCurrentQRCode();
-      if (qrCode) {
-        res.json({ success: true, qrCode });
-      } else {
-        res.json({ success: false, error: 'No QR code available' });
-      }
-    } catch (error) {
-      res.status(500).json({ success: false, error: 'Failed to get QR code' });
-    }
-  });
-
-  // Get customer score for scorecard
-  app.get("/api/customers/score/:phone", async (req, res) => {
-    try {
-      const { phone } = req.params;
-      const customer = await storage.getCustomerByPhone(phone);
-      
-      if (!customer) {
-        return res.status(404).json({ error: "Customer not found" });
-      }
-
-      // Get customer referrals
-      const referrals = await storage.getReferralsByReferrerId(customer.id);
-      
-      // Get available coupons
-      const coupons = await storage.getCouponsByCustomerId(customer.id);
-      const availableCoupons = coupons.filter(c => !c.isUsed).length;
-      
-      // Calculate rank (simple implementation - could be more sophisticated)
-      const allCustomers = await storage.getCustomers();
-      const sortedByPoints = allCustomers.sort((a, b) => b.points - a.points);
-      const rank = sortedByPoints.findIndex(c => c.id === customer.id) + 1;
-      
-      // Next reward threshold (every 100 points)
-      const nextRewardAt = Math.ceil(customer.points / 100) * 100 || 100;
-
-      const scoreData = {
-        phone: customer.phone,
-        name: customer.name,
-        points: customer.points,
-        totalReferrals: referrals.length,
-        rank,
-        nextRewardAt,
-        availableCoupons
-      };
-
-      res.json(scoreData);
-    } catch (error) {
-      console.error('Error fetching customer score:', error);
-      res.status(500).json({ error: "Failed to fetch customer score" });
+      res.status(500).json({ error: "Connection failed" });
     }
   });
 
@@ -526,7 +471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/whatsapp/configure", async (req, res) => {
     try {
       const { apiToken, businessPhoneNumber, businessName } = req.body;
-
+      
       if (!apiToken || !businessPhoneNumber) {
         return res.status(400).json({ error: "API token and business phone number are required" });
       }
