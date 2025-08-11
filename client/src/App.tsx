@@ -7,7 +7,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
-import WhatsAppCenter from "@/pages/sms-center";
+import WhatsAppCenter from "@/pages/whatsapp-simple";
 import Reports from "@/pages/reports";
 
 
