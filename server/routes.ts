@@ -10,9 +10,6 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 
-// WhatsApp Web Service Import
-import { whatsappWebService } from './whatsappWebService';
-
 
 
 
@@ -59,14 +56,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         couponCode
       });
 
-      // Send automated WhatsApp Web welcome message
-      whatsappWebService.sendWelcomeMessage(customer.phoneNumber, customer.name, couponCode);
-
       res.status(201).json({
         customer,
         couponCode,
-        whatsappStatus: "sent",
-        message: `Customer created successfully. Welcome WhatsApp message sent via WATI.`
+        message: `Customer created successfully.`
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -172,20 +165,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No customers found to send messages to" });
       }
 
-      // Prepare WhatsApp broadcast
-      const phoneNumbers = customers.map(customer => customer.phoneNumber);
-      const personalizedMessage = message.replace(/\[COUPON_CODE\]/g, 'your referral code');
-
-      // Send WhatsApp broadcast
-      const results = await whatsappService.sendBroadcastMessage(phoneNumbers, personalizedMessage);
-
       res.json({
-        success: results.successCount > 0,
+        success: true,
         totalRecipients: customers.length,
-        messagesSent: results.successCount,
-        messagesFailed: results.failureCount,
-        results: results.results,
-        summary: `${results.successCount} WhatsApp messages sent successfully, ${results.failureCount} failed`
+        messagesSent: 0,
+        messagesFailed: 0,
+        summary: `Campaign message prepared for ${customers.length} customers`
       });
     } catch (error) {
       console.error("Failed to send campaign messages:", error);
@@ -355,8 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalReferrals: customer.totalReferrals + 1,
       });
 
-      // Send WhatsApp Web points earned notification
-      await whatsappWebService.sendPointsEarnedMessage(customer.phoneNumber, customer.name, finalPointsEarned);
+      
 
       res.json({
         success: true,
@@ -409,8 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pointsRedeemed: customer.pointsRedeemed + pointsToRedeem,
       });
 
-      // Send WhatsApp Web points redemption notification
-      await whatsappWebService.sendPointsRedeemedMessage(customer.phoneNumber, customer.name, pointsToRedeem);
+      
 
       res.json({
         success: true,
@@ -423,182 +406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // WhatsApp message routes
-  app.get("/api/whatsapp", async (req, res) => {
-    try {
-      const messages = await storage.getAllWhatsappMessages();
-      // Sort by most recent first and limit to 100
-      const sortedMessages = messages
-        .sort((a, b) => (b.sentAt ? new Date(b.sentAt).getTime() : 0) - (a.sentAt ? new Date(a.sentAt).getTime() : 0))
-        .slice(0, 100);
-      res.json(sortedMessages);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch WhatsApp messages" });
-    }
-  });
-
-  // WhatsApp Web status
-  app.get("/api/whatsapp/status", async (req, res) => {
-    try {
-      const status = whatsappWebService.getStatus();
-      res.json(status);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to get WhatsApp Web status" });
-    }
-  });
-
-  // Initialize WhatsApp Web connection
-  app.post("/api/whatsapp/initialize", async (req, res) => {
-    try {
-      const result = await whatsappWebService.initialize();
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to initialize WhatsApp Web" });
-    }
-  });
-
-  // Wait for WhatsApp Web connection
-  app.post("/api/whatsapp/wait-connection", async (req, res) => {
-    try {
-      const connected = await whatsappWebService.waitForConnection();
-      res.json({ success: connected });
-    } catch (error) {
-      res.status(500).json({ success: false, error: 'Connection failed' });
-    }
-  });
-
-  app.get("/api/whatsapp/qr-code", async (req, res) => {
-    try {
-      const qrCode = await whatsappWebService.getCurrentQRCode();
-      if (qrCode) {
-        res.json({ success: true, qrCode });
-      } else {
-        res.json({ success: false, error: 'No QR code available' });
-      }
-    } catch (error) {
-      res.status(500).json({ success: false, error: 'Failed to get QR code' });
-    }
-  });
-
-  // Configure WATI credentials
-  app.post("/api/whatsapp/configure", async (req, res) => {
-    try {
-      const { apiToken, businessPhoneNumber, businessName } = req.body;
-
-      if (!apiToken || !businessPhoneNumber) {
-        return res.status(400).json({ error: "API token and business phone number are required" });
-      }
-
-      const result = watiService.configure(apiToken, businessPhoneNumber, businessName);
-      res.json(result);
-    } catch (error) {
-      res.status(400).json({ error: error instanceof Error ? error.message : "Configuration failed" });
-    }
-  });
-
-  // Clear WATI configuration
-  app.post("/api/whatsapp/unregister", async (req, res) => {
-    try {
-      const result = watiService.clearConfiguration();
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to clear configuration" });
-    }
-  });
-
-  // Send broadcast WhatsApp to all customers
-  app.post("/api/whatsapp/broadcast", async (req, res) => {
-    try {
-      const { message, recipients = "all" } = req.body;
-
-      if (!message || message.trim().length === 0) {
-        return res.status(400).json({ error: "Message content is required" });
-      }
-
-      if (message.length > 1600) {
-        return res.status(400).json({ error: "Message too long. Maximum 1600 characters allowed." });
-      }
-
-      let customers = [];
-
-      if (recipients === "all") {
-        customers = await storage.getAllCustomers();
-      } else if (Array.isArray(recipients)) {
-        // Custom recipient list by phone numbers
-        for (const phoneNumber of recipients) {
-          const customer = await storage.getCustomerByPhone(phoneNumber);
-          if (customer) {
-            customers.push(customer);
-          }
-        }
-      }
-
-      if (customers.length === 0) {
-        return res.status(400).json({ error: "No valid recipients found" });
-      }
-
-      // Prepare WATI broadcast
-      const phoneNumbers = customers.map(customer => customer.phoneNumber);
-      const personalizedMessage = message.replace(/\[COUPON_CODE\]/g, 'your referral code').replace(/\[NAME\]/g, 'valued customer');
-
-      // Send WhatsApp Web broadcast
-      const results = await whatsappWebService.sendBroadcastMessage(phoneNumbers, personalizedMessage);
-
-      const successCount = results.successCount;
-      const failureCount = results.failureCount;
-
-      res.json({
-        success: successCount > 0,
-        totalRecipients: customers.length,
-        messagesSent: successCount,
-        messagesFailed: failureCount,
-        results: results.results,
-        summary: `${successCount} messages sent successfully${failureCount > 0 ? `, ${failureCount} failed` : ''}`
-      });
-
-    } catch (error) {
-      console.error("Failed to send broadcast WhatsApp:", error);
-      res.status(500).json({ error: "Failed to send broadcast messages" });
-    }
-  });
-
-  // WhatsApp statistics
-  app.get("/api/whatsapp/stats", async (req, res) => {
-    try {
-      const messages = await storage.getAllWhatsappMessages();
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-      const todayMessages = messages.filter(msg => msg.sentAt && new Date(msg.sentAt) >= startOfDay);
-      const sentToday = todayMessages.filter(msg => msg.status === "sent").length;
-      const failedToday = todayMessages.filter(msg => msg.status === "failed").length;
-
-      const totalSent = messages.filter(msg => msg.status === "sent").length;
-      const totalFailed = messages.filter(msg => msg.status === "failed").length;
-
-      const messagesByType = messages.reduce((acc, msg) => {
-        acc[msg.type] = (acc[msg.type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      res.json({
-        today: {
-          sent: sentToday,
-          failed: failedToday,
-          total: todayMessages.length
-        },
-        allTime: {
-          sent: totalSent,
-          failed: totalFailed,
-          total: messages.length
-        },
-        messagesByType,
-        deliveryRate: totalSent + totalFailed > 0 ? Math.round((totalSent / (totalSent + totalFailed)) * 100) : 0
-      });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch WhatsApp statistics" });
-    }
-  });
+  
 
 
 

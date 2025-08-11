@@ -114,23 +114,7 @@ export type InsertReferral = z.infer<typeof insertReferralSchema>;
 export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
 export type InsertWhatsappMessage = z.infer<typeof insertWhatsappMessageSchema>;
 
-// WATI WhatsApp service types
-export const watiConfigSchema = z.object({
-  apiToken: z.string(),
-  businessPhoneNumber: z.string(),
-  businessName: z.string(),
-  isConfigured: z.boolean()
-});
 
-export const whatsappStatusSchema = z.object({
-  connected: z.boolean(),
-  businessNumber: z.string(),
-  businessName: z.string(),
-  configured: z.boolean()
-});
-
-export type WatiConfig = z.infer<typeof watiConfigSchema>;
-export type WhatsappStatus = z.infer<typeof whatsappStatusSchema>;
 
 // Points redemption schema
 export const redeemPointsSchema = z.object({

@@ -7,7 +7,6 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
-import WatiCenter from "@/pages/wati-center";
 import Reports from "@/pages/reports";
 
 
@@ -23,10 +22,7 @@ function Router() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/campaigns" component={Campaigns} />
           <Route path="/customers" component={Customers} />
-          <Route path="/whatsapp" component={WatiCenter} />
           <Route path="/reports" component={Reports} />
-
-
           <Route component={NotFound} />
         </Switch>
       </div>

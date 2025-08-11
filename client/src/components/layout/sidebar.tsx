@@ -1,12 +1,10 @@
 import { Link, useLocation } from "wouter";
-import { Gift, BarChart3, Megaphone, Users, Ticket, MessageSquare, PieChart } from "lucide-react";
+import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
   { name: "Campaigns", href: "/campaigns", icon: Megaphone },
   { name: "Customers", href: "/customers", icon: Users },
-  { name: "WATI Center", href: "/whatsapp", icon: MessageSquare },
-
 ];
 
 export default function Sidebar() {
