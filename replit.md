@@ -1,6 +1,15 @@
 # Overview
 
-Fruitbox is a comprehensive referral marketing management system built as a full-stack web application. It provides businesses with tools to create and manage referral campaigns, track customer engagement, distribute coupon codes, and communicate with customers via SMS. The platform features a modern dashboard interface for monitoring campaign performance, customer management, and analytics reporting.
+Fruitbox is a comprehensive referral marketing management system built as a full-stack web application. It provides businesses with tools to create and manage referral campaigns, track customer engagement, distribute coupon codes, and communicate with customers via automated WhatsApp messaging. The platform features a modern dashboard interface for monitoring campaign performance, customer management, and analytics reporting.
+
+## Recent Changes (January 2025)
+
+Successfully migrated from SMS to WhatsApp automation:
+- Replaced SMS functionality with WhatsApp Web.js integration
+- Updated database schema for WhatsApp messages instead of SMS
+- Created automated messaging triggers for new customers
+- Updated UI components (WhatsApp Center instead of SMS Center)
+- Implemented QR code authentication for business WhatsApp registration
 
 # User Preferences
 

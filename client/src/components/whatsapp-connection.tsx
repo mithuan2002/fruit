@@ -52,16 +52,15 @@ export default function WhatsAppConnection() {
               <WifiOff className="h-5 w-5 text-red-500" />
             )}
             <div>
-              <p className="text-sm font-medium">
-                Status: 
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Status:</span>
                 <Badge 
                   variant={status?.connected ? "default" : "destructive"}
-                  className="ml-2"
                   data-testid="badge-connection-status"
                 >
                   {isLoading ? "Checking..." : status?.connected ? "Connected" : "Disconnected"}
                 </Badge>
-              </p>
+              </div>
               {status?.businessNumber && (
                 <p className="text-xs text-muted-foreground" data-testid="text-business-number">
                   Business Number: {status.businessNumber}
@@ -74,9 +73,16 @@ export default function WhatsAppConnection() {
         <div className="mt-4 space-y-2">
           {!status?.connected && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-              <p className="text-sm text-yellow-800">
-                <strong>Action Required:</strong> Scan the QR code in the server console to connect your WhatsApp Business account.
+              <p className="text-sm text-yellow-800 mb-2">
+                <strong>Setup Required:</strong> Connect your WhatsApp Business account
               </p>
+              <div className="text-xs text-yellow-700 space-y-1">
+                <p>1. Check the server console for a QR code</p>
+                <p>2. Open WhatsApp on your business phone</p>
+                <p>3. Go to Settings → Linked Devices → Link a Device</p>
+                <p>4. Scan the QR code displayed in the console</p>
+                <p>5. Your business WhatsApp will be the sender for all automated messages</p>
+              </div>
             </div>
           )}
 

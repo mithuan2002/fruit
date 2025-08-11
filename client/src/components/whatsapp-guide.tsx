@@ -6,8 +6,8 @@ export default function WhatsAppGuide() {
   const steps = [
     {
       icon: <QrCode className="h-5 w-5" />,
-      title: "Connect WhatsApp Business",
-      description: "Scan the QR code from your server console with WhatsApp to link your business account",
+      title: "Connect Your Business WhatsApp",
+      description: "Use your business WhatsApp phone to scan the QR code - this becomes the sender for all automated messages",
       status: "required"
     },
     {
@@ -87,11 +87,24 @@ export default function WhatsAppGuide() {
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Shield className="h-4 w-4 text-blue-600" />
-            <h4 className="text-sm font-semibold text-blue-800">Security & Compliance</h4>
+            <Smartphone className="h-4 w-4 text-blue-600" />
+            <h4 className="text-sm font-semibold text-blue-800">How to Register Your Shop WhatsApp</h4>
           </div>
-          <p className="text-xs text-blue-700">
-            This system uses WhatsApp Web.js for educational purposes. For production use, ensure compliance with WhatsApp Business API policies and your local regulations.
+          <div className="text-xs text-blue-700 space-y-1">
+            <p><strong>1.</strong> Use your business WhatsApp account (the phone number customers will see)</p>
+            <p><strong>2.</strong> When you scan the QR code, that WhatsApp account becomes the sender</p>
+            <p><strong>3.</strong> All automated messages will appear to come from your business number</p>
+            <p><strong>4.</strong> Customers can reply directly to your business WhatsApp</p>
+          </div>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="h-4 w-4 text-amber-600" />
+            <h4 className="text-sm font-semibold text-amber-800">Educational Purpose</h4>
+          </div>
+          <p className="text-xs text-amber-700">
+            This system uses WhatsApp Web.js for educational study purposes. For production use, ensure compliance with WhatsApp Business API policies.
           </p>
         </div>
 
