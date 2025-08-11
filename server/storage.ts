@@ -7,8 +7,8 @@ import {
   type InsertCoupon,
   type Referral,
   type InsertReferral,
-  type SmsMessage,
-  type InsertSmsMessage
+  type WhatsappMessage,
+  type InsertWhatsappMessage
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -47,11 +47,12 @@ export interface IStorage {
   createReferral(referral: InsertReferral): Promise<Referral>;
   updateReferral(id: string, updates: Partial<Referral>): Promise<Referral | undefined>;
 
-  // SMS operations
-  getSmsMessage(id: string): Promise<SmsMessage | undefined>;
-  getAllSmsMessages(): Promise<SmsMessage[]>;
-  getSmsMessagesByCustomer(customerId: string): Promise<SmsMessage[]>;
-  createSmsMessage(smsMessage: InsertSmsMessage): Promise<SmsMessage>;
+  // WhatsApp operations
+  getWhatsappMessage(id: string): Promise<WhatsappMessage | undefined>;
+  getAllWhatsappMessages(): Promise<WhatsappMessage[]>;
+  getWhatsappMessagesByCustomer(customerId: string): Promise<WhatsappMessage[]>;
+  createWhatsappMessage(whatsappMessage: InsertWhatsappMessage): Promise<WhatsappMessage>;
+  updateWhatsappMessage(id: string, updates: Partial<WhatsappMessage>): Promise<WhatsappMessage | undefined>;
 
   // Utility operations
   generateUniqueCode(): Promise<string>;
@@ -77,14 +78,14 @@ export class MemStorage implements IStorage {
   private campaigns: Map<string, Campaign>;
   private coupons: Map<string, Coupon>;
   private referrals: Map<string, Referral>;
-  private smsMessages: Map<string, SmsMessage>;
+  private whatsappMessages: Map<string, WhatsappMessage>;
 
   constructor() {
     this.customers = new Map();
     this.campaigns = new Map();
     this.coupons = new Map();
     this.referrals = new Map();
-    this.smsMessages = new Map();
+    this.whatsappMessages = new Map();
   }
 
   // Customer operations
@@ -270,32 +271,41 @@ export class MemStorage implements IStorage {
     return updatedReferral;
   }
 
-  // SMS operations
-  async getSmsMessage(id: string): Promise<SmsMessage | undefined> {
-    return this.smsMessages.get(id);
+  // WhatsApp operations
+  async getWhatsappMessage(id: string): Promise<WhatsappMessage | undefined> {
+    return this.whatsappMessages.get(id);
   }
 
-  async getAllSmsMessages(): Promise<SmsMessage[]> {
-    return Array.from(this.smsMessages.values());
+  async getAllWhatsappMessages(): Promise<WhatsappMessage[]> {
+    return Array.from(this.whatsappMessages.values());
   }
 
-  async getSmsMessagesByCustomer(customerId: string): Promise<SmsMessage[]> {
-    return Array.from(this.smsMessages.values()).filter(
-      sms => sms.customerId === customerId
+  async getWhatsappMessagesByCustomer(customerId: string): Promise<WhatsappMessage[]> {
+    return Array.from(this.whatsappMessages.values()).filter(
+      msg => msg.customerId === customerId
     );
   }
 
-  async createSmsMessage(insertSmsMessage: InsertSmsMessage): Promise<SmsMessage> {
+  async createWhatsappMessage(insertWhatsappMessage: InsertWhatsappMessage): Promise<WhatsappMessage> {
     const id = randomUUID();
-    const smsMessage: SmsMessage = {
-      ...insertSmsMessage,
+    const whatsappMessage: WhatsappMessage = {
+      ...insertWhatsappMessage,
       id,
-      customerId: insertSmsMessage.customerId || null,
-      status: insertSmsMessage.status || "sent",
+      customerId: insertWhatsappMessage.customerId || null,
+      status: insertWhatsappMessage.status || "pending",
       sentAt: new Date(),
     };
-    this.smsMessages.set(id, smsMessage);
-    return smsMessage;
+    this.whatsappMessages.set(id, whatsappMessage);
+    return whatsappMessage;
+  }
+
+  async updateWhatsappMessage(id: string, updates: Partial<WhatsappMessage>): Promise<WhatsappMessage | undefined> {
+    const message = this.whatsappMessages.get(id);
+    if (!message) return undefined;
+
+    const updatedMessage = { ...message, ...updates };
+    this.whatsappMessages.set(id, updatedMessage);
+    return updatedMessage;
   }
 
   // Utility methods

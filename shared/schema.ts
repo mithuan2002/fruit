@@ -53,13 +53,13 @@ export const referrals = pgTable("referrals", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const smsMessages = pgTable("sms_messages", {
+export const whatsappMessages = pgTable("whatsapp_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id").references(() => customers.id),
   phoneNumber: text("phone_number").notNull(),
   message: text("message").notNull(),
-  type: text("type").notNull(), // campaign_launch, reward_earned, broadcast, reminder
-  status: text("status").notNull().default("sent"), // sent, delivered, failed
+  type: text("type").notNull(), // welcome_referral, coupon_generated, reward_earned, broadcast
+  status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
   sentAt: timestamp("sent_at").defaultNow(),
 });
 
@@ -91,11 +91,11 @@ export const insertReferralSchema = createInsertSchema(referrals).omit({
   createdAt: true,
 });
 
-export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({
+export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages).omit({
   id: true,
   sentAt: true,
 }).extend({
-  type: z.enum(["coupon_generated", "reward_earned", "broadcast", "welcome_referral"]),
+  type: z.enum(["welcome_referral", "coupon_generated", "reward_earned", "broadcast"]),
 });
 
 // Types
@@ -111,5 +111,5 @@ export type InsertCoupon = z.infer<typeof insertCouponSchema>;
 export type Referral = typeof referrals.$inferSelect;
 export type InsertReferral = z.infer<typeof insertReferralSchema>;
 
-export type SmsMessage = typeof smsMessages.$inferSelect;
-export type InsertSmsMessage = z.infer<typeof insertSmsMessageSchema>;
+export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
+export type InsertWhatsappMessage = z.infer<typeof insertWhatsappMessageSchema>;

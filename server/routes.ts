@@ -6,330 +6,16 @@ import {
   insertCampaignSchema,
   insertCouponSchema,
   insertReferralSchema,
-  insertSmsMessageSchema
+  insertWhatsappMessageSchema
 } from "@shared/schema";
 import { z } from "zod";
 
-// Twilio SMS Service
-async function sendTwilioSMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
-
-    // Validate required credentials
-    if (!accountSid || !authToken || !fromNumber) {
-      console.warn('Twilio credentials not configured - SMS functionality disabled');
-      return {
-        success: false,
-        error: 'SMS service not configured. Please set Twilio credentials.'
-      };
-    }
-
-    // Validate phone number format (basic validation)
-    if (!phoneNumber || phoneNumber.length < 10) {
-      return {
-        success: false,
-        error: 'Invalid phone number format'
-      };
-    }
-
-    // Ensure phone number has country code
-    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+1${phoneNumber.replace(/\D/g, '')}`;
-
-    console.log(`Sending SMS to ${formattedPhone}...`);
-
-    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        From: fromNumber,
-        To: formattedPhone,
-        Body: message,
-      }),
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log(`SMS sent successfully. Message ID: ${result.sid}`);
-      console.log(`Message status: ${result.status}`);
-      console.log(`Price: ${result.price} ${result.price_unit}`);
-      console.log(`Direction: ${result.direction}`);
-
-      // Check if there are any immediate error codes
-      if (result.error_code) {
-        console.warn(`Twilio warning - Error code: ${result.error_code}, Message: ${result.error_message}`);
-      }
-
-      return {
-        success: true,
-        messageId: result.sid
-      };
-    } else {
-      const errorData = await response.json();
-      console.error('Twilio API error:', errorData);
-      return {
-        success: false,
-        error: errorData.message || 'Failed to send SMS'
-      };
-    }
-  } catch (error) {
-    console.error('SMS sending failed:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-  }
-}
-
-// TextMagic SMS Service
-async function sendTextMagicSMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    const username = process.env.TEXTMAGIC_USERNAME;
-    const apiKey = process.env.TEXTMAGIC_API_KEY;
-
-    if (!username || !apiKey) {
-      console.warn('TextMagic credentials not configured - SMS functionality disabled');
-      return {
-        success: false,
-        error: 'SMS service not configured. Please set TextMagic credentials.'
-      };
-    }
-
-    // TextMagic expects phone numbers without country code, but with leading zero for some regions.
-    // For simplicity, we'll strip country code and ensure it starts with a valid number.
-    const formattedPhone = phoneNumber.replace(/[^0-9]/g, '');
-
-    console.log(`Sending SMS to ${formattedPhone} via TextMagic...`);
-
-    const response = await fetch(`https://api.textmagic.com/v2/sms`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: username,
-        apiv2: apiKey,
-        phones: [{
-          number: formattedPhone,
-          list_id: 0, // Use 0 for sending to a single number
-          client_id: 0 // Use 0 for sending to a single number
-        }],
-        text: message,
-        source: 'api'
-      }),
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log(`TextMagic SMS sent successfully. Message ID: ${result.id}`);
-      // TextMagic returns a list of message statuses, we assume the first one is for our number
-      const messageStatus = result.messages && result.messages.length > 0 ? result.messages[0] : null;
-      if (messageStatus && messageStatus.status === 'delivered') {
-        return { success: true, messageId: messageStatus.id };
-      } else {
-        console.warn(`TextMagic message status: ${messageStatus?.status}, Error: ${messageStatus?.error}`);
-        return { success: false, error: messageStatus?.error || 'Message not delivered' };
-      }
-    } else {
-      const errorData = await response.json();
-      console.error('TextMagic API error:', errorData);
-      return {
-        success: false,
-        error: errorData.message || 'Failed to send SMS via TextMagic'
-      };
-    }
-  } catch (error) {
-    console.error('SMS sending failed via TextMagic:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-  }
-}
-
-// Fast2SMS Service (Indian provider - very affordable)
-async function sendFast2SMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    const apiKey = process.env.FAST2SMS_API_KEY;
-    const senderId = process.env.FAST2SMS_SENDER_ID || 'FAST2S';
-
-    if (!apiKey) {
-      return {
-        success: false,
-        error: 'Fast2SMS API key not configured'
-      };
-    }
-
-    const formattedPhone = phoneNumber.startsWith('+91') ? phoneNumber.substring(3) : phoneNumber.replace(/\D/g, '');
-
-    const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
-      method: 'POST',
-      headers: {
-        'Authorization': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        route: 'q',
-        message,
-        language: 'english',
-        flash: 0,
-        numbers: formattedPhone,
-        sender_id: senderId,
-      }),
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log(`Fast2SMS response:`, result);
-
-      if (result.return === true) {
-        console.log(`Fast2SMS sent successfully. Job ID: ${result.job_id}`);
-        return {
-          success: true,
-          messageId: result.job_id || result.request_id
-        };
-      } else {
-        console.error('Fast2SMS error:', result.message);
-        return {
-          success: false,
-          error: result.message || 'Failed to send SMS via Fast2SMS'
-        };
-      }
-    } else {
-      const errorData = await response.json();
-      console.error('Fast2SMS API error:', errorData);
-      return {
-        success: false,
-        error: errorData.message || 'Fast2SMS API request failed'
-      };
-    }
-  } catch (error) {
-    console.error('Fast2SMS sending failed:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-  }
-}
-
-// MSG91 SMS Service (Indian provider)
-async function sendMSG91SMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    const authKey = process.env.MSG91_AUTH_KEY;
-    const senderId = process.env.MSG91_SENDER_ID;
-    const countryCode = "91"; // Default to India
-
-    if (!authKey || !senderId) {
-      console.warn('MSG91 credentials not configured - SMS functionality disabled');
-      return {
-        success: false,
-        error: 'SMS service not configured. Please set MSG91 credentials.'
-      };
-    }
-
-    // MSG91 expects phone number with country code
-    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber.replace(/\D/g, '') : `${countryCode}${phoneNumber.replace(/\D/g, '')}`;
-
-    console.log(`Sending SMS to ${formattedPhone} via MSG91...`);
-
-    const response = await fetch(`https://api.msg91.com/api/v5/flow`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        flow_id: '65f2131b2327111982074a80', // Replace with your actual flow ID if needed
-        sender: senderId,
-        country_code: countryCode,
-        to: formattedPhone,
-        message: message,
-        authkey: authKey,
-      }),
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log(`MSG91 response:`, result);
-
-      if (result.type === 'success') {
-        console.log(`MSG91 SMS sent successfully. Message ID: ${result.message_id}`);
-        return {
-          success: true,
-          messageId: result.message_id
-        };
-      } else {
-        console.error('MSG91 error:', result.message);
-        return {
-          success: false,
-          error: result.message || 'Failed to send SMS via MSG91'
-        };
-      }
-    } else {
-      const errorData = await response.json();
-      console.error('MSG91 API error:', errorData);
-      return {
-        success: false,
-        error: errorData.message || 'MSG91 API request failed'
-      };
-    }
-  } catch (error) {
-    console.error('SMS sending failed via MSG91:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-  }
-}
+// WhatsApp Service Import
+import { whatsappService, triggerWelcomeMessage, triggerCouponMessage } from './whatsappService';
 
 
-// Enhanced SMS Service with multiple provider support
-async function sendSMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const provider = process.env.SMS_PROVIDER || 'twilio'; // 'twilio', 'textmagic', 'msg91', 'fast2sms'
 
-  switch (provider) {
-    case 'fast2sms':
-      return sendFast2SMS(phoneNumber, message);
-    case 'textmagic':
-      return sendTextMagicSMS(phoneNumber, message);
-    case 'msg91':
-      return sendMSG91SMS(phoneNumber, message);
-    default:
-      return sendTwilioSMS(phoneNumber, message);
-  }
-}
 
-// Batch SMS sending with rate limiting
-async function sendBatchSMS(recipients: Array<{ phoneNumber: string; message: string; customerId?: string }>): Promise<Array<{ phoneNumber: string; success: boolean; messageId?: string; error?: string }>> {
-  const results = [];
-  const batchSize = 5; // Send 5 SMS at a time to avoid rate limits
-  const delay = 1000; // 1 second delay between batches
-
-  for (let i = 0; i < recipients.length; i += batchSize) {
-    const batch = recipients.slice(i, i + batchSize);
-    const batchPromises = batch.map(async (recipient) => {
-      const result = await sendSMS(recipient.phoneNumber, recipient.message);
-      return {
-        phoneNumber: recipient.phoneNumber,
-        customerId: recipient.customerId,
-        ...result
-      };
-    });
-
-    const batchResults = await Promise.all(batchPromises);
-    results.push(...batchResults);
-
-    // Add delay between batches (except for the last batch)
-    if (i + batchSize < recipients.length) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-
-  return results;
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Customer routes
@@ -373,24 +59,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         couponCode
       });
 
-      // Send welcome SMS with referral code
-      const message = `Thanks for purchasing! Share your referral code ${couponCode} with your friends and family, earn points and avail special offers & rewards!`;
-      const smsResult = await sendSMS(customer.phoneNumber, message);
-
-      // Log SMS
-      await storage.createSmsMessage({
-        customerId: customer.id,
-        phoneNumber: customer.phoneNumber,
-        message,
-        type: "welcome_referral",
-        status: smsResult.success ? "sent" : "failed",
-      });
+      // Trigger automated WhatsApp welcome message
+      triggerWelcomeMessage(customer, couponCode);
 
       res.status(201).json({
         customer,
         couponCode,
-        smsStatus: smsResult.success ? "sent" : "failed",
-        message: `Customer created successfully. Referral code: ${couponCode}`
+        whatsappStatus: "queued",
+        message: `Customer created successfully. Welcome WhatsApp message will be sent automatically.`
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -496,40 +172,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No customers found to send messages to" });
       }
 
-      // Prepare batch SMS recipients
-      const recipients = customers.map(customer => ({
-        phoneNumber: customer.phoneNumber,
-        message: message.replace(/\[COUPON_CODE\]/g, customer.couponCode || 'N/A'),
-        customerId: customer.id
-      }));
+      // Prepare WhatsApp broadcast
+      const phoneNumbers = customers.map(customer => customer.phoneNumber);
+      const personalizedMessage = message.replace(/\[COUPON_CODE\]/g, 'your referral code');
 
-      // Send messages in batches to avoid rate limits
-      const results = await sendBatchSMS(recipients);
-      const sentMessages = [];
-
-      // Log all SMS messages
-      for (const result of results) {
-        const customer = customers.find(c => c.phoneNumber === result.phoneNumber);
-        const smsRecord = await storage.createSmsMessage({
-          phoneNumber: result.phoneNumber,
-          message: recipients.find(r => r.phoneNumber === result.phoneNumber)?.message || message,
-          status: result.success ? "sent" : "failed",
-          customerId: customer?.id || null,
-          type: "broadcast",
-        });
-        sentMessages.push({ ...smsRecord, messageId: result.messageId, error: result.error });
-      }
-
-      const successCount = results.filter(r => r.success).length;
-      const failureCount = results.filter(r => !r.success).length;
+      // Send WhatsApp broadcast
+      const results = await whatsappService.sendBroadcastMessage(phoneNumbers, personalizedMessage);
 
       res.json({
-        success: successCount > 0,
+        success: results.successCount > 0,
         totalRecipients: customers.length,
-        messagesSent: successCount,
-        messagesFailed: failureCount,
-        messages: sentMessages,
-        summary: `${successCount} messages sent successfully, ${failureCount} failed`
+        messagesSent: results.successCount,
+        messagesFailed: results.failureCount,
+        results: results.results,
+        summary: `${results.successCount} WhatsApp messages sent successfully, ${results.failureCount} failed`
       });
     } catch (error) {
       console.error("Failed to send campaign messages:", error);
@@ -617,20 +273,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isActive: true,
       });
 
-      // Send SMS with coupon code
+      // Send WhatsApp message with coupon code
       const customer = await storage.getCustomer(req.params.id);
       if (customer) {
-        const message = `Your referral code is: ${coupon.code}. Share this with friends to earn points when they make a purchase!`;
-        const smsResult = await sendSMS(customer.phoneNumber, message);
-
-        // Log SMS
-        await storage.createSmsMessage({
-          customerId: customer.id,
-          phoneNumber: customer.phoneNumber,
-          message,
-          type: "coupon_generated",
-          status: smsResult.success ? "sent" : "failed",
-        });
+        triggerCouponMessage(customer, coupon.code, coupon.value);
       }
 
       res.status(201).json(coupon);
@@ -753,71 +399,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // SMS routes
-  app.get("/api/sms", async (req, res) => {
+  // WhatsApp message routes
+  app.get("/api/whatsapp", async (req, res) => {
     try {
-      const messages = await storage.getAllSmsMessages();
+      const messages = await storage.getAllWhatsappMessages();
       // Sort by most recent first and limit to 100
       const sortedMessages = messages
         .sort((a, b) => (b.sentAt ? new Date(b.sentAt).getTime() : 0) - (a.sentAt ? new Date(a.sentAt).getTime() : 0))
         .slice(0, 100);
       res.json(sortedMessages);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch SMS messages" });
+      res.status(500).json({ message: "Failed to fetch WhatsApp messages" });
     }
   });
 
-  // Check Twilio message status - updated route
-  app.get("/api/sms/status/:messageId", async (req, res) => {
+  // WhatsApp connection status
+  app.get("/api/whatsapp/status", async (req, res) => {
     try {
-      const accountSid = process.env.TWILIO_ACCOUNT_SID;
-      const authToken = process.env.TWILIO_AUTH_TOKEN;
-      const messageId = req.params.messageId;
-
-      if (!accountSid || !authToken) {
-        return res.status(400).json({ error: "Twilio credentials not configured" });
-      }
-
-      console.log(`Checking status for message: ${messageId}`);
-
-      const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages/${messageId}.json`, {
-        headers: {
-          'Authorization': `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
-        },
-      });
-
-      if (response.ok) {
-        const messageStatus = await response.json();
-        console.log(`Message ${messageId} status:`, messageStatus.status);
-
-        res.json({
-          messageId: messageStatus.sid,
-          status: messageStatus.status,
-          errorCode: messageStatus.error_code,
-          errorMessage: messageStatus.error_message,
-          dateCreated: messageStatus.date_created,
-          dateUpdated: messageStatus.date_updated,
-          dateSent: messageStatus.date_sent,
-          to: messageStatus.to,
-          from: messageStatus.from,
-          price: messageStatus.price,
-          priceUnit: messageStatus.price_unit,
-          direction: messageStatus.direction,
-          numSegments: messageStatus.num_segments
-        });
-      } else {
-        const errorData = await response.json();
-        console.error('Twilio API error when checking status:', errorData);
-        res.status(response.status).json({ error: errorData.message || 'Failed to check message status' });
-      }
+      const status = whatsappService.getConnectionStatus();
+      res.json(status);
     } catch (error) {
-      console.error('Failed to check SMS status:', error);
-      res.status(500).json({ error: 'Failed to check message status' });
+      res.status(500).json({ error: "Failed to get WhatsApp status" });
     }
   });
 
-  // Send broadcast SMS to all customers
-  app.post("/api/sms/broadcast", async (req, res) => {
+  // Send broadcast WhatsApp to all customers
+  app.post("/api/whatsapp/broadcast", async (req, res) => {
     try {
       const { message, recipients = "all" } = req.body;
 
@@ -847,57 +454,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No valid recipients found" });
       }
 
-      // Prepare recipients for batch sending
-      const smsRecipients = customers.map(customer => ({
-        phoneNumber: customer.phoneNumber,
-        message: message.replace(/\[COUPON_CODE\]/g, customer.couponCode || 'N/A').replace(/\[NAME\]/g, customer.name),
-        customerId: customer.id
-      }));
+      // Prepare WhatsApp broadcast
+      const phoneNumbers = customers.map(customer => customer.phoneNumber);
+      const personalizedMessage = message.replace(/\[COUPON_CODE\]/g, 'your referral code').replace(/\[NAME\]/g, 'valued customer');
 
-      // Send messages in batches
-      const results = await sendBatchSMS(smsRecipients);
-      const sentMessages = [];
+      // Send WhatsApp broadcast
+      const results = await whatsappService.sendBroadcastMessage(phoneNumbers, personalizedMessage);
 
-      // Log all SMS messages
-      for (const result of results) {
-        const customer = customers.find(c => c.phoneNumber === result.phoneNumber);
-        const smsRecord = await storage.createSmsMessage({
-          phoneNumber: result.phoneNumber,
-          message: smsRecipients.find(r => r.phoneNumber === result.phoneNumber)?.message || message,
-          status: result.success ? "sent" : "failed",
-          customerId: customer?.id || null,
-          type: "broadcast",
-        });
-        sentMessages.push({
-          ...smsRecord,
-          messageId: result.messageId,
-          error: result.error,
-          customerName: customer?.name
-        });
-      }
-
-      const successCount = results.filter(r => r.success).length;
-      const failureCount = results.filter(r => !r.success).length;
+      const successCount = results.successCount;
+      const failureCount = results.failureCount;
 
       res.json({
         success: successCount > 0,
         totalRecipients: customers.length,
         messagesSent: successCount,
         messagesFailed: failureCount,
-        messages: sentMessages,
+        results: results.results,
         summary: `${successCount} messages sent successfully${failureCount > 0 ? `, ${failureCount} failed` : ''}`
       });
 
     } catch (error) {
-      console.error("Failed to send broadcast SMS:", error);
+      console.error("Failed to send broadcast WhatsApp:", error);
       res.status(500).json({ error: "Failed to send broadcast messages" });
     }
   });
 
-  // SMS statistics
-  app.get("/api/sms/stats", async (req, res) => {
+  // WhatsApp statistics
+  app.get("/api/whatsapp/stats", async (req, res) => {
     try {
-      const messages = await storage.getAllSmsMessages();
+      const messages = await storage.getAllWhatsappMessages();
       const today = new Date();
       const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
@@ -928,7 +513,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         deliveryRate: totalSent + totalFailed > 0 ? Math.round((totalSent / (totalSent + totalFailed)) * 100) : 0
       });
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch SMS statistics" });
+      res.status(500).json({ message: "Failed to fetch WhatsApp statistics" });
     }
   });
 

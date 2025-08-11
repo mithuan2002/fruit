@@ -7,7 +7,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
-import SMSCenter from "@/pages/sms-center";
+import WhatsAppCenter from "@/pages/sms-center";
 import Reports from "@/pages/reports";
 
 
@@ -23,7 +23,7 @@ function Router() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/campaigns" component={Campaigns} />
           <Route path="/customers" component={Customers} />
-          <Route path="/sms" component={SMSCenter} />
+          <Route path="/whatsapp" component={WhatsAppCenter} />
           <Route path="/reports" component={Reports} />
 
 

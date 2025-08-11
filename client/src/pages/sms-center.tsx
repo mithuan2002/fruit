@@ -1,19 +1,19 @@
 import { useState } from "react";
 import Header from "@/components/layout/header";
-import SmsActivity from "@/components/sms-activity";
-import SendBroadcastModal from "@/components/modals/send-broadcast-modal";
-import SmsStats from "@/components/sms-stats";
-import SmsTroubleshoot from "@/components/sms-troubleshoot";
-import SmsDeliveryGuide from "@/components/sms-delivery-guide";
+import WhatsAppActivity from "@/components/whatsapp-activity";
+import SendWhatsAppBroadcastModal from "@/components/modals/send-whatsapp-broadcast-modal";
+import WhatsAppStats from "@/components/whatsapp-stats";
+import WhatsAppConnection from "@/components/whatsapp-connection";
+import WhatsAppGuide from "@/components/whatsapp-guide";
 
-export default function SMSCenter() {
+export default function WhatsAppCenter() {
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
 
   return (
     <>
       <Header
-        title="SMS Center"
-        description="Send messages and track SMS communication with your customers."
+        title="WhatsApp Center"
+        description="Send automated WhatsApp messages and track communication with your customers."
         createButtonText="Send Broadcast"
         onCreateClick={() => setShowBroadcastModal(true)}
         showCreateButton={true}
@@ -23,18 +23,18 @@ export default function SMSCenter() {
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-6">
-              <SmsActivity />
-              <SmsStats />
+              <WhatsAppConnection />
+              <WhatsAppActivity />
+              <WhatsAppStats />
             </div>
             <div className="space-y-6">
-              <SmsTroubleshoot />
-              <SmsDeliveryGuide />
+              <WhatsAppGuide />
             </div>
           </div>
         </div>
       </main>
 
-      <SendBroadcastModal
+      <SendWhatsAppBroadcastModal
         isOpen={showBroadcastModal}
         onClose={() => setShowBroadcastModal(false)}
       />
