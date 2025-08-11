@@ -393,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/customers/:id/redeem-points", async (req, res) => {
     try {
       const { pointsToRedeem, rewardDescription } = req.body;
-      
+
       const customer = await storage.getCustomer(req.params.id);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
@@ -463,7 +463,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const connected = await whatsappWebService.waitForConnection();
       res.json({ success: connected });
     } catch (error) {
-      res.status(500).json({ error: "Connection failed" });
+      res.status(500).json({ success: false, error: 'Connection failed' });
+    }
+  });
+
+  app.get("/api/whatsapp/qr-code", async (req, res) => {
+    try {
+      const qrCode = await whatsappWebService.getCurrentQRCode();
+      if (qrCode) {
+        res.json({ success: true, qrCode });
+      } else {
+        res.json({ success: false, error: 'No QR code available' });
+      }
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Failed to get QR code' });
     }
   });
 
@@ -471,7 +484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/whatsapp/configure", async (req, res) => {
     try {
       const { apiToken, businessPhoneNumber, businessName } = req.body;
-      
+
       if (!apiToken || !businessPhoneNumber) {
         return res.status(400).json({ error: "API token and business phone number are required" });
       }

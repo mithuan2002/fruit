@@ -17,6 +17,7 @@ export default function WatiCenter() {
 
   const [isInitializing, setIsInitializing] = useState(false);
   const [showQRInstructions, setShowQRInstructions] = useState(false);
+  const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -32,8 +33,16 @@ export default function WatiCenter() {
           title: "WhatsApp Web Opened!",
           description: "Please scan the QR code with your phone (+919600267509)",
         });
-        // Start checking for connection
-        checkConnection();
+        // Fetch QR code after a short delay
+        setTimeout(() => {
+          fetchQRCode();
+          // Poll for QR code updates
+          const qrInterval = setInterval(() => {
+            fetchQRCode();
+          }, 2000);
+          // Clear interval after 2 minutes
+          setTimeout(() => clearInterval(qrInterval), 120000);
+        }, 3000);
       }
     },
     onError: (error: any) => {
@@ -45,6 +54,18 @@ export default function WatiCenter() {
       setIsInitializing(false);
     },
   });
+
+  const fetchQRCode = async () => {
+    try {
+      const response = await apiRequest("GET", "/api/whatsapp/qr-code", {});
+      const result = await response.json();
+      if (result.success && result.qrCode) {
+        setQrCodeImage(result.qrCode);
+      }
+    } catch (error) {
+      console.log('Failed to fetch QR code');
+    }
+  };
 
   const checkConnection = async () => {
     setIsInitializing(true);
@@ -58,6 +79,7 @@ export default function WatiCenter() {
           description: "WhatsApp Web is now ready to send messages",
         });
         setShowQRInstructions(false);
+        setQrCodeImage(null);
         queryClient.invalidateQueries({ queryKey: ["/api/whatsapp/status"] });
       }
     } catch (error) {
@@ -171,11 +193,31 @@ export default function WatiCenter() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 text-blue-800">
-                    <p><strong>Step 1:</strong> A browser window opened with WhatsApp Web</p>
-                    <p><strong>Step 2:</strong> Open WhatsApp on your phone (+919600267509)</p>
-                    <p><strong>Step 3:</strong> Go to Settings → Linked Devices</p>
-                    <p><strong>Step 4:</strong> Tap "Link a Device" and scan the QR code</p>
-                    <p><strong>Step 5:</strong> Wait for connection confirmation</p>
+                    <p><strong>Step 1:</strong> Open WhatsApp on your phone (+919600267509)</p>
+                    <p><strong>Step 2:</strong> Go to Settings → Linked Devices</p>
+                    <p><strong>Step 3:</strong> Tap "Link a Device" and scan the QR code below</p>
+                    
+                    {qrCodeImage ? (
+                      <div className="flex justify-center py-4">
+                        <div className="bg-white p-4 rounded-lg border-2 border-blue-200 shadow-lg">
+                          <img 
+                            src={qrCodeImage} 
+                            alt="WhatsApp QR Code" 
+                            className="w-64 h-64 object-contain"
+                          />
+                          <p className="text-center text-sm text-gray-600 mt-2">
+                            Scan this QR code with WhatsApp
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center py-8">
+                        <div className="bg-gray-100 p-8 rounded-lg border-2 border-dashed border-gray-300">
+                          <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin text-gray-400" />
+                          <p className="text-center text-gray-600">Loading QR Code...</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-4">
                     <Button
