@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Smartphone, Wifi, WifiOff, RefreshCw, Settings, LogOut } from "lucide-react";
+import type { WhatsappStatus } from "@shared/schema";
 
 export default function WhatsAppConnection() {
-  const { data: status, isLoading, refetch } = useQuery({
+  const { data: status, isLoading, refetch } = useQuery<WhatsappStatus>({
     queryKey: ["/api/whatsapp/status"],
     refetchInterval: 5000, // Check status every 5 seconds
   });

@@ -9,9 +9,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Smartphone, Wifi, WifiOff, RefreshCw, Settings, LogOut, MessageSquare } from "lucide-react";
 import Header from "@/components/layout/header";
+import type { WhatsappStatus } from "@shared/schema";
 
 export default function WhatsAppSimple() {
-  const { data: status, isLoading, refetch } = useQuery({
+  const { data: status, isLoading, refetch } = useQuery<WhatsappStatus>({
     queryKey: ["/api/whatsapp/status"],
     refetchInterval: 5000,
   });

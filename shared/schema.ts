@@ -113,3 +113,12 @@ export type InsertReferral = z.infer<typeof insertReferralSchema>;
 
 export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
 export type InsertWhatsappMessage = z.infer<typeof insertWhatsappMessageSchema>;
+
+// WhatsApp service types
+export const whatsappStatusSchema = z.object({
+  connected: z.boolean(),
+  businessNumber: z.string(),
+  businessName: z.string()
+});
+
+export type WhatsappStatus = z.infer<typeof whatsappStatusSchema>;
