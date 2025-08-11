@@ -28,22 +28,33 @@ export default function WatiCenter() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        setShowQRInstructions(true);
-        toast({
-          title: "WhatsApp Web Opened!",
-          description: "Please scan the QR code with your phone (+919600267509)",
-        });
-        // Fetch QR code after a short delay
-        setTimeout(() => {
+        if (data.qrCode) {
+          // QR code was captured during initialization
+          setQrCodeImage(data.qrCode);
+          setShowQRInstructions(true);
+          toast({
+            title: "WhatsApp Web Opened!",
+            description: "QR code is ready - scan it with your phone (+919600267509)",
+          });
+        } else {
+          // Need to wait for QR code
+          setShowQRInstructions(true);
+          toast({
+            title: "WhatsApp Web Opening...",
+            description: "Loading QR code, please wait...",
+          });
+        }
+        
+        // Start polling for QR code and connection updates
+        const qrInterval = setInterval(() => {
           fetchQRCode();
-          // Poll for QR code updates
-          const qrInterval = setInterval(() => {
-            fetchQRCode();
-          }, 2000);
-          // Clear interval after 2 minutes
-          setTimeout(() => clearInterval(qrInterval), 120000);
-        }, 3000);
+          refetch(); // Also check connection status
+        }, 2000);
+        
+        // Clear interval after 3 minutes
+        setTimeout(() => clearInterval(qrInterval), 180000);
       }
+      setIsInitializing(false);
     },
     onError: (error: any) => {
       toast({
@@ -60,10 +71,15 @@ export default function WatiCenter() {
       const response = await apiRequest("GET", "/api/whatsapp/qr-code", {});
       const result = await response.json();
       if (result.success && result.qrCode) {
+        console.log('QR code received:', result.qrCode.substring(0, 50) + '...');
         setQrCodeImage(result.qrCode);
+      } else {
+        console.log('No QR code available yet');
+        setQrCodeImage(null);
       }
     } catch (error) {
-      console.log('Failed to fetch QR code');
+      console.error('Failed to fetch QR code:', error);
+      setQrCodeImage(null);
     }
   };
 
