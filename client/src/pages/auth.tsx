@@ -84,7 +84,7 @@ export default function Auth() {
                 </h1>
               </div>
               <p className="text-xl text-blue-100 font-medium">
-                Professional Referral Marketing Platform
+                Affiliate tool for retail stores
               </p>
               <p className="text-blue-200 text-lg leading-relaxed">
                 Grow your business with intelligent referral campaigns, automated WhatsApp messaging, and comprehensive analytics.
@@ -171,7 +171,7 @@ export default function Auth() {
                     </div>
                     <Button 
                       type="submit" 
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200" 
+                      className="w-full h-12 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-base rounded-lg shadow-lg hover:shadow-xl transition-all duration-200" 
                       disabled={isLoggingIn}
                     >
                       {isLoggingIn ? (
