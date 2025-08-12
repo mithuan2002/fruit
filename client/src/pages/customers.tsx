@@ -67,7 +67,7 @@ export default function Customers() {
               <h1 className="text-3xl font-bold text-blue-600">🚀 Customers</h1>
               <p className="text-gray-600 mt-1">Manage your customer database and track referral activity</p>
             </div>
-            <Link href="/customers-setup">
+            <Link href="/customers-setup-guide">
               <Button variant="outline" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Setup Guide

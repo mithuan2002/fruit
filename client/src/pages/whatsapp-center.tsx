@@ -175,8 +175,8 @@ export default function WhatsAppCenter() {
               <h1 className="text-3xl font-bold text-blue-600">🚀 WhatsApp Center</h1>
               <p className="text-gray-600 mt-1">Manage automated WhatsApp messaging for your customers</p>
             </div>
-            <Link href="/whatsapp-setup">
-              <Button variant="outline" className="flex items-center gap-2">
+            <Link href="/whatsapp-setup-guide">
+              <Button variant="outline" className="flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 border-green-600 hover:border-green-700 shadow-lg">
                 <MessageSquare className="h-4 w-4" />
                 Setup Guide
               </Button>

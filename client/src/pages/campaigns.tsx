@@ -35,7 +35,7 @@ export default function Campaigns() {
               <h1 className="text-3xl font-bold text-blue-600">🚀 Campaigns</h1>
               <p className="text-gray-600 mt-1">Create and manage targeted referral marketing campaigns</p>
             </div>
-            <Link href="/campaigns-setup">
+            <Link href="/campaigns-setup-guide">
               <Button variant="outline" className="flex items-center gap-2">
                 <Megaphone className="h-4 w-4" />
                 Setup Guide

@@ -26,7 +26,7 @@ export default function Dashboard() {
               <h1 className="text-3xl font-bold text-blue-600">🚀 Dashboard</h1>
               <p className="text-gray-600 mt-1">Monitor your referral program performance and key metrics</p>
             </div>
-            <Link href="/dashboard-setup">
+            <Link href="/dashboard-setup-guide">
               <Button variant="outline" className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
                 Setup Guide
