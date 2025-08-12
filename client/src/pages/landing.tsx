@@ -38,8 +38,8 @@ export default function Landing() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button size="lg" className="text-lg px-8 py-3">
-              Start Free Trial
+            <Button size="lg" className="text-lg px-8 py-3" onClick={() => window.location.href = '/auth'}>
+              Get Started
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
             <Button variant="outline" size="lg" className="text-lg px-8 py-3">
@@ -187,7 +187,7 @@ export default function Landing() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <Button size="lg" variant="secondary" className="text-lg px-8 py-3">
+            <Button size="lg" variant="secondary" className="text-lg px-8 py-3" onClick={() => window.location.href = '/auth'}>
               Start Your Free Trial
               <Zap className="ml-2 w-5 h-5" />
             </Button>
