@@ -58,6 +58,7 @@ function Router() {
       <div className="flex flex-col flex-1 overflow-hidden">
         <Switch>
           <Route path="/landing" component={Landing} />
+          <Route path="/home" component={Landing} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/customers" component={Customers} />
           <Route path="/campaigns" component={Campaigns} />
