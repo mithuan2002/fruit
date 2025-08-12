@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart } from "lucide-react";
+import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart, MessageSquare } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },

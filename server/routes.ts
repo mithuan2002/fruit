@@ -9,6 +9,7 @@ import {
   insertWhatsappMessageSchema
 } from "@shared/schema";
 import { z } from "zod";
+import { interaktService } from "./interaktService";
 
 
 
@@ -55,6 +56,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedData,
         couponCode
       });
+
+      // Send welcome message via Interakt
+      try {
+        await interaktService.sendWelcomeMessage(
+          customer.phoneNumber,
+          customer.name,
+          couponCode
+        );
+
+        await storage.createWhatsappMessage({
+          customerId: customer.id,
+          phoneNumber: customer.phoneNumber,
+          message: `Welcome message with referral code: ${couponCode}`,
+          type: "welcome_referral",
+          status: "sent"
+        });
+      } catch (error) {
+        console.error("Failed to send welcome message:", error);
+      }
 
       res.status(201).json({
         customer,
@@ -340,7 +360,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalReferrals: customer.totalReferrals + 1,
       });
 
-      
+      // Send points earned message via Interakt
+      try {
+        await interaktService.sendPointsEarnedMessage(
+          customer.phoneNumber,
+          customer.name,
+          finalPointsEarned,
+          customer.points + finalPointsEarned
+        );
+
+        await storage.createWhatsappMessage({
+          customerId: customer.id,
+          phoneNumber: customer.phoneNumber,
+          message: `Points earned notification: ${finalPointsEarned} points`,
+          type: "reward_earned",
+          status: "sent"
+        });
+      } catch (error) {
+        console.error("Failed to send points earned message:", error);
+      }
 
       res.json({
         success: true,
@@ -393,7 +431,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pointsRedeemed: customer.pointsRedeemed + pointsToRedeem,
       });
 
-      
+      // Send points redeemed message via Interakt
+      try {
+        await interaktService.sendPointsRedeemedMessage(
+          customer.phoneNumber,
+          customer.name,
+          pointsToRedeem,
+          customer.points - pointsToRedeem,
+          rewardDescription || "Points redeemed successfully"
+        );
+
+        await storage.createWhatsappMessage({
+          customerId: customer.id,
+          phoneNumber: customer.phoneNumber,
+          message: `Points redeemed notification: ${pointsToRedeem} points`,
+          type: "reward_earned",
+          status: "sent"
+        });
+      } catch (error) {
+        console.error("Failed to send points redeemed message:", error);
+      }
 
       res.json({
         success: true,
@@ -409,6 +466,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
 
 
+
+  // Interakt WhatsApp routes
+  app.get("/api/interakt/config", async (req, res) => {
+    try {
+      const config = interaktService.getConfig();
+      res.json(config);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get Interakt configuration" });
+    }
+  });
+
+  app.post("/api/interakt/configure", async (req, res) => {
+    try {
+      const { apiKey, apiUrl, phoneNumber, businessName } = req.body;
+
+      if (!apiKey || !phoneNumber || !businessName) {
+        return res.status(400).json({ message: "Missing required configuration fields" });
+      }
+
+      const success = interaktService.configure({
+        apiKey,
+        apiUrl: apiUrl || 'https://api.interakt.ai/v1',
+        phoneNumber,
+        businessName
+      });
+
+      if (success) {
+        res.json({ success: true, message: "Interakt configured successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to configure Interakt" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to configure Interakt service" });
+    }
+  });
+
+  app.post("/api/interakt/send-test", async (req, res) => {
+    try {
+      const { phoneNumber, message } = req.body;
+
+      if (!phoneNumber || !message) {
+        return res.status(400).json({ message: "Phone number and message are required" });
+      }
+
+      const result = await interaktService.sendTextMessage(phoneNumber, message);
+
+      if (result.success) {
+        // Log the message in database
+        await storage.createWhatsappMessage({
+          phoneNumber,
+          message,
+          type: "test",
+          status: "sent"
+        });
+
+        res.json({ success: true, messageId: result.messageId });
+      } else {
+        res.status(400).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send test message" });
+    }
+  });
+
+  app.post("/api/interakt/broadcast", async (req, res) => {
+    try {
+      const { message } = req.body;
+
+      if (!message) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+
+      const customers = await storage.getAllCustomers();
+      if (customers.length === 0) {
+        return res.status(400).json({ message: "No customers found to send messages to" });
+      }
+
+      const phoneNumbers = customers.map(customer => customer.phoneNumber);
+      const result = await interaktService.sendBroadcastMessage(phoneNumbers, message);
+
+      // Log broadcast messages
+      for (const customer of customers) {
+        await storage.createWhatsappMessage({
+          customerId: customer.id,
+          phoneNumber: customer.phoneNumber,
+          message,
+          type: "broadcast",
+          status: "sent"
+        });
+      }
+
+      res.json({
+        success: true,
+        total: result.total,
+        sent: result.sent,
+        failed: result.failed
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send broadcast message" });
+    }
+  });
+
+  app.get("/api/interakt/stats", async (req, res) => {
+    try {
+      const messages = await storage.getAllWhatsappMessages();
+      const totalSent = messages.length;
+      const delivered = messages.filter(msg => msg.status === "sent").length;
+      const failed = messages.filter(msg => msg.status === "failed").length;
+      const successRate = totalSent > 0 ? Math.round((delivered / totalSent) * 100) : 0;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayMessages = messages.filter(msg => new Date(msg.sentAt) >= today);
+
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const weekMessages = messages.filter(msg => new Date(msg.sentAt) >= weekAgo);
+
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      const monthMessages = messages.filter(msg => new Date(msg.sentAt) >= monthAgo);
+
+      const lastSent = messages.length > 0 ? 
+        Math.max(...messages.map(msg => new Date(msg.sentAt).getTime())) : null;
+
+      res.json({
+        totalSent,
+        delivered,
+        failed,
+        successRate,
+        todayCount: todayMessages.length,
+        weekCount: weekMessages.length,
+        monthCount: monthMessages.length,
+        lastSent: lastSent ? new Date(lastSent).toISOString() : null
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get message statistics" });
+    }
+  });
 
   // Analytics routes
   app.get("/api/analytics/dashboard", async (req, res) => {
