@@ -157,7 +157,7 @@ export default function WhatsAppCenter() {
     sendBroadcast.mutate(broadcastMessage);
   };
 
-  const isConfigured = currentConfig?.apiKey && currentConfig?.phoneNumber;
+  const isConfigured = (currentConfig as any)?.apiKey && (currentConfig as any)?.phoneNumber;
 
   return (
     <>
@@ -336,9 +336,9 @@ export default function WhatsAppCenter() {
                         <span className="font-medium">Configuration Active</span>
                       </div>
                       <div className="mt-2 text-sm text-green-700">
-                        <p>Business: {currentConfig.businessName}</p>
-                        <p>Phone: {currentConfig.phoneNumber}</p>
-                        <p>API URL: {currentConfig.apiUrl}</p>
+                        <p>Business: {(currentConfig as any)?.businessName}</p>
+                        <p>Phone: {(currentConfig as any)?.phoneNumber}</p>
+                        <p>API URL: {(currentConfig as any)?.apiUrl}</p>
                       </div>
                     </div>
                   )}
@@ -496,19 +496,19 @@ export default function WhatsAppCenter() {
                     <div className="space-y-4">
                       <div className="flex justify-between">
                         <span>Total Messages Sent:</span>
-                        <Badge variant="secondary">{messageStats?.totalSent || 0}</Badge>
+                        <Badge variant="secondary">{(messageStats as any)?.totalSent || 0}</Badge>
                       </div>
                       <div className="flex justify-between">
                         <span>Successful Deliveries:</span>
-                        <Badge variant="default">{messageStats?.delivered || 0}</Badge>
+                        <Badge variant="default">{(messageStats as any)?.delivered || 0}</Badge>
                       </div>
                       <div className="flex justify-between">
                         <span>Failed Messages:</span>
-                        <Badge variant="destructive">{messageStats?.failed || 0}</Badge>
+                        <Badge variant="destructive">{(messageStats as any)?.failed || 0}</Badge>
                       </div>
                       <div className="flex justify-between">
                         <span>Success Rate:</span>
-                        <Badge variant="outline">{messageStats?.successRate || 0}%</Badge>
+                        <Badge variant="outline">{(messageStats as any)?.successRate || 0}%</Badge>
                       </div>
                     </div>
                   </CardContent>
@@ -526,20 +526,20 @@ export default function WhatsAppCenter() {
                       <div className="flex justify-between">
                         <span>Last Message Sent:</span>
                         <span className="text-muted-foreground">
-                          {messageStats?.lastSent ? new Date(messageStats.lastSent).toLocaleString() : 'Never'}
+                          {(messageStats as any)?.lastSent ? new Date((messageStats as any).lastSent).toLocaleString() : 'Never'}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Today's Messages:</span>
-                        <span className="text-muted-foreground">{messageStats?.todayCount || 0}</span>
+                        <span className="text-muted-foreground">{(messageStats as any)?.todayCount || 0}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>This Week:</span>
-                        <span className="text-muted-foreground">{messageStats?.weekCount || 0}</span>
+                        <span className="text-muted-foreground">{(messageStats as any)?.weekCount || 0}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>This Month:</span>
-                        <span className="text-muted-foreground">{messageStats?.monthCount || 0}</span>
+                        <span className="text-muted-foreground">{(messageStats as any)?.monthCount || 0}</span>
                       </div>
                     </div>
                   </CardContent>
