@@ -4,10 +4,18 @@ Fruitbox is a comprehensive referral marketing management system built as a full
 
 ## Recent Changes (January 2025)
 
-### Database Setup Complete (Latest)
+### Authentication & Onboarding System Complete (Latest)
+- Implemented username/password authentication system with secure bcryptjs hashing
+- Created comprehensive onboarding flow collecting shop details: admin name, shop name, WhatsApp business number, industry type
+- Added personalized experience based on industry selection (food, fashion, electronics, beauty, services, others)
+- Updated user interface to show shop information in sidebar and personalized dashboard content
+- Fixed CSS button visibility issues - improved contrast, hover states, and accessibility
+- Database schema enhanced with user profiles including shop information and onboarding status
+
+### Database Setup Complete (Previous)
 - Migrated from in-memory storage to PostgreSQL database with comprehensive schema
 - Enhanced schema with proper relationships, indexes, and additional tables for analytics
-- Added new tables: points_transactions, rewards, reward_redemptions, system_config
+- Added new tables: points_transactions, rewards, reward_redemptions, system_config, users
 - Improved data integrity with foreign key constraints and proper cascading rules
 - Created database indexes for optimal query performance
 - Seeded database with initial system configuration and reward catalog

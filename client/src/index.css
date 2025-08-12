@@ -140,43 +140,96 @@
   font-family: 'Inter', sans-serif;
 }
 
-/* Enhanced button visibility */
-.btn-primary {
+/* Enhanced button visibility and accessibility */
+button {
+  transition: all 0.2s ease-in-out !important;
+  cursor: pointer !important;
+}
+
+/* Ensure buttons are always visible with solid backgrounds */
+button[class*="bg-blue"] {
   background-color: #2563eb !important;
   color: white !important;
   border: 1px solid #1d4ed8 !important;
 }
 
-.btn-primary:hover {
+button[class*="bg-blue"]:hover {
   background-color: #1d4ed8 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4) !important;
 }
 
-.btn-secondary {
-  background-color: #10b981 !important;
-  color: white !important;
-  border: 1px solid #059669 !important;
-}
-
-.btn-secondary:hover {
+button[class*="bg-green"] {
   background-color: #059669 !important;
+  color: white !important;
+  border: 1px solid #047857 !important;
 }
 
-.btn-outline {
+button[class*="bg-green"]:hover {
+  background-color: #047857 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4) !important;
+}
+
+button[class*="bg-red"] {
+  background-color: #dc2626 !important;
+  color: white !important;
+  border: 1px solid #b91c1c !important;
+}
+
+button[class*="bg-red"]:hover {
+  background-color: #b91c1c !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4) !important;
+}
+
+/* Outline buttons with better visibility */
+button[class*="border-blue"] {
+  background-color: white !important;
+  color: #2563eb !important;
+  border: 2px solid #2563eb !important;
+}
+
+button[class*="border-blue"]:hover {
+  background-color: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Ghost buttons with better contrast */
+button[class*="text-gray"] {
   background-color: transparent !important;
   color: #374151 !important;
-  border: 2px solid #d1d5db !important;
+  border: 1px solid #e5e7eb !important;
 }
 
-.btn-outline:hover {
-  background-color: #f3f4f6 !important;
+button[class*="text-gray"]:hover {
+  background-color: #f9fafb !important;
+  border-color: #d1d5db !important;
+  color: #111827 !important;
+}
+
+/* Disabled styles */
+button:disabled,
+button[disabled] {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: none !important;
+  background-color: #9ca3af !important;
+  color: white !important;
   border-color: #9ca3af !important;
 }
 
-.btn-ghost {
-  background-color: transparent !important;
-  color: #374151 !important;
+/* Loading states */
+button[aria-disabled="true"] {
+  opacity: 0.7 !important;
+  cursor: wait !important;
 }
 
-.btn-ghost:hover {
-  background-color: #f3f4f6 !important;
+/* Focus states for accessibility */
+button:focus-visible {
+  outline: 2px solid #2563eb !important;
+  outline-offset: 2px !important;
 }
