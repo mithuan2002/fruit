@@ -10,9 +10,9 @@
   --card-foreground: hsl(240 10% 3.9%);
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(240 10% 3.9%);
-  --primary: hsl(208.8 88.8% 42.2%);
+  --primary: hsl(217 91% 60%);
   --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(131.4 41.2% 45.1%);
+  --secondary: hsl(142 76% 36%);
   --secondary-foreground: hsl(0 0% 100%);
   --muted: hsl(240 4.8% 95.9%);
   --muted-foreground: hsl(240 3.8% 46.1%);
@@ -22,22 +22,22 @@
   --destructive-foreground: hsl(0 0% 100%);
   --border: hsl(240 5.9% 90%);
   --input: hsl(240 5.9% 90%);
-  --ring: hsl(208.8 88.8% 42.2%);
-  --success: hsl(120 39% 54%);
+  --ring: hsl(217 91% 60%);
+  --success: hsl(142 76% 36%);
   --error: hsl(0 84.2% 60.2%);
-  --chart-1: hsl(208.8 88.8% 42.2%);
-  --chart-2: hsl(131.4 41.2% 45.1%);
+  --chart-1: hsl(217 91% 60%);
+  --chart-2: hsl(142 76% 36%);
   --chart-3: hsl(36 100% 50%);
   --chart-4: hsl(120 39% 54%);
   --chart-5: hsl(0 84.2% 60.2%);
   --sidebar: hsl(0 0% 100%);
   --sidebar-foreground: hsl(240 10% 3.9%);
-  --sidebar-primary: hsl(208.8 88.8% 42.2%);
+  --sidebar-primary: hsl(217 91% 60%);
   --sidebar-primary-foreground: hsl(0 0% 100%);
   --sidebar-accent: hsl(240 4.8% 95.9%);
   --sidebar-accent-foreground: hsl(240 10% 3.9%);
   --sidebar-border: hsl(240 5.9% 90%);
-  --sidebar-ring: hsl(208.8 88.8% 42.2%);
+  --sidebar-ring: hsl(217 91% 60%);
   --font-sans: 'Inter', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
@@ -138,4 +138,45 @@
 
 .font-inter {
   font-family: 'Inter', sans-serif;
+}
+
+/* Enhanced button visibility */
+.btn-primary {
+  background-color: #2563eb !important;
+  color: white !important;
+  border: 1px solid #1d4ed8 !important;
+}
+
+.btn-primary:hover {
+  background-color: #1d4ed8 !important;
+}
+
+.btn-secondary {
+  background-color: #10b981 !important;
+  color: white !important;
+  border: 1px solid #059669 !important;
+}
+
+.btn-secondary:hover {
+  background-color: #059669 !important;
+}
+
+.btn-outline {
+  background-color: transparent !important;
+  color: #374151 !important;
+  border: 2px solid #d1d5db !important;
+}
+
+.btn-outline:hover {
+  background-color: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+}
+
+.btn-ghost {
+  background-color: transparent !important;
+  color: #374151 !important;
+}
+
+.btn-ghost:hover {
+  background-color: #f3f4f6 !important;
 }
