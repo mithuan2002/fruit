@@ -46,6 +46,11 @@ function Router() {
     return <Auth />;
   }
 
+  // Show landing page routes outside authenticated app
+  if (location === "/landing" || location === "/home" || location === "/preview") {
+    return <Landing />;
+  }
+
   // Show onboarding if authenticated but not onboarded
   if (!isOnboarded) {
     console.log("Showing onboarding for user:", user?.id, "isOnboarded:", user?.isOnboarded);
@@ -57,9 +62,6 @@ function Router() {
       <Sidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Switch>
-          <Route path="/landing" component={Landing} />
-          <Route path="/home" component={Landing} />
-          <Route path="/preview" component={Landing} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/customers" component={Customers} />
           <Route path="/campaigns" component={Campaigns} />
