@@ -1,0 +1,6 @@
+server/
+shared/
+node_modules/
+*.md
+.env*
+drizzle.config.ts
