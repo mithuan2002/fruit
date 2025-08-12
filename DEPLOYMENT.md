@@ -11,29 +11,24 @@ This project is now properly configured to deploy the frontend as a static site 
 ✘ [ERROR] The entry point "server/index.ts" cannot be marked as external
 ```
 
-**Solution**: Created a `public/` directory with pre-built static files and configured Vercel to deploy using `@vercel/static` builder, completely bypassing any npm build process.
+**Solution**: Created static files directly in the root directory (`index.html` and `assets/`) and configured Vercel with simple rewrites, completely bypassing any build process.
 
 ### Current Configuration:
 
 ```json
 {
-  "version": 2,
-  "builds": [
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
     {
-      "src": "public/**/*",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
 ```
 
-The project now includes pre-built static files in `public/` directory that Vercel will deploy using the static builder without any build process.
+The project now includes static files at the root level (`index.html` and `assets/`) that Vercel will deploy directly without any build process.
 
 ### Quick Deploy Steps:
 
@@ -73,12 +68,22 @@ The project now includes pre-built static files in `public/` directory that Verc
 ✅ **Fixed**: Incorrect build command detection
 ✅ **Fixed**: Vercel ignoring custom build configuration
 
-**Final Solution**: Created dedicated `public/` folder with static files and configured Vercel to use `@vercel/static` builder. This completely avoids any npm build commands.
+**Final Solution**: Created static files directly at root level (`index.html` + `assets/` folder) and used simple Vercel rewrites. This completely avoids any npm or build detection.
 
 If issues persist:
-1. Ensure `public/` folder with assets is committed to repository
+1. Ensure `index.html` and `assets/` folder are committed to repository
 2. Clear Vercel build cache and redeploy
 3. Check that all Node.js related files are excluded in `.vercelignore`
+
+### File Structure for Deployment:
+```
+/ (root)
+├── index.html              # Main landing page
+├── assets/
+│   ├── index-BBI_h-tb.css  # Styles (82KB)
+│   └── index-CzDjjPfL.js   # React app (500KB)
+└── vercel.json             # Simple rewrite config
+```
 
 ### Local Testing:
 

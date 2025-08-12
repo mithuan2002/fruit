@@ -5,6 +5,7 @@ node_modules/
 drizzle.config.ts
 client/
 dist/
+public/
 package.json
 package-lock.json
 tsconfig.json
@@ -15,4 +16,3 @@ components.json
 build.js
 build-frontend.sh
 vercel-build.config.js
-drizzle.config.ts
