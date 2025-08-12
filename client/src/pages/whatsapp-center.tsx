@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Header from "@/components/layout/header";
@@ -169,7 +168,12 @@ export default function WhatsAppCenter() {
       />
 
       <main className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="p-6">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold text-blue-600 mb-8">🚀 WhatsApp Center - UPDATED</h1>
+          </div>
+        </div>
+
           {/* Status Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card>
