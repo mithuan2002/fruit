@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Phone, Star, TrendingUp, Users, Eye, Copy } from "lucide-react";
+import { Phone, Star, TrendingUp, Users, Eye, Copy, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/layout/header";
 import CustomerAddForm from "@/components/customer-add-form";
 import type { Customer } from "@shared/schema";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
 
 export default function Customers() {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -62,6 +62,19 @@ export default function Customers() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-blue-600">🚀 Customers</h1>
+              <p className="text-gray-600 mt-1">Manage your customer database and track referral activity</p>
+            </div>
+            <Link href="/customers-setup">
+              <Button variant="outline" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Setup Guide
+              </Button>
+            </Link>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <div className="lg:col-span-1">
               <CustomerAddForm />
