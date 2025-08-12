@@ -92,6 +92,146 @@ export default function WhatsAppSetupGuide() {
             </CardContent>
           </Card>
 
+          {/* WhatsApp Message Preview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                What Your Customers Will See
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Here's how WhatsApp messages will look when sent to your customers
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Welcome Message Example */}
+                <div>
+                  <h4 className="font-medium mb-3 text-gray-900">Welcome Message (New Customer)</h4>
+                  <div className="max-w-sm mx-auto">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 relative">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">YS</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Your Shop</p>
+                          <p className="text-xs text-gray-500">via WhatsApp Business</p>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border">
+                        <p className="text-sm text-gray-800 leading-relaxed">
+                          🎉 Welcome to Your Shop, Sarah!
+                          <br /><br />
+                          Your referral code: <strong className="bg-yellow-100 px-1 rounded">SARAH2024</strong>
+                          <br /><br />
+                          Share this code with friends and earn 100 points for each successful referral!
+                          <br /><br />
+                          Thank you for joining us! 🙏
+                        </p>
+                        <div className="mt-2 text-xs text-gray-500">
+                          12:45 PM ✓✓
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coupon Message Example */}
+                <div>
+                  <h4 className="font-medium mb-3 text-gray-900">Coupon Generated Message</h4>
+                  <div className="max-w-sm mx-auto">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 relative">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">YS</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Your Shop</p>
+                          <p className="text-xs text-gray-500">via WhatsApp Business</p>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border">
+                        <p className="text-sm text-gray-800 leading-relaxed">
+                          🎁 Great news, Sarah!
+                          <br /><br />
+                          You've earned a reward! Use this coupon code:
+                          <br />
+                          <span className="bg-orange-100 px-2 py-1 rounded font-bold text-lg">SAVE20</span>
+                          <br /><br />
+                          💰 Get 20% off your next purchase
+                          <br />
+                          ⏰ Valid until Dec 31, 2024
+                          <br /><br />
+                          Visit us today and save! 🛍️
+                        </p>
+                        <div className="mt-2 text-xs text-gray-500">
+                          2:30 PM ✓✓
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Points Earned Message */}
+                <div>
+                  <h4 className="font-medium mb-3 text-gray-900">Points Earned Message</h4>
+                  <div className="max-w-sm mx-auto">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 relative">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">YS</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Your Shop</p>
+                          <p className="text-xs text-gray-500">via WhatsApp Business</p>
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3 border">
+                        <p className="text-sm text-gray-800 leading-relaxed">
+                          🌟 Congratulations, Sarah!
+                          <br /><br />
+                          You've earned <strong>100 points</strong> for referring Mike to our store!
+                          <br /><br />
+                          💎 Total points: 250
+                          <br />
+                          🎯 Next reward at: 500 points
+                          <br /><br />
+                          Keep referring friends to earn more rewards! 🚀
+                        </p>
+                        <div className="mt-2 text-xs text-gray-500">
+                          4:15 PM ✓✓
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                  <h5 className="font-medium text-gray-900 mb-2">Key Benefits:</h5>
+                  <ul className="space-y-1 text-sm text-gray-600">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Automatic messages - no manual work needed
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Professional WhatsApp Business appearance
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Instant delivery to customers
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      Encourages more referrals and repeat business
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Benefits Section */}
           <Card className="mb-8">
             <CardHeader>
@@ -288,145 +428,7 @@ export default function WhatsAppSetupGuide() {
             </CardContent>
           </Card>
 
-          {/* WhatsApp Message Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                What Your Customers Will See
-              </CardTitle>
-              <p className="text-sm text-gray-600">
-                Here's how WhatsApp messages will look when sent to your customers
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {/* Welcome Message Example */}
-                <div>
-                  <h4 className="font-medium mb-3 text-gray-900">Welcome Message (New Customer)</h4>
-                  <div className="max-w-sm mx-auto">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 relative">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                          <span className="text-white text-xs font-bold">YS</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">Your Shop</p>
-                          <p className="text-xs text-gray-500">via WhatsApp Business</p>
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border">
-                        <p className="text-sm text-gray-800 leading-relaxed">
-                          🎉 Welcome to Your Shop, Sarah!
-                          <br /><br />
-                          Your referral code: <strong className="bg-yellow-100 px-1 rounded">SARAH2024</strong>
-                          <br /><br />
-                          Share this code with friends and earn 100 points for each successful referral!
-                          <br /><br />
-                          Thank you for joining us! 🙏
-                        </p>
-                        <div className="mt-2 text-xs text-gray-500">
-                          12:45 PM ✓✓
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Coupon Message Example */}
-                <div>
-                  <h4 className="font-medium mb-3 text-gray-900">Coupon Generated Message</h4>
-                  <div className="max-w-sm mx-auto">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 relative">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                          <span className="text-white text-xs font-bold">YS</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">Your Shop</p>
-                          <p className="text-xs text-gray-500">via WhatsApp Business</p>
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border">
-                        <p className="text-sm text-gray-800 leading-relaxed">
-                          🎁 Great news, Sarah!
-                          <br /><br />
-                          You've earned a reward! Use this coupon code:
-                          <br />
-                          <span className="bg-orange-100 px-2 py-1 rounded font-bold text-lg">SAVE20</span>
-                          <br /><br />
-                          💰 Get 20% off your next purchase
-                          <br />
-                          ⏰ Valid until Dec 31, 2024
-                          <br /><br />
-                          Visit us today and save! 🛍️
-                        </p>
-                        <div className="mt-2 text-xs text-gray-500">
-                          2:30 PM ✓✓
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Points Earned Message */}
-                <div>
-                  <h4 className="font-medium mb-3 text-gray-900">Points Earned Message</h4>
-                  <div className="max-w-sm mx-auto">
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 relative">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                          <span className="text-white text-xs font-bold">YS</span>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">Your Shop</p>
-                          <p className="text-xs text-gray-500">via WhatsApp Business</p>
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-lg p-3 border">
-                        <p className="text-sm text-gray-800 leading-relaxed">
-                          🌟 Congratulations, Sarah!
-                          <br /><br />
-                          You've earned <strong>100 points</strong> for referring Mike to our store!
-                          <br /><br />
-                          💎 Total points: 250
-                          <br />
-                          🎯 Next reward at: 500 points
-                          <br /><br />
-                          Keep referring friends to earn more rewards! 🚀
-                        </p>
-                        <div className="mt-2 text-xs text-gray-500">
-                          4:15 PM ✓✓
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <h5 className="font-medium text-gray-900 mb-2">Key Benefits:</h5>
-                  <ul className="space-y-1 text-sm text-gray-600">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      Automatic messages - no manual work needed
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      Professional WhatsApp Business appearance
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      Instant delivery to customers
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      Encourages more referrals and repeat business
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
         </div>
       </main>
