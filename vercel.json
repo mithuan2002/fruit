@@ -1,12 +1,6 @@
 {
-  "buildCommand": "npx vite build",
+  "buildCommand": "echo 'Using pre-built files'",
   "outputDirectory": "dist/public",
-  "installCommand": "npm install",
-  "framework": null,
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ]
+  "installCommand": "echo 'No install needed'",
+  "framework": null
 }
