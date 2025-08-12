@@ -28,7 +28,7 @@ export default function StatsGrid() {
   const statsData = [
     {
       title: "Total Customers",
-      value: stats?.totalCustomers || 0,
+      value: (stats as any)?.totalCustomers || 0,
       icon: Users,
       color: "primary",
       change: "+12%",
@@ -36,7 +36,7 @@ export default function StatsGrid() {
     },
     {
       title: "Active Referrals",
-      value: stats?.activeReferrals || 0,
+      value: (stats as any)?.activeReferrals || 0,
       icon: Handshake,
       color: "secondary",
       change: "+8%",
@@ -44,7 +44,7 @@ export default function StatsGrid() {
     },
     {
       title: "Rewards Distributed",
-      value: `$${stats?.rewardsDistributed || 0}`,
+      value: `$${(stats as any)?.rewardsDistributed || 0}`,
       icon: Gift,
       color: "accent",
       change: "+15%",
@@ -52,7 +52,7 @@ export default function StatsGrid() {
     },
     {
       title: "Conversion Rate",
-      value: `${stats?.conversionRate || 0}%`,
+      value: `${(stats as any)?.conversionRate || 0}%`,
       icon: TrendingUp,
       color: "success",
       change: "+3%",

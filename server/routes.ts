@@ -565,7 +565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createWhatsappMessage({
           phoneNumber,
           message,
-          type: "test",
+          type: "broadcast",
           status: "sent"
         });
 
@@ -626,18 +626,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayMessages = messages.filter(msg => new Date(msg.sentAt) >= today);
+      const todayMessages = messages.filter(msg => msg.sentAt && new Date(msg.sentAt) >= today);
 
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
-      const weekMessages = messages.filter(msg => new Date(msg.sentAt) >= weekAgo);
+      const weekMessages = messages.filter(msg => msg.sentAt && new Date(msg.sentAt) >= weekAgo);
 
       const monthAgo = new Date();
       monthAgo.setMonth(monthAgo.getMonth() - 1);
-      const monthMessages = messages.filter(msg => new Date(msg.sentAt) >= monthAgo);
+      const monthMessages = messages.filter(msg => msg.sentAt && new Date(msg.sentAt) >= monthAgo);
 
       const lastSent = messages.length > 0 ? 
-        Math.max(...messages.map(msg => new Date(msg.sentAt).getTime())) : null;
+        Math.max(...messages.filter(msg => msg.sentAt).map(msg => new Date(msg.sentAt!).getTime())) : null;
 
       res.json({
         totalSent,

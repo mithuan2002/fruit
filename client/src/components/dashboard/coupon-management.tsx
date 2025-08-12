@@ -67,7 +67,7 @@ export default function CouponManagement() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {coupons && coupons.length > 0 ? (
+              {coupons && Array.isArray(coupons) && coupons.length > 0 ? (
                 coupons.map((coupon: Coupon) => {
                   const usagePercentage = coupon.usageLimit > 0 ? (coupon.usageCount / coupon.usageLimit) * 100 : 0;
                   

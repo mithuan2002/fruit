@@ -226,7 +226,7 @@ export default function WhatsAppCenter() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Messages Sent</p>
-                    <p className="text-2xl font-bold">{messageStats?.totalSent || 0}</p>
+                    <p className="text-2xl font-bold">{(messageStats as any)?.totalSent || 0}</p>
                   </div>
                   <Send className="h-8 w-8 text-purple-500" />
                 </div>
@@ -238,7 +238,7 @@ export default function WhatsAppCenter() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Success Rate</p>
-                    <p className="text-2xl font-bold">{messageStats?.successRate || 0}%</p>
+                    <p className="text-2xl font-bold">{(messageStats as any)?.successRate || 0}%</p>
                   </div>
                   <BarChart3 className="h-8 w-8 text-orange-500" />
                 </div>

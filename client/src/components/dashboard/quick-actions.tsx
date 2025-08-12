@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { UserPlus, CheckCircle, MessageCircle, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { SmsMessage } from "@shared/schema";
+import type { WhatsappMessage } from "@shared/schema";
 
 export default function QuickActions() {
   const [customerForm, setCustomerForm] = useState({
@@ -140,8 +140,8 @@ export default function QuickActions() {
                 </div>
               ))}
             </div>
-          ) : recentSms && recentSms.length > 0 ? (
-            recentSms.slice(0, 3).map((sms: SmsMessage) => (
+          ) : recentSms && Array.isArray(recentSms) && recentSms.length > 0 ? (
+            recentSms.slice(0, 3).map((sms: WhatsappMessage) => (
               <div key={sms.id} className="p-4">
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0">

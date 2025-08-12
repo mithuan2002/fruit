@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, MessageCircle } from "lucide-react";
-import type { SmsMessage } from "@shared/schema";
+import type { WhatsappMessage } from "@shared/schema";
 
 export default function SmsActivity() {
   const { data: recentSms, isLoading: smsLoading } = useQuery({
@@ -32,8 +32,8 @@ export default function SmsActivity() {
               </div>
             ))}
           </div>
-        ) : recentSms && recentSms.length > 0 ? (
-          recentSms.map((sms: SmsMessage) => (
+        ) : recentSms && Array.isArray(recentSms) && recentSms.length > 0 ? (
+          recentSms.map((sms: WhatsappMessage) => (
             <div key={sms.id} className="p-4">
               <div className="flex items-start space-x-3">
                 <div className="flex-shrink-0">

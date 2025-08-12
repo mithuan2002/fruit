@@ -36,9 +36,9 @@ export default function TopPerformers() {
           <h3 className="text-lg font-medium text-gray-900">Top Referrers This Month</h3>
         </div>
         <CardContent className="p-6">
-          {topReferrers && topReferrers.length > 0 ? (
+          {topReferrers && Array.isArray(topReferrers) && topReferrers.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {topReferrers.slice(0, 3).map((customer: Customer, index: number) => (
+              {Array.isArray(topReferrers) ? topReferrers.slice(0, 3).map((customer: Customer, index: number) => (
                 <div key={customer.id} className="flex items-center p-4 bg-gray-50 rounded-lg">
                   <div className="flex-shrink-0">
                     <Badge 
@@ -57,7 +57,7 @@ export default function TopPerformers() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )) : []}
             </div>
           ) : (
             <div className="text-center py-8">
