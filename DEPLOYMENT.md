@@ -11,24 +11,37 @@ This project is now properly configured to deploy the frontend as a static site 
 ✘ [ERROR] The entry point "server/index.ts" cannot be marked as external
 ```
 
-**Solution**: Created static files directly in the root directory (`index.html` and `assets/`) and configured Vercel with simple rewrites, completely bypassing any build process.
+**Solution**: Created isolated `static/` directory with pre-built files and aggressive `.vercelignore` that excludes ALL project files except `static/` and `vercel.json`. This forces Vercel to treat the deployment as pure static files.
 
 ### Current Configuration:
 
+**vercel.json**:
 ```json
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "src": "static/**/*",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/static/index.html"
     }
   ]
 }
 ```
 
-The project now includes static files at the root level (`index.html` and `assets/`) that Vercel will deploy directly without any build process.
+**.vercelignore**:
+```
+*
+!static/
+!vercel.json
+```
+
+This configuration ensures Vercel only sees the `static/` directory and treats the deployment as pure static files.
 
 ### Quick Deploy Steps:
 
@@ -78,11 +91,13 @@ If issues persist:
 ### File Structure for Deployment:
 ```
 / (root)
-├── index.html              # Main landing page
-├── assets/
-│   ├── index-BBI_h-tb.css  # Styles (82KB)
-│   └── index-CzDjjPfL.js   # React app (500KB)
-└── vercel.json             # Simple rewrite config
+├── static/                 # Only directory Vercel sees
+│   ├── index.html          # Main Fruitbox landing page
+│   └── assets/
+│       ├── index-BBI_h-tb.css   # Styles (82KB)
+│       └── index-CzDjjPfL.js     # React app (500KB)
+├── vercel.json             # Deployment configuration
+└── .vercelignore           # Excludes everything except static/
 ```
 
 ### Local Testing:
