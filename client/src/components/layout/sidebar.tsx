@@ -1,5 +1,8 @@
 import { Link, useLocation } from "wouter";
-import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart, MessageSquare } from "lucide-react";
+import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart, MessageSquare, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
@@ -10,6 +13,24 @@ const navigation = [
 
 export default function Sidebar() {
   const [location] = useLocation();
+  const { user, logout, isLoggingOut } = useAuth();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast({
+        title: "Logged out",
+        description: "You have been successfully logged out.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to logout. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="hidden lg:flex lg:flex-shrink-0">
@@ -47,15 +68,26 @@ export default function Sidebar() {
           </nav>
 
           {/* User Profile Section */}
-          <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-            <div className="flex items-center">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                <Users className="text-white h-4 w-4" />
+          <div className="flex-shrink-0 border-t border-gray-200 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                  <Users className="text-white h-4 w-4" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-700">{user?.username}</p>
+                  <p className="text-xs font-medium text-gray-500">Authenticated</p>
+                </div>
               </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700">Sarah's Store</p>
-                <p className="text-xs font-medium text-gray-500">Business Owner</p>
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="p-2"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>

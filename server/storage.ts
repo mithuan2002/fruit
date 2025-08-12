@@ -17,6 +17,8 @@ import {
   type InsertRewardRedemption,
   type SystemConfig,
   type InsertSystemConfig,
+  type User,
+  type InsertUser,
   customers,
   campaigns,
   coupons,
@@ -26,6 +28,7 @@ import {
   rewards,
   rewardRedemptions,
   systemConfig,
+  users,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -98,6 +101,11 @@ export interface IStorage {
   getPublicSystemConfig(): Promise<SystemConfig[]>;
   upsertSystemConfig(config: InsertSystemConfig): Promise<SystemConfig>;
 
+  // User operations (Authentication)
+  getUser(id: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  
   // Utility operations
   generateUniqueCode(): Promise<string>;
 
@@ -390,6 +398,22 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return config;
+  }
+
+  // User operations (Authentication)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
   }
 
   // Utility operations

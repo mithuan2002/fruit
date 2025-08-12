@@ -166,6 +166,28 @@ export const systemConfig = pgTable("system_config", {
   publicIdx: index("system_config_public_idx").on(table.isPublic),
 }));
 
+// Users table for authentication
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  usernameIdx: index("users_username_idx").on(table.username),
+}));
+
+// Session storage table
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: text("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
 // Define relationships using Drizzle relations
 export const customersRelations = relations(customers, ({ many }) => ({
   coupons: many(coupons),
@@ -310,6 +332,17 @@ export const insertSystemConfigSchema = createInsertSchema(systemConfig).omit({
   updatedAt: true,
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const loginUserSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
 // Types
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
@@ -337,6 +370,10 @@ export type InsertRewardRedemption = z.infer<typeof insertRewardRedemptionSchema
 
 export type SystemConfig = typeof systemConfig.$inferSelect;
 export type InsertSystemConfig = z.infer<typeof insertSystemConfigSchema>;
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type LoginUser = z.infer<typeof loginUserSchema>;
 
 // Updated business logic schemas
 export const redeemPointsSchema = z.object({

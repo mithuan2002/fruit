@@ -6,18 +6,145 @@ import {
   insertCampaignSchema,
   insertCouponSchema,
   insertReferralSchema,
-  insertWhatsappMessageSchema
+  insertWhatsappMessageSchema,
+  insertUserSchema,
+  loginUserSchema,
+  type User
 } from "@shared/schema";
 import { z } from "zod";
 import { interaktService } from "./interaktService";
+import bcrypt from "bcryptjs";
+import session from "express-session";
+import MemoryStore from "memorystore";
 
 
 
 
+
+// Session middleware
+function setupAuth(app: Express) {
+  const SessionStore = MemoryStore(session);
+  
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'dev-secret-key',
+    store: new SessionStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    }),
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: false, // set to true in production with HTTPS
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  }));
+}
+
+// Auth middleware
+function requireAuth(req: any, res: any, next: any) {
+  if (req.session?.user) {
+    return next();
+  }
+  return res.status(401).json({ message: "Authentication required" });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Customer routes
-  app.get("/api/customers", async (req, res) => {
+  // Setup authentication
+  setupAuth(app);
+
+  // Auth routes
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const validatedData = insertUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(validatedData.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      
+      // Create user
+      const user = await storage.createUser({
+        username: validatedData.username,
+        password: hashedPassword
+      });
+      
+      // Create session
+      (req as any).session.user = {
+        id: user.id,
+        username: user.username
+      };
+      
+      res.status(201).json({
+        user: { id: user.id, username: user.username },
+        message: "User registered successfully"
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Registration error:", error);
+      res.status(500).json({ message: "Failed to register user" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const validatedData = loginUserSchema.parse(req.body);
+      
+      // Find user
+      const user = await storage.getUserByUsername(validatedData.username);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Check password
+      const isValidPassword = await bcrypt.compare(validatedData.password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
+      // Create session
+      (req as any).session.user = {
+        id: user.id,
+        username: user.username
+      };
+      
+      res.json({
+        user: { id: user.id, username: user.username },
+        message: "Login successful"
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    (req as any).session.destroy((err: any) => {
+      if (err) {
+        return res.status(500).json({ message: "Failed to logout" });
+      }
+      res.json({ message: "Logout successful" });
+    });
+  });
+
+  app.get("/api/auth/user", (req, res) => {
+    if ((req as any).session?.user) {
+      res.json({ user: (req as any).session.user });
+    } else {
+      res.status(401).json({ message: "Not authenticated" });
+    }
+  });
+
+  // Protected routes (require authentication)
+  app.get("/api/customers", requireAuth, async (req, res) => {
     try {
       const customers = await storage.getAllCustomers();
       res.json(customers);
@@ -38,7 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customers", async (req, res) => {
+  app.post("/api/customers", requireAuth, async (req, res) => {
     try {
       const validatedData = insertCustomerSchema.parse(req.body);
 
