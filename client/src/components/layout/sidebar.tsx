@@ -75,8 +75,12 @@ export default function Sidebar() {
                   <Users className="text-white h-4 w-4" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-700">{user?.username}</p>
-                  <p className="text-xs font-medium text-gray-500">Authenticated</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    {user?.shopName || user?.username}
+                  </p>
+                  <p className="text-xs font-medium text-gray-500">
+                    {user?.adminName || "Business Owner"}
+                  </p>
                 </div>
               </div>
               <Button

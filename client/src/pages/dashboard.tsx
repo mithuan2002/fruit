@@ -7,6 +7,7 @@ import TopPerformers from "@/components/dashboard/top-performers";
 import CouponManagement from "@/components/dashboard/coupon-management";
 import QuickActions from "@/components/dashboard/quick-actions";
 import CouponRedemption from "@/components/coupon-redemption";
+import IndustryWelcome from "@/components/industry-welcome";
 import { Button } from "@/components/ui/button";
 import { BarChart3 } from "lucide-react";
 
@@ -34,6 +35,7 @@ export default function Dashboard() {
             </Link>
           </div>
 
+          <IndustryWelcome />
           <StatsGrid />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -171,6 +171,11 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  adminName: text("admin_name"),
+  shopName: text("shop_name"),
+  whatsappBusinessNumber: text("whatsapp_business_number"),
+  industry: text("industry"), // food, fashion, electronics, beauty, services, others
+  isOnboarded: boolean("is_onboarded").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -343,6 +348,15 @@ export const loginUserSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const onboardingSchema = z.object({
+  adminName: z.string().min(1, "Admin name is required"),
+  shopName: z.string().min(1, "Shop name is required"),
+  whatsappBusinessNumber: z.string().min(10, "Valid WhatsApp business number is required"),
+  industry: z.enum(["food", "fashion", "electronics", "beauty", "services", "others"], {
+    required_error: "Please select an industry",
+  }),
+});
+
 // Types
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
@@ -374,6 +388,7 @@ export type InsertSystemConfig = z.infer<typeof insertSystemConfigSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
+export type OnboardingData = z.infer<typeof onboardingSchema>;
 
 // Updated business logic schemas
 export const redeemPointsSchema = z.object({

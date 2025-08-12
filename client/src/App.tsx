@@ -15,11 +15,12 @@ import DashboardSetupGuide from "@/pages/dashboard-setup-guide";
 import CampaignsSetupGuide from "@/pages/campaigns-setup-guide";
 import CustomersSetupGuide from "@/pages/customers-setup-guide";
 import Auth from "@/pages/auth";
+import Onboarding from "@/pages/onboarding";
 
 import Sidebar from "@/components/layout/sidebar";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -34,6 +35,11 @@ function Router() {
 
   if (!isAuthenticated) {
     return <Auth />;
+  }
+
+  // Show onboarding if user is authenticated but hasn't completed onboarding
+  if (isAuthenticated && user && !user.isOnboarded) {
+    return <Onboarding />;
   }
 
   return (

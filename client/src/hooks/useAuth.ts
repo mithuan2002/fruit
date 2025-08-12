@@ -4,6 +4,11 @@ import { apiRequest } from "@/lib/queryClient";
 interface User {
   id: string;
   username: string;
+  adminName?: string;
+  shopName?: string;
+  whatsappBusinessNumber?: string;
+  industry?: string;
+  isOnboarded: boolean;
 }
 
 interface AuthResponse {
@@ -84,6 +89,29 @@ export function useAuth() {
     },
   });
 
+  const onboardMutation = useMutation({
+    mutationFn: async (data: {
+      adminName: string;
+      shopName: string;
+      whatsappBusinessNumber: string;
+      industry: string;
+    }) => {
+      const response = await fetch("/api/auth/onboard", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Onboarding failed");
+      }
+      return await response.json() as AuthResponse;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    },
+  });
+
   return {
     user: user?.user || null,
     isLoading,
@@ -91,9 +119,10 @@ export function useAuth() {
     login: loginMutation.mutateAsync,
     register: registerMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,
+    onboard: onboardMutation.mutateAsync,
     isLoggingIn: loginMutation.isPending,
     isRegistering: registerMutation.isPending,
     isLoggingOut: logoutMutation.isPending,
-    error,
+    isOnboarding: onboardMutation.isPending,
   };
 }

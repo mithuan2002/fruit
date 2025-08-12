@@ -9,6 +9,7 @@ import {
   insertWhatsappMessageSchema,
   insertUserSchema,
   loginUserSchema,
+  onboardingSchema,
   type User
 } from "@shared/schema";
 import { z } from "zod";
@@ -135,11 +136,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.get("/api/auth/user", (req, res) => {
+  app.get("/api/auth/user", async (req, res) => {
     if ((req as any).session?.user) {
-      res.json({ user: (req as any).session.user });
+      // Get fresh user data from database to include onboarding status
+      const user = await storage.getUser((req as any).session.user.id);
+      if (user) {
+        res.json({ 
+          user: { 
+            id: user.id, 
+            username: user.username,
+            adminName: user.adminName,
+            shopName: user.shopName,
+            whatsappBusinessNumber: user.whatsappBusinessNumber,
+            industry: user.industry,
+            isOnboarded: user.isOnboarded
+          } 
+        });
+      } else {
+        res.status(401).json({ message: "User not found" });
+      }
     } else {
       res.status(401).json({ message: "Not authenticated" });
+    }
+  });
+
+  app.post("/api/auth/onboard", async (req, res) => {
+    try {
+      if (!(req as any).session?.user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const validatedData = onboardingSchema.parse(req.body);
+      const userId = (req as any).session.user.id;
+
+      const updatedUser = await storage.updateUser(userId, {
+        ...validatedData,
+        isOnboarded: true
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Update session with new user data
+      (req as any).session.user = {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        adminName: updatedUser.adminName,
+        shopName: updatedUser.shopName,
+        whatsappBusinessNumber: updatedUser.whatsappBusinessNumber,
+        industry: updatedUser.industry,
+        isOnboarded: updatedUser.isOnboarded
+      };
+
+      res.json({
+        user: (req as any).session.user,
+        message: "Onboarding completed successfully"
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Onboarding error:", error);
+      res.status(500).json({ message: "Failed to complete onboarding" });
     }
   });
 
