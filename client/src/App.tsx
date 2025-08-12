@@ -16,6 +16,7 @@ import CampaignsSetupGuide from "@/pages/campaigns-setup-guide";
 import CustomersSetupGuide from "@/pages/customers-setup-guide";
 import Auth from "@/pages/auth";
 import Onboarding from "@/pages/onboarding";
+import Landing from "@/pages/landing";
 
 import Sidebar from "@/components/layout/sidebar";
 
@@ -33,34 +34,42 @@ function Router() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <Auth />;
-  }
-
   // Show onboarding if user is authenticated but hasn't completed onboarding
   if (isAuthenticated && user && user.isOnboarded !== true) {
     return <Onboarding />;
   }
 
-  return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/campaigns" component={Campaigns} />
-          <Route path="/customers" component={Customers} />
-          <Route path="/reports" component={Reports} />
-          <Route path="/whatsapp-center" component={WhatsAppCenter} />
-          <Route path="/whatsapp-setup-guide" component={WhatsAppSetupGuide} />
-          <Route path="/dashboard-setup-guide" component={DashboardSetupGuide} />
-          <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />
-          <Route path="/customers-setup-guide" component={CustomersSetupGuide} />
-          <Route component={NotFound} />
-        </Switch>
+  // If authenticated, show the main app with sidebar
+  if (isAuthenticated) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <Switch>
+            <Route path="/" component={Dashboard} />
+            <Route path="/dashboard" component={Dashboard} />
+            <Route path="/campaigns" component={Campaigns} />
+            <Route path="/customers" component={Customers} />
+            <Route path="/reports" component={Reports} />
+            <Route path="/whatsapp-center" component={WhatsAppCenter} />
+            <Route path="/whatsapp-setup-guide" component={WhatsAppSetupGuide} />
+            <Route path="/dashboard-setup-guide" component={DashboardSetupGuide} />
+            <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />
+            <Route path="/customers-setup-guide" component={CustomersSetupGuide} />
+            <Route component={NotFound} />
+          </Switch>
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  // If not authenticated, show public routes (landing page and auth)
+  return (
+    <Switch>
+      <Route path="/" component={Landing} />
+      <Route path="/auth" component={Auth} />
+      <Route component={Landing} />
+    </Switch>
   );
 }
 
