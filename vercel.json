@@ -1,6 +1,15 @@
 {
-  "buildCommand": "echo 'Using pre-built files'",
-  "outputDirectory": "dist/public",
-  "installCommand": "echo 'No install needed'",
-  "framework": null
+  "version": 2,
+  "builds": [
+    {
+      "src": "public/**/*",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }

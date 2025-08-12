@@ -11,20 +11,29 @@ This project is now properly configured to deploy the frontend as a static site 
 ✘ [ERROR] The entry point "server/index.ts" cannot be marked as external
 ```
 
-**Solution**: Pre-built the static frontend files and configured Vercel to skip the build process entirely, using the existing `dist/public/` directory with a dummy build command.
+**Solution**: Created a `public/` directory with pre-built static files and configured Vercel to deploy using `@vercel/static` builder, completely bypassing any npm build process.
 
 ### Current Configuration:
 
 ```json
 {
-  "buildCommand": "echo 'Using pre-built files'",
-  "outputDirectory": "dist/public",
-  "installCommand": "echo 'No install needed'",
-  "framework": null
+  "version": 2,
+  "builds": [
+    {
+      "src": "public/**/*",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }
 ```
 
-The project now includes pre-built static files in `dist/public/` that are ready for deployment without any build process.
+The project now includes pre-built static files in `public/` directory that Vercel will deploy using the static builder without any build process.
 
 ### Quick Deploy Steps:
 
@@ -64,12 +73,12 @@ The project now includes pre-built static files in `dist/public/` that are ready
 ✅ **Fixed**: Incorrect build command detection
 ✅ **Fixed**: Vercel ignoring custom build configuration
 
-**Final Solution**: Pre-built static files bypass all build issues. The `dist/public/` folder contains ready-to-deploy files that work immediately on Vercel.
+**Final Solution**: Created dedicated `public/` folder with static files and configured Vercel to use `@vercel/static` builder. This completely avoids any npm build commands.
 
 If issues persist:
-1. Ensure `dist/public/` folder is committed to repository
+1. Ensure `public/` folder with assets is committed to repository
 2. Clear Vercel build cache and redeploy
-3. Check that `vercel.json` points to correct output directory
+3. Check that all Node.js related files are excluded in `.vercelignore`
 
 ### Local Testing:
 

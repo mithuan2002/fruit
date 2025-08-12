@@ -3,4 +3,16 @@ node_modules/
 *.md
 .env*
 drizzle.config.ts
-!dist/public/
+client/
+dist/
+package.json
+package-lock.json
+tsconfig.json
+vite.config.ts
+tailwind.config.ts
+postcss.config.js
+components.json
+build.js
+build-frontend.sh
+vercel-build.config.js
+drizzle.config.ts
