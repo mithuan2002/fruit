@@ -91,10 +91,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/customers/:id", async (req, res) => {
     try {
-      const customer = await storage.updateCustomer(req.params.id, req.body);
-      if (!customer) {
+      const existingCustomer = await storage.getCustomer(req.params.id);
+      if (!existingCustomer) {
         return res.status(404).json({ message: "Customer not found" });
       }
+
+      const customer = await storage.updateCustomer(req.params.id, req.body);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found after update" });
+      }
+      
+      // Check if points were manually updated and send notification
+      if (req.body.points && req.body.points !== existingCustomer.points) {
+        const pointsDifference = req.body.points - existingCustomer.points;
+        
+        try {
+          if (pointsDifference > 0) {
+            // Points increased - send points earned message
+            await interaktService.sendPointsEarnedMessage(
+              customer.phoneNumber,
+              customer.name,
+              pointsDifference,
+              customer.points
+            );
+            
+            await storage.createWhatsappMessage({
+              customerId: customer.id,
+              phoneNumber: customer.phoneNumber,
+              message: `Manual points adjustment: +${pointsDifference} points`,
+              type: "reward_earned",
+              status: "sent"
+            });
+          }
+        } catch (error) {
+          console.error("Failed to send points update message:", error);
+        }
+      }
+
       res.json(customer);
     } catch (error) {
       res.status(500).json({ message: "Failed to update customer" });
@@ -281,7 +314,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send WhatsApp message with coupon code
       const customer = await storage.getCustomer(req.params.id);
       if (customer) {
-        // Note: Coupon generation via WATI could be implemented here if needed
+        try {
+          await interaktService.sendTextMessage(
+            customer.phoneNumber,
+            `🎁 New Coupon Generated!\n\nHi ${customer.name},\n\nYour new coupon code: *${couponCode}*\n\nUse this code for your next purchase and save!\n\nValid for 100 uses. Don't miss out! 🛍️`
+          );
+
+          await storage.createWhatsappMessage({
+            customerId: customer.id,
+            phoneNumber: customer.phoneNumber,
+            message: `Coupon generated notification: ${couponCode}`,
+            type: "coupon_generated",
+            status: "sent"
+          });
+        } catch (error) {
+          console.error("Failed to send coupon generation message:", error);
+        }
       }
 
       res.status(201).json(coupon);
