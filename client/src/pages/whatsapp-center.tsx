@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { HowItWorksSection } from "@/components/how-it-works-section";
 
 interface InteraktConfig {
   apiKey: string;
@@ -236,32 +237,43 @@ export default function WhatsAppCenter() {
             </Card>
           </div>
 
-          <Tabs defaultValue="configuration" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          <Tabs defaultValue="how-it-works" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="how-it-works">How It Works</TabsTrigger>
+              <TabsTrigger value="configuration">Setup</TabsTrigger>
               <TabsTrigger value="testing">Testing</TabsTrigger>
               <TabsTrigger value="broadcasting">Broadcasting</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
 
+            {/* How It Works Tab */}
+            <TabsContent value="how-it-works">
+              <HowItWorksSection />
+            </TabsContent>
+
             {/* Configuration Tab */}
             <TabsContent value="configuration">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
-                    Interakt Configuration
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleConfigSubmit} className="space-y-4">
-                    <Alert>
+              <div className="space-y-6">
+                <Card className="border-l-4 border-l-blue-500">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-blue-700">
+                      <Settings className="h-5 w-5" />
+                      WATI WhatsApp Setup
+                    </CardTitle>
+                    <p className="text-sm text-gray-600">
+                      Follow the "How It Works" tab first, then enter your WATI details here
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <Alert className="mb-6">
                       <Key className="h-4 w-4" />
                       <AlertDescription>
-                        Enter your Interakt API credentials to enable WhatsApp messaging. 
-                        You can find these in your Interakt dashboard.
+                        <strong>Need help?</strong> Go to WATI.io → Login → Settings → API Access to find these details.
+                        If you don't have a WATI account yet, check the "How It Works" tab for step-by-step instructions.
                       </AlertDescription>
                     </Alert>
+
+                    <form onSubmit={handleConfigSubmit} className="space-y-6">
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -310,27 +322,27 @@ export default function WhatsAppCenter() {
                       </div>
                     </div>
 
-                    <Button 
-                      type="submit" 
-                      disabled={configureInterakt.isPending}
-                      className="w-full md:w-auto"
-                    >
-                      {configureInterakt.isPending ? (
-                        <>
-                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                          Configuring...
-                        </>
-                      ) : (
-                        <>
-                          <Settings className="mr-2 h-4 w-4" />
-                          Save Configuration
-                        </>
-                      )}
-                    </Button>
-                  </form>
+                      <Button 
+                        type="submit" 
+                        disabled={configureInterakt.isPending}
+                        className="w-full md:w-auto"
+                      >
+                        {configureInterakt.isPending ? (
+                          <>
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                            Configuring...
+                          </>
+                        ) : (
+                          <>
+                            <Settings className="mr-2 h-4 w-4" />
+                            Save Configuration
+                          </>
+                        )}
+                      </Button>
+                    </form>
 
-                  {isConfigured && (
-                    <div className="mt-6 p-4 bg-green-50 rounded-lg">
+                    {isConfigured && (
+                      <div className="mt-6 p-4 bg-green-50 rounded-lg">
                       <div className="flex items-center gap-2 text-green-800">
                         <CheckCircle className="h-5 w-5" />
                         <span className="font-medium">Configuration Active</span>
@@ -341,9 +353,10 @@ export default function WhatsAppCenter() {
                         <p>API URL: {(currentConfig as any)?.apiUrl}</p>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             {/* Testing Tab */}
