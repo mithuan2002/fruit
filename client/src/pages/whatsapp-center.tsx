@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 interface InteraktConfig {
   apiKey: string;
@@ -169,8 +170,17 @@ export default function WhatsAppCenter() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-blue-600">🚀 WhatsApp Center - UPDATED</h1>
+          <div className="mb-8 flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-blue-600">🚀 WhatsApp Center</h1>
+              <p className="text-gray-600 mt-1">Manage automated WhatsApp messaging for your customers</p>
+            </div>
+            <Link href="/whatsapp-setup">
+              <Button variant="outline" className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Setup Guide
+              </Button>
+            </Link>
           </div>
 
           {/* Status Overview */}

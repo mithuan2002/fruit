@@ -9,6 +9,7 @@ import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
 import Reports from "@/pages/reports";
 import WhatsAppCenter from "@/pages/whatsapp-center";
+import WhatsAppSetupGuide from "@/pages/whatsapp-setup-guide";
 
 
 import Sidebar from "@/components/layout/sidebar";
@@ -25,6 +26,7 @@ function Router() {
           <Route path="/customers" component={Customers} />
           <Route path="/reports" component={Reports} />
           <Route path="/whatsapp-center" component={WhatsAppCenter} />
+          <Route path="/whatsapp-setup" component={WhatsAppSetupGuide} />
           <Route component={NotFound} />
         </Switch>
       </div>
