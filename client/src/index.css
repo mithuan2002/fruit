@@ -147,14 +147,18 @@ button {
 }
 
 /* Ensure buttons are always visible with solid backgrounds */
-button[class*="bg-blue"] {
-  background-color: #2563eb !important;
-  color: white !important;
+button[class*="bg-blue"],
+button[class*="from-blue"] {
+  background: #2563eb !important;
+  color: #ffffff !important;
   border: 1px solid #1d4ed8 !important;
+  font-weight: 600 !important;
 }
 
-button[class*="bg-blue"]:hover {
-  background-color: #1d4ed8 !important;
+button[class*="bg-blue"]:hover,
+button[class*="from-blue"]:hover {
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
   transform: translateY(-1px) !important;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4) !important;
 }
