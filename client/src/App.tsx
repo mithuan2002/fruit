@@ -38,7 +38,7 @@ function Router() {
   }
 
   // Show onboarding if user is authenticated but hasn't completed onboarding
-  if (isAuthenticated && user && !user.isOnboarded) {
+  if (isAuthenticated && user && (!user.isOnboarded || user.isOnboarded === false)) {
     return <Onboarding />;
   }
 

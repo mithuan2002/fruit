@@ -73,14 +73,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword
       });
       
-      // Create session
+      // Create session with complete user data (new users have isOnboarded = false by default)
       (req as any).session.user = {
         id: user.id,
-        username: user.username
+        username: user.username,
+        adminName: user.adminName,
+        shopName: user.shopName,
+        whatsappBusinessNumber: user.whatsappBusinessNumber,
+        industry: user.industry,
+        isOnboarded: user.isOnboarded || false
       };
       
       res.status(201).json({
-        user: { id: user.id, username: user.username },
+        user: (req as any).session.user,
         message: "User registered successfully"
       });
     } catch (error) {
@@ -108,14 +113,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
-      // Create session
+      // Create session with complete user data
       (req as any).session.user = {
         id: user.id,
-        username: user.username
+        username: user.username,
+        adminName: user.adminName,
+        shopName: user.shopName,
+        whatsappBusinessNumber: user.whatsappBusinessNumber,
+        industry: user.industry,
+        isOnboarded: user.isOnboarded
       };
       
       res.json({
-        user: { id: user.id, username: user.username },
+        user: (req as any).session.user,
         message: "Login successful"
       });
     } catch (error) {
