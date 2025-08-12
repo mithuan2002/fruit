@@ -151,6 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get fresh user data from database to include onboarding status
       const user = await storage.getUser((req as any).session.user.id);
       if (user) {
+        console.log("User data from DB:", { id: user.id, isOnboarded: user.isOnboarded, type: typeof user.isOnboarded });
         res.json({ 
           user: { 
             id: user.id, 
@@ -179,9 +180,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = onboardingSchema.parse(req.body);
       const userId = (req as any).session.user.id;
 
+      console.log("Onboarding user:", userId, "with data:", validatedData);
+
       const updatedUser = await storage.updateUser(userId, {
         ...validatedData,
         isOnboarded: true
+      });
+
+      console.log("Updated user after onboarding:", { 
+        id: updatedUser?.id, 
+        isOnboarded: updatedUser?.isOnboarded,
+        adminName: updatedUser?.adminName,
+        shopName: updatedUser?.shopName
       });
 
       if (!updatedUser) {
@@ -198,6 +208,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         industry: updatedUser.industry,
         isOnboarded: updatedUser.isOnboarded
       };
+
+      console.log("Session updated with:", (req as any).session.user);
 
       res.json({
         user: (req as any).session.user,
