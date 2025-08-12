@@ -48,13 +48,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Customer with this phone number already exists" });
       }
 
-      // Generate unique coupon code for the new customer
-      const couponCode = await storage.generateUniqueCode();
+      // Generate unique referral code for the new customer
+      const referralCode = await storage.generateUniqueCode();
 
-      // Create customer with coupon code
+      // Create customer with referral code
       const customer = await storage.createCustomer({
         ...validatedData,
-        couponCode
+        referralCode
       });
 
       // Send welcome message via Interakt
@@ -62,13 +62,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await interaktService.sendWelcomeMessage(
           customer.phoneNumber,
           customer.name,
-          couponCode
+          referralCode
         );
 
         await storage.createWhatsappMessage({
           customerId: customer.id,
           phoneNumber: customer.phoneNumber,
-          message: `Welcome message with referral code: ${couponCode}`,
+          message: `Welcome message with referral code: ${referralCode}`,
           type: "welcome_referral",
           status: "sent"
         });
@@ -78,7 +78,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json({
         customer,
-        couponCode,
+        referralCode,
         message: `Customer created successfully.`
       });
     } catch (error) {
@@ -395,7 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         referrerId: customer.id,
         referredCustomerId: referredCustomer?.id || null,
         campaignId: null,
-        couponCode: req.params.code,
+        referralCode: req.params.code,
         pointsEarned: finalPointsEarned,
         status: "completed",
         saleAmount: saleAmount || 0,
