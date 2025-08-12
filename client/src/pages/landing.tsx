@@ -9,7 +9,7 @@ export default function Landing() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">F</span>
+              <Gift className="text-white h-4 w-4" />
             </div>
             <span className="text-2xl font-bold text-gray-900">Fruitbox</span>
           </div>
@@ -38,9 +38,14 @@ export default function Landing() {
                 <ArrowRight className="ml-2 w-5 h-5" />
               </button>
             </Link>
-            <button className="inline-flex items-center px-8 py-4 bg-white text-blue-600 text-lg font-semibold rounded-xl border-2 border-blue-600 hover:bg-blue-50 transition-all transform hover:scale-105 shadow-lg" data-testid="button-book-demo">
-              Book Demo
-            </button>
+            <div className="flex flex-col items-center">
+              <a href="https://forms.gle/s85gNj5ui7pCwgeY9" target="_blank" rel="noopener noreferrer" data-testid="button-book-demo">
+                <button className="inline-flex items-center px-8 py-4 bg-white text-blue-600 text-lg font-semibold rounded-xl border-2 border-blue-600 hover:bg-blue-50 transition-all transform hover:scale-105 shadow-lg">
+                  Book Demo
+                </button>
+              </a>
+              <p className="text-sm text-gray-500 mt-2 text-center">Book a demo to get better understanding on how it works</p>
+            </div>
           </div>
         </div>
       </section>
@@ -131,7 +136,7 @@ export default function Landing() {
       <section className="container mx-auto px-6 py-20">
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-12 text-center text-white">
           <h2 className="text-4xl font-bold mb-4">Ready to Grow Your Business?</h2>
-          <p className="text-xl mb-8 opacity-90">Join thousands of businesses using Fruitbox to drive growth through referrals</p>
+          <p className="text-xl mb-8 opacity-90">Join thousands of businesses using Fruitbox to drive growth through rewards</p>
           <Link href="/auth" data-testid="button-get-started-cta">
             <button className="inline-flex items-center px-8 py-4 bg-white text-blue-600 text-lg font-semibold rounded-xl hover:bg-gray-50 transition-colors transform hover:scale-105 shadow-lg">
               Get Started Now
@@ -146,7 +151,7 @@ export default function Landing() {
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center space-x-2 mb-4 md:mb-0">
             <div className="w-6 h-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xs">F</span>
+              <Gift className="text-white h-3 w-3" />
             </div>
             <span className="text-lg font-bold text-gray-900">Fruitbox</span>
           </div>
