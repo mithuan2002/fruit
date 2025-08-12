@@ -44,7 +44,7 @@ export default function WhatsAppSetupGuide() {
               WhatsApp Marketing Made Simple
             </h1>
             <p className="text-lg text-gray-600">
-              Automatically send messages to your customers when they shop and refer friends
+              Automatically send messages to your customers using Interakt when they shop and refer friends
             </p>
           </div>
 
@@ -146,7 +146,7 @@ export default function WhatsAppSetupGuide() {
               <Alert className="mb-6">
                 <Clock className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Setup takes only 10 minutes!</strong> You need a WATI account (WhatsApp Business API provider) to send messages.
+                  <strong>Setup takes only 10 minutes!</strong> You need an Interakt account (WhatsApp Business API provider) to send messages.
                 </AlertDescription>
               </Alert>
 
@@ -160,10 +160,10 @@ export default function WhatsAppSetupGuide() {
                     </div>
                   </div>
                   <div>
-                    <h3 className="font-semibold mb-2">Create a WATI Account</h3>
+                    <h3 className="font-semibold mb-2">Create an Interakt Account</h3>
                     <p className="text-gray-600 mb-3">
-                      Visit <a href="https://wati.io" target="_blank" className="text-blue-600 underline">wati.io</a> and sign up for an account. 
-                      WATI is a WhatsApp Business API provider that lets you send automated messages.
+                      Visit <a href="https://www.interakt.ai" target="_blank" className="text-blue-600 underline">interakt.ai</a> and sign up for an account. 
+                      Interakt is a WhatsApp Business API provider that lets you send automated messages.
                     </p>
                     <Badge variant="outline">Free trial available</Badge>
                   </div>
@@ -181,7 +181,7 @@ export default function WhatsAppSetupGuide() {
                   <div>
                     <h3 className="font-semibold mb-2">Connect Your WhatsApp Business Number</h3>
                     <p className="text-gray-600 mb-3">
-                      In WATI, connect your existing WhatsApp Business number or create a new one. 
+                      In Interakt, connect your existing WhatsApp Business number or create a new one. 
                       This is the number customers will see messages from.
                     </p>
                     <div className="flex items-center gap-2">
@@ -203,8 +203,8 @@ export default function WhatsAppSetupGuide() {
                   <div>
                     <h3 className="font-semibold mb-2">Get Your API Key</h3>
                     <p className="text-gray-600 mb-3">
-                      In your WATI dashboard, go to Settings → API Keys and copy your API key. 
-                      This is like a password that lets Fruitbox send messages through WATI.
+                      In your Interakt dashboard, go to Settings → API Keys and copy your API key. 
+                      This is like a password that lets Fruitbox send messages through Interakt.
                     </p>
                     <div className="flex items-center gap-2">
                       <Key className="h-4 w-4 text-gray-500" />
@@ -230,7 +230,7 @@ export default function WhatsAppSetupGuide() {
                     <ul className="space-y-2 text-sm text-gray-600">
                       <li className="flex items-center gap-2">
                         <ArrowRight className="h-3 w-3" />
-                        Your WATI API Key
+                        Your Interakt API Key
                       </li>
                       <li className="flex items-center gap-2">
                         <ArrowRight className="h-3 w-3" />
@@ -273,16 +273,16 @@ export default function WhatsAppSetupGuide() {
                   </Button>
                 </Link>
                 <Button variant="outline" size="lg" asChild className="w-full sm:w-auto">
-                  <a href="https://wati.io" target="_blank" rel="noopener noreferrer">
+                  <a href="https://www.interakt.ai" target="_blank" rel="noopener noreferrer">
                     <Building2 className="mr-2 h-4 w-4" />
-                    Sign Up for WATI
+                    Sign Up for Interakt
                   </a>
                 </Button>
               </div>
               
               <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-700">
-                  <strong>Need help?</strong> Contact WATI support or your Fruitbox administrator for assistance with setup.
+                  <strong>Need help?</strong> Contact Interakt support or your Fruitbox administrator for assistance with setup.
                 </p>
               </div>
             </CardContent>

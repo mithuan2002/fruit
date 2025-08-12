@@ -269,7 +269,7 @@ export default function WhatsAppCenter() {
                       <Key className="h-4 w-4" />
                       <AlertDescription>
                         Enter your Interakt API credentials to enable WhatsApp messaging. 
-                        You can find these in your Interakt dashboard.
+                        You can find these in your Interakt dashboard under Settings → API Keys.
                       </AlertDescription>
                     </Alert>
 

@@ -4,12 +4,12 @@ Fruitbox is a comprehensive referral marketing management system built as a full
 
 ## Recent Changes (January 2025)
 
-Successfully migrated from SMS to WATI WhatsApp integration:
-- Completely replaced SMS functionality with WATI API integration
-- Removed WhatsApp Web.js simulation and implemented real WATI messaging
+Successfully migrated from SMS to Interakt WhatsApp integration:
+- Completely replaced SMS functionality with Interakt API integration
+- Removed WhatsApp Web.js simulation and implemented real Interakt messaging
 - Created automated messaging triggers for new customers, points earned, and points redeemed
-- Updated UI components (WATI Center instead of SMS Center)
-- Implemented WATI API token and business number configuration interface
+- Updated UI components (WhatsApp Center with Interakt integration)
+- Implemented Interakt API token and business number configuration interface
 - Added automatic welcome messages with referral codes for new customers
 - Added points earned notifications when customers refer others
 - Added points redemption confirmation messages
@@ -45,7 +45,7 @@ Preferred communication style: Simple, everyday language.
 - **API Protection**: Middleware-based request logging and error handling
 
 ## External Integrations
-- **WhatsApp Service**: WATI API integration for WhatsApp Business messaging
+- **WhatsApp Service**: Interakt API integration for WhatsApp Business messaging
 - **Real-time Messaging**: Automated customer notifications for welcome, points earned, and redemption
 - **Environment Configuration**: Support for multiple deployment environments with fallback defaults
 - **Development Tools**: Replit-specific plugins for cloud development environment
@@ -61,7 +61,7 @@ Preferred communication style: Simple, everyday language.
 
 ## Core Services
 - **Neon Database**: Serverless PostgreSQL database hosting
-- **WATI**: WhatsApp Business API service for customer communications
+- **Interakt**: WhatsApp Business API service for customer communications
 
 ## Development & Deployment
 - **Replit**: Cloud development environment with specialized tooling
