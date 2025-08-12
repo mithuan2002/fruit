@@ -25,18 +25,23 @@ export default function Landing() {
       <section className="container mx-auto px-6 py-20 text-center">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-            Supercharge Your Business with 
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Referral Marketing</span>
+            Supercharge Your Business by 
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Rewarding Customers</span>
           </h1>
           <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
             Turn your customers into brand ambassadors. Create powerful referral campaigns, track engagement, and grow your business through automated WhatsApp messaging and reward systems.
           </p>
-          <Link href="/auth" data-testid="button-get-started">
-            <button className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-lg font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg">
-              Get Started Free
-              <ArrowRight className="ml-2 w-5 h-5" />
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link href="/auth" data-testid="button-get-started">
+              <button className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-lg font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg">
+                Get Started Free
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </button>
+            </Link>
+            <button className="inline-flex items-center px-8 py-4 bg-white text-blue-600 text-lg font-semibold rounded-xl border-2 border-blue-600 hover:bg-blue-50 transition-all transform hover:scale-105 shadow-lg" data-testid="button-book-demo">
+              Book Demo
             </button>
-          </Link>
+          </div>
         </div>
       </section>
 
@@ -44,7 +49,7 @@ export default function Landing() {
       <section className="container mx-auto px-6 py-20">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-bold text-gray-900 mb-4">Everything You Need to Succeed</h2>
-          <p className="text-xl text-gray-600">Comprehensive tools for modern referral marketing</p>
+          <p className="text-xl text-gray-600">Comprehensive tools for Rewarding Customers</p>
         </div>
         
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
