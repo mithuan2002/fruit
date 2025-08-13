@@ -192,23 +192,18 @@ export default function Customers() {
                                   </div>
                                 )}
 
-                                {/* E-Coupons Section */}
-                                {customerCoupons && customerCoupons.length > 0 && (
+                                {/* E-Coupon Section - Simple single coupon using referral code */}
+                                {customer.referralCode && (
                                   <div className="space-y-4">
                                     <div className="flex items-center gap-2">
                                       <Gift className="h-4 w-4 text-green-600" />
-                                      <span className="text-sm font-medium text-green-800">E-Coupons</span>
+                                      <span className="text-sm font-medium text-green-800">E-Coupon</span>
                                     </div>
-                                    <div className="space-y-4 max-h-96 overflow-y-auto">
-                                      {customerCoupons.map((coupon) => (
-                                        <ECouponCard
-                                          key={coupon.id}
-                                          coupon={coupon}
-                                          customerName={customer.name}
-                                          shopName={user?.shopName || "Your Shop"}
-                                        />
-                                      ))}
-                                    </div>
+                                    <ECouponCard
+                                      customerName={customer.name}
+                                      shopName={user?.shopName || "aplo"}
+                                      couponCode={customer.referralCode}
+                                    />
                                   </div>
                                 )}
 

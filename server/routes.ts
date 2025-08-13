@@ -265,16 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         referralCode
       });
 
-      // Create permanent e-coupon using the referral code (no separate coupon code)
-      const eCoupon = await storage.createCoupon({
-        code: referralCode, // Use referral code as coupon code
-        customerId: customer.id,
-        value: 10, // 10% discount
-        valueType: "percentage",
-        usageLimit: -1, // Unlimited usage
-        isActive: true,
-        expiresAt: null // Never expires
-      });
+      // No separate coupon creation - referral code IS the coupon code
 
       // Send welcome message via Interakt with referral code
       try {
@@ -299,7 +290,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({
         customer,
         referralCode,
-        eCoupon,
         message: `Customer created successfully.`
       });
     } catch (error) {

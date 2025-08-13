@@ -4,14 +4,14 @@ Fruitbox is a comprehensive referral marketing management system built as a full
 
 ## Recent Changes (January 2025)
 
-### Visual E-Coupon System Complete (Latest - August 13, 2025)
-- Created professional-looking e-coupon cards that resemble actual discount coupons
-- E-coupons automatically generated for each new customer with unique codes (EC prefix)
-- Visual coupons display customer name, shop name, discount percentage, and usage terms
-- Professional styling with gradients, borders, decorative scissors, and perforation dots
-- Integrated into customer details view with scrollable layout for multiple coupons
-- Added copy-to-clipboard functionality for easy code sharing
-- E-coupons sent via WhatsApp welcome messages alongside referral codes
+### Simplified E-Coupon System Complete (Latest - August 13, 2025)
+- Created simple e-coupon cards showing only: shop name, customer name, and referral code
+- No duplicate codes - referral code IS the coupon code (one code for everything)
+- Removed all separate coupon generation - uses existing referral code only
+- Clean, minimalist design perfect for sharing via WhatsApp or other platforms
+- Shop name correctly displays from user profile (e.g., "aplo")
+- Copy functionality includes all three pieces of information for easy sharing
+- Eliminated complexity and duplicate code generation issues
 
 ### Landing Page & Migration Complete (Previous - August 12, 2025)
 - Successfully migrated project from Replit Agent to standard Replit environment

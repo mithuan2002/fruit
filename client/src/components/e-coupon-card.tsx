@@ -1,19 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Coupon } from "@shared/schema";
 
 interface ECouponCardProps {
-  coupon: Coupon;
   customerName: string;
-  shopName?: string;
+  shopName: string;
+  couponCode: string;
 }
 
-export default function ECouponCard({ coupon, customerName, shopName = "Your Shop" }: ECouponCardProps) {
+export default function ECouponCard({ customerName, shopName, couponCode }: ECouponCardProps) {
   const { toast } = useToast();
 
   const copyToClipboard = () => {
-    const couponText = `${shopName}\nCustomer: ${customerName}\nCoupon Code: ${coupon.code}`;
+    const couponText = `${shopName}\nCustomer: ${customerName}\nCoupon Code: ${couponCode}`;
     navigator.clipboard.writeText(couponText);
     toast({
       title: "Copied!",
@@ -40,14 +39,14 @@ export default function ECouponCard({ coupon, customerName, shopName = "Your Sho
           {/* Coupon Code */}
           <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-4">
             <div className="text-2xl font-mono font-bold text-gray-800 tracking-widest mb-2">
-              {coupon.code}
+              {couponCode}
             </div>
             <Button
               size="sm"
               variant="outline"
               onClick={copyToClipboard}
               className="w-full"
-              data-testid={`button-copy-${coupon.code}`}
+              data-testid={`button-copy-${couponCode}`}
             >
               <Copy className="h-4 w-4 mr-2" />
               Copy Details
