@@ -5,11 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Phone, Star, TrendingUp, Users, Eye, Copy, Search } from "lucide-react";
+import { Phone, Star, TrendingUp, Users, Eye, Copy, Search, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/layout/header";
 import CustomerAddForm from "@/components/customer-add-form";
-import type { Customer } from "@shared/schema";
+import type { Customer, Coupon } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 
 export default function Customers() {
@@ -21,11 +21,17 @@ export default function Customers() {
     queryKey: ["/api/customers"],
   });
 
+  // Query for customer coupons when a customer is selected
+  const { data: customerCoupons } = useQuery<Coupon[]>({
+    queryKey: ["/api/customers", selectedCustomer?.id, "coupons"],
+    enabled: !!selectedCustomer?.id,
+  });
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
       title: "Copied!",
-      description: "Coupon code copied to clipboard",
+      description: "Code copied to clipboard",
     });
   };
 
@@ -106,15 +112,15 @@ export default function Customers() {
                             <Phone className="h-4 w-4 mr-2" />
                             <span className="text-sm">{customer.phoneNumber}</span>
                           </div>
-                          {customer.couponCode && (
+                          {customer.referralCode && (
                             <div className="flex items-center mt-2">
                               <Badge variant="outline" className="mr-2">
-                                {customer.couponCode}
+                                {customer.referralCode}
                               </Badge>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => copyToClipboard(customer.couponCode!)}
+                                onClick={() => copyToClipboard(customer.referralCode!)}
                               >
                                 <Copy className="h-3 w-3" />
                               </Button>
@@ -160,22 +166,54 @@ export default function Customers() {
                                   <p className="text-sm text-gray-600">{customer.phoneNumber}</p>
                                 </div>
 
-                                {customer.couponCode && (
+                                {customer.referralCode && (
                                   <div className="p-3 bg-gray-50 rounded-lg">
                                     <div className="flex items-center justify-between">
                                       <span className="text-sm font-medium">Referral Code:</span>
                                       <div className="flex items-center">
                                         <Badge variant="outline" className="mr-2">
-                                          {customer.couponCode}
+                                          {customer.referralCode}
                                         </Badge>
                                         <Button
                                           size="sm"
                                           variant="ghost"
-                                          onClick={() => copyToClipboard(customer.couponCode!)}
+                                          onClick={() => copyToClipboard(customer.referralCode!)}
                                         >
                                           <Copy className="h-3 w-3" />
                                         </Button>
                                       </div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* E-Coupons Section */}
+                                {customerCoupons && customerCoupons.length > 0 && (
+                                  <div className="p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200">
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <Gift className="h-4 w-4 text-green-600" />
+                                      <span className="text-sm font-medium text-green-800">E-Coupons</span>
+                                    </div>
+                                    <div className="space-y-2">
+                                      {customerCoupons.map((coupon) => (
+                                        <div key={coupon.id} className="flex items-center justify-between p-2 bg-white rounded border">
+                                          <div className="flex flex-col">
+                                            <Badge variant="secondary" className="w-fit mb-1">
+                                              {coupon.code}
+                                            </Badge>
+                                            <span className="text-xs text-gray-600">
+                                              {coupon.value}{coupon.valueType === 'percentage' ? '%' : ''} discount
+                                              {coupon.usageLimit === -1 ? ' • Unlimited' : ` • ${coupon.usageLimit - coupon.usageCount} uses left`}
+                                            </span>
+                                          </div>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => copyToClipboard(coupon.code)}
+                                          >
+                                            <Copy className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      ))}
                                     </div>
                                   </div>
                                 )}

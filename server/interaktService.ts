@@ -133,8 +133,14 @@ class InteraktService {
   }
 
   // Predefined message templates
-  async sendWelcomeMessage(phoneNumber: string, customerName: string, couponCode: string): Promise<InteraktResponse> {
-    const message = `🎉 Welcome to ${this.businessName}, ${customerName}!\n\nYour exclusive referral code: *${couponCode}*\n\nShare this code with friends and earn points for every successful referral!\n\n💰 How it works:\n• Share your code with friends\n• They make a purchase using your code\n• You earn reward points!\n\nStart referring and earning today! 🚀`;
+  async sendWelcomeMessage(phoneNumber: string, customerName: string, referralCode: string, eCouponCode?: string): Promise<InteraktResponse> {
+    let message = `🎉 Welcome to ${this.businessName}, ${customerName}!\n\nYour exclusive referral code: *${referralCode}*\n\nShare this code with friends and earn points for every successful referral!`;
+    
+    if (eCouponCode) {
+      message += `\n\n🎁 BONUS: Your personal e-coupon code: *${eCouponCode}*\nThis is your permanent discount code - use it anytime for special offers!`;
+    }
+    
+    message += `\n\n💰 How it works:\n• Share your referral code with friends\n• They make a purchase using your code\n• You earn reward points!\n• Use your e-coupon for personal discounts!\n\nStart referring and earning today! 🚀`;
     
     return this.sendTextMessage(phoneNumber, message);
   }

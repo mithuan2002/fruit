@@ -55,6 +55,7 @@ export interface IStorage {
   // Coupon operations
   getCoupon(id: string): Promise<Coupon | undefined>;
   getCouponByCode(code: string): Promise<Coupon | undefined>;
+  getCouponsByCustomer(customerId: string): Promise<Coupon[]>;
   getAllCoupons(): Promise<Coupon[]>;
   getActiveCoupons(): Promise<Coupon[]>;
   createCoupon(coupon: InsertCoupon): Promise<Coupon>;
@@ -218,6 +219,12 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCoupons(): Promise<Coupon[]> {
     return await db.select().from(coupons).orderBy(desc(coupons.createdAt));
+  }
+
+  async getCouponsByCustomer(customerId: string): Promise<Coupon[]> {
+    return await db.select().from(coupons)
+      .where(eq(coupons.customerId, customerId))
+      .orderBy(desc(coupons.createdAt));
   }
 
   async getActiveCoupons(): Promise<Coupon[]> {
@@ -434,12 +441,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Utility operations
-  async generateUniqueCode(): Promise<string> {
+  async generateUniqueCode(prefix: string = ""): Promise<string> {
     let code: string;
     let isUnique = false;
     
     while (!isUnique) {
-      code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      code = prefix ? `${prefix}${randomCode}` : randomCode;
       
       // Check if code exists in customers or coupons
       const [existingCustomer] = await db.select().from(customers).where(eq(customers.referralCode, code)).limit(1);

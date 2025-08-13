@@ -265,18 +265,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         referralCode
       });
 
-      // Send welcome message via Interakt
+      // Generate unique e-coupon code for the customer
+      const eCouponCode = await storage.generateUniqueCode("EC");
+
+      // Create permanent e-coupon for the customer
+      const eCoupon = await storage.createCoupon({
+        code: eCouponCode,
+        customerId: customer.id,
+        value: 10, // 10% discount
+        valueType: "percentage",
+        usageLimit: -1, // Unlimited usage
+        isActive: true,
+        expiresAt: null // Never expires
+      });
+
+      // Send welcome message via Interakt with both referral code and e-coupon
       try {
         await interaktService.sendWelcomeMessage(
           customer.phoneNumber,
           customer.name,
-          referralCode
+          referralCode,
+          eCouponCode
         );
 
         await storage.createWhatsappMessage({
           customerId: customer.id,
           phoneNumber: customer.phoneNumber,
-          message: `Welcome message with referral code: ${referralCode}`,
+          message: `Welcome message with referral code: ${referralCode} and e-coupon: ${eCouponCode}`,
           type: "welcome_referral",
           status: "sent"
         });
@@ -287,6 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({
         customer,
         referralCode,
+        eCoupon,
         message: `Customer created successfully.`
       });
     } catch (error) {
@@ -543,6 +559,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(coupon);
     } catch (error) {
       res.status(500).json({ message: "Failed to generate coupon" });
+    }
+  });
+
+  // Get coupons for a specific customer
+  app.get("/api/customers/:id/coupons", async (req, res) => {
+    try {
+      const coupons = await storage.getCouponsByCustomer(req.params.id);
+      res.json(coupons);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch customer coupons" });
     }
   });
 
