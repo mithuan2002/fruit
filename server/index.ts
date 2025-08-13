@@ -2,11 +2,46 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
-const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// Enhanced logging utility
+const logger = {
+  info: (message: string, data?: any) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [INFO] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  },
+  error: (message: string, error?: any) => {
+    const timestamp = new Date().toISOString();
+    console.error(`[${timestamp}] [ERROR] ${message}`, error);
+  },
+  warn: (message: string, data?: any) => {
+    const timestamp = new Date().toISOString();
+    console.warn(`[${timestamp}] [WARN] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  },
+  debug: (message: string, data?: any) => {
+    const timestamp = new Date().toISOString();
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${timestamp}] [DEBUG] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+    }
+  }
+};
 
-app.use((req, res, next) => {
+const app = express();
+
+// Request ID middleware for tracking
+app.use((req: any, res, next) => {
+  req.requestId = Math.random().toString(36).substring(7);
+  logger.debug(`Incoming request: ${req.method} ${req.path}`, { 
+    requestId: req.requestId,
+    headers: req.headers,
+    query: req.query,
+    body: req.method !== 'GET' ? req.body : undefined
+  });
+  next();
+});
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+app.use((req: any, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
@@ -19,16 +54,41 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
+    const statusCode = res.statusCode;
+    const method = req.method;
+    
+    // Log all requests with detailed information
+    const logData = {
+      requestId: req.requestId,
+      method,
+      path,
+      statusCode,
+      duration: `${duration}ms`,
+      userAgent: req.get('User-Agent'),
+      ip: req.ip || req.connection.remoteAddress,
+      session: req.session ? { userId: req.session.user?.id, username: req.session.user?.username } : 'No session'
+    };
+
+    if (statusCode >= 400) {
+      logger.error(`Request failed: ${method} ${path}`, {
+        ...logData,
+        response: capturedJsonResponse,
+        query: req.query,
+        body: method !== 'GET' ? req.body : undefined
+      });
+    } else if (path.startsWith("/api")) {
+      logger.info(`API Request: ${method} ${path} ${statusCode} in ${duration}ms`, logData);
+    } else {
+      logger.debug(`Static Request: ${method} ${path} ${statusCode} in ${duration}ms`, logData);
+    }
+
+    // Keep the original short log for API requests
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      if (capturedJsonResponse && Object.keys(capturedJsonResponse).length > 0) {
+        const responseStr = JSON.stringify(capturedJsonResponse);
+        logLine += ` :: ${responseStr.length > 100 ? responseStr.slice(0, 97) + "..." : responseStr}`;
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
       log(logLine);
     }
   });
@@ -37,35 +97,80 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  try {
+    logger.info("Starting server initialization...");
+    
+    logger.debug("Environment variables check", {
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT,
+      DATABASE_URL: process.env.DATABASE_URL ? 'Set' : 'Not set',
+      SESSION_SECRET: process.env.SESSION_SECRET ? 'Set' : 'Not set'
+    });
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    logger.info("Registering routes...");
+    const server = await registerRoutes(app);
+    logger.info("Routes registered successfully");
 
-    res.status(status).json({ message });
-    throw err;
-  });
+    app.use((err: any, req: any, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+      logger.error("Express error handler triggered", {
+        requestId: req.requestId,
+        error: {
+          name: err.name,
+          message: err.message,
+          stack: err.stack,
+          status
+        },
+        request: {
+          method: req.method,
+          path: req.path,
+          query: req.query,
+          body: req.body,
+          headers: req.headers
+        }
+      });
+
+      res.status(status).json({ message });
+    });
+
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (app.get("env") === "development") {
+      logger.info("Setting up Vite for development...");
+      await setupVite(app, server);
+      logger.info("Vite setup completed");
+    } else {
+      logger.info("Setting up static file serving for production...");
+      serveStatic(app);
+      logger.info("Static file serving setup completed");
+    }
+
+    // ALWAYS serve the app on the port specified in the environment variable PORT
+    // Other ports are firewalled. Default to 5000 if not specified.
+    // this serves both the API and the client.
+    // It is the only port that is not firewalled.
+    const port = parseInt(process.env.PORT || '5000', 10);
+    
+    logger.info(`Starting server on port ${port}...`);
+    server.listen({
+      port,
+      host: "0.0.0.0",
+      reusePort: true,
+    }, () => {
+      logger.info(`Server successfully started and listening on port ${port}`);
+      logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      log(`serving on port ${port}`);
+    });
+
+    server.on('error', (error: any) => {
+      logger.error("Server error occurred", error);
+    });
+
+  } catch (error) {
+    logger.error("Failed to start server", error);
+    process.exit(1);
   }
-
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
 })();

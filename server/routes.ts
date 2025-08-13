@@ -30,6 +30,11 @@ import MemoryStore from "memorystore";
 
 // Session middleware
 function setupAuth(app: Express) {
+  routeLogger.info("AUTH-SETUP", "Configuring session middleware", {
+    hasSessionSecret: !!process.env.SESSION_SECRET,
+    nodeEnv: process.env.NODE_ENV
+  });
+
   const SessionStore = MemoryStore(session);
   
   app.use(session({
@@ -45,13 +50,72 @@ function setupAuth(app: Express) {
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   }));
+
+  // Session debugging middleware
+  app.use((req: any, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      routeLogger.debug(`${req.method} ${req.path}`, "Session info", {
+        requestId: req.requestId,
+        sessionID: req.sessionID,
+        hasSession: !!req.session,
+        sessionUser: req.session?.user ? {
+          id: req.session.user.id,
+          username: req.session.user.username,
+          isOnboarded: req.session.user.isOnboarded
+        } : null,
+        cookies: req.headers.cookie ? 'Present' : 'None'
+      });
+    }
+    next();
+  });
+
+  routeLogger.info("AUTH-SETUP", "Session middleware configured successfully");
 }
+
+// Route logging utility
+const routeLogger = {
+  info: (route: string, message: string, data?: any) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [ROUTE-INFO] [${route}] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  },
+  error: (route: string, message: string, error: any, data?: any) => {
+    const timestamp = new Date().toISOString();
+    console.error(`[${timestamp}] [ROUTE-ERROR] [${route}] ${message}`, { error: error.message || error, data });
+  },
+  debug: (route: string, message: string, data?: any) => {
+    const timestamp = new Date().toISOString();
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${timestamp}] [ROUTE-DEBUG] [${route}] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+    }
+  }
+};
 
 // Auth middleware
 function requireAuth(req: any, res: any, next: any) {
+  const route = `${req.method} ${req.path}`;
+  
+  routeLogger.debug(route, "Checking authentication", {
+    requestId: req.requestId,
+    hasSession: !!req.session,
+    hasUser: !!req.session?.user,
+    userId: req.session?.user?.id,
+    sessionId: req.sessionID
+  });
+
   if (req.session?.user) {
+    routeLogger.debug(route, "Authentication successful", {
+      userId: req.session.user.id,
+      username: req.session.user.username
+    });
     return next();
   }
+  
+  routeLogger.warn(route, "Authentication failed - no valid session", {
+    requestId: req.requestId,
+    sessionExists: !!req.session,
+    sessionId: req.sessionID
+  });
+  
   return res.status(401).json({ message: "Authentication required" });
 }
 
@@ -61,22 +125,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
+    const route = "POST /api/auth/register";
+    const requestId = (req as any).requestId;
+    
     try {
+      routeLogger.info(route, "Registration attempt started", { 
+        requestId,
+        username: req.body.username,
+        hasPassword: !!req.body.password
+      });
+
       const validatedData = insertUserSchema.parse(req.body);
+      routeLogger.debug(route, "Data validation successful", { requestId, username: validatedData.username });
       
       // Check if user already exists
       const existingUser = await storage.getUserByUsername(validatedData.username);
       if (existingUser) {
+        routeLogger.warn(route, "Registration failed - username already exists", { 
+          requestId, 
+          username: validatedData.username 
+        });
         return res.status(400).json({ message: "Username already exists" });
       }
       
+      routeLogger.debug(route, "Username available, proceeding with registration", { requestId });
+      
       // Hash password
       const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      routeLogger.debug(route, "Password hashed successfully", { requestId });
       
       // Create user
       const user = await storage.createUser({
         username: validatedData.username,
         password: hashedPassword
+      });
+      
+      routeLogger.info(route, "User created successfully", { 
+        requestId, 
+        userId: user.id, 
+        username: user.username 
       });
       
       // Create session with complete user data (new users have isOnboarded = false by default)
@@ -90,34 +177,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isOnboarded: user.isOnboarded || false
       };
       
+      routeLogger.info(route, "Session created for new user", { 
+        requestId, 
+        userId: user.id,
+        sessionId: (req as any).sessionID,
+        isOnboarded: user.isOnboarded || false
+      });
+      
       res.status(201).json({
         user: (req as any).session.user,
         message: "User registered successfully"
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
+        routeLogger.error(route, "Validation error during registration", error, { 
+          requestId, 
+          validationErrors: error.errors 
+        });
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
-      console.error("Registration error:", error);
+      routeLogger.error(route, "Unexpected error during registration", error, { requestId });
       res.status(500).json({ message: "Failed to register user" });
     }
   });
 
   app.post("/api/auth/login", async (req, res) => {
+    const route = "POST /api/auth/login";
+    const requestId = (req as any).requestId;
+    
     try {
+      routeLogger.info(route, "Login attempt started", { 
+        requestId,
+        username: req.body.username,
+        hasPassword: !!req.body.password,
+        sessionId: (req as any).sessionID
+      });
+
       const validatedData = loginUserSchema.parse(req.body);
+      routeLogger.debug(route, "Login data validation successful", { requestId, username: validatedData.username });
       
       // Find user
       const user = await storage.getUserByUsername(validatedData.username);
       if (!user) {
+        routeLogger.warn(route, "Login failed - user not found", { 
+          requestId, 
+          username: validatedData.username 
+        });
         return res.status(401).json({ message: "Invalid credentials" });
       }
+      
+      routeLogger.debug(route, "User found, checking password", { 
+        requestId, 
+        userId: user.id,
+        username: user.username 
+      });
       
       // Check password
       const isValidPassword = await bcrypt.compare(validatedData.password, user.password);
       if (!isValidPassword) {
+        routeLogger.warn(route, "Login failed - invalid password", { 
+          requestId, 
+          userId: user.id,
+          username: user.username 
+        });
         return res.status(401).json({ message: "Invalid credentials" });
       }
+      
+      routeLogger.debug(route, "Password validated successfully", { requestId, userId: user.id });
       
       // Create session with complete user data
       (req as any).session.user = {
@@ -130,15 +256,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isOnboarded: user.isOnboarded
       };
       
+      routeLogger.info(route, "Login successful - session created", { 
+        requestId, 
+        userId: user.id,
+        username: user.username,
+        sessionId: (req as any).sessionID,
+        isOnboarded: user.isOnboarded
+      });
+      
       res.json({
         user: (req as any).session.user,
         message: "Login successful"
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
+        routeLogger.error(route, "Validation error during login", error, { 
+          requestId, 
+          validationErrors: error.errors 
+        });
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
-      console.error("Login error:", error);
+      routeLogger.error(route, "Unexpected error during login", error, { requestId });
       res.status(500).json({ message: "Failed to login" });
     }
   });
@@ -153,26 +291,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/user", async (req, res) => {
+    const route = "GET /api/auth/user";
+    const requestId = (req as any).requestId;
+    
+    routeLogger.debug(route, "User session check started", { 
+      requestId,
+      sessionId: (req as any).sessionID,
+      hasSession: !!(req as any).session,
+      hasUser: !!(req as any).session?.user,
+      sessionUserId: (req as any).session?.user?.id
+    });
+
     if ((req as any).session?.user) {
-      // Get fresh user data from database to include onboarding status
-      const user = await storage.getUser((req as any).session.user.id);
-      if (user) {
-        console.log("User data from DB:", { id: user.id, isOnboarded: user.isOnboarded, type: typeof user.isOnboarded });
-        res.json({ 
-          user: { 
-            id: user.id, 
+      const sessionUserId = (req as any).session.user.id;
+      routeLogger.debug(route, "Valid session found, fetching fresh user data", { 
+        requestId, 
+        sessionUserId 
+      });
+
+      try {
+        // Get fresh user data from database to include onboarding status
+        const user = await storage.getUser(sessionUserId);
+        if (user) {
+          routeLogger.info(route, "User data retrieved successfully", { 
+            requestId,
+            userId: user.id,
             username: user.username,
-            adminName: user.adminName,
-            shopName: user.shopName,
-            whatsappBusinessNumber: user.whatsappBusinessNumber,
-            industry: user.industry,
-            isOnboarded: user.isOnboarded
-          } 
-        });
-      } else {
-        res.status(401).json({ message: "User not found" });
+            isOnboarded: user.isOnboarded,
+            onboardedType: typeof user.isOnboarded
+          });
+
+          res.json({ 
+            user: { 
+              id: user.id, 
+              username: user.username,
+              adminName: user.adminName,
+              shopName: user.shopName,
+              whatsappBusinessNumber: user.whatsappBusinessNumber,
+              industry: user.industry,
+              isOnboarded: user.isOnboarded
+            } 
+          });
+        } else {
+          routeLogger.warn(route, "User not found in database despite valid session", { 
+            requestId, 
+            sessionUserId 
+          });
+          res.status(401).json({ message: "User not found" });
+        }
+      } catch (error) {
+        routeLogger.error(route, "Error fetching user data", error, { requestId, sessionUserId });
+        res.status(500).json({ message: "Error fetching user data" });
       }
     } else {
+      routeLogger.debug(route, "No valid session found", { 
+        requestId,
+        sessionId: (req as any).sessionID,
+        sessionExists: !!(req as any).session
+      });
       res.status(401).json({ message: "Not authenticated" });
     }
   });

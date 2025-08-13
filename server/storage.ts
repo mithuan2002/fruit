@@ -172,11 +172,36 @@ export interface IStorage {
   }>;
 }
 
+// Database logging utility
+const dbLogger = {
+  info: (operation: string, details?: any) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] [DB-INFO] ${operation}`, details ? JSON.stringify(details, null, 2) : '');
+  },
+  error: (operation: string, error: any, details?: any) => {
+    const timestamp = new Date().toISOString();
+    console.error(`[${timestamp}] [DB-ERROR] ${operation}`, { error: error.message || error, details });
+  },
+  debug: (operation: string, details?: any) => {
+    const timestamp = new Date().toISOString();
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${timestamp}] [DB-DEBUG] ${operation}`, details ? JSON.stringify(details, null, 2) : '');
+    }
+  }
+};
+
 export class DatabaseStorage implements IStorage {
   // Customer operations
   async getCustomer(id: string): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
-    return customer || undefined;
+    try {
+      dbLogger.debug("Getting customer by ID", { id });
+      const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+      dbLogger.debug("Customer query result", { found: !!customer, customerId: id });
+      return customer || undefined;
+    } catch (error) {
+      dbLogger.error("Failed to get customer", error, { id });
+      throw error;
+    }
   }
 
   async getCustomerByPhone(phoneNumber: string): Promise<Customer | undefined> {
