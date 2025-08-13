@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Settings, User, Phone, Building, Store } from "lucide-react";
+import { Loader2, Settings as SettingsIcon, User, Phone, Building, Store } from "lucide-react";
 import Header from "@/components/layout/header";
 
 export default function Settings() {
@@ -78,7 +78,7 @@ export default function Settings() {
         <Card className="max-w-2xl mx-auto">
           <CardHeader className="text-center">
             <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Settings className="text-white h-8 w-8" />
+              <SettingsIcon className="text-white h-8 w-8" />
             </div>
             <CardTitle className="text-2xl font-bold text-gray-900">
               Shop Settings
@@ -182,7 +182,7 @@ export default function Settings() {
                   </>
                 ) : (
                   <>
-                    <Settings className="mr-2 h-4 w-4" />
+                    <SettingsIcon className="mr-2 h-4 w-4" />
                     Update Settings
                   </>
                 )}

@@ -1226,7 +1226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create sale record
       const sale = await storage.createSale({
         customerId: validatedData.customerId || null,
-        referralId: referral?.id || null,
+        referralId: null, // Will be set later if referral is created
         campaignId: validatedData.campaignId || campaign?.id || null,
         totalAmount: validatedData.totalAmount.toString(),
         pointsEarned: pointCalculation.totalPoints,

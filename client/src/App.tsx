@@ -20,7 +20,7 @@ import CustomersSetupGuide from "@/pages/customers-setup-guide";
 import Auth from "@/pages/auth";
 import Onboarding from "@/pages/onboarding";
 import Landing from "@/pages/landing";
-import Settings from "./pages/settings";
+import Settings from "@/pages/settings";
 
 import Sidebar from "@/components/layout/sidebar";
 
