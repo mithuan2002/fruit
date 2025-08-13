@@ -1,3 +1,13 @@
+
+# Exclude everything except what's needed for the build
 *
-!static/
+!package.json
+!package-lock.json
 !vercel.json
+!client/
+!shared/
+!vite.config.ts
+!tsconfig.json
+!tailwind.config.ts
+!postcss.config.js
+!components.json

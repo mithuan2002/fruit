@@ -3,18 +3,22 @@
   "version": 2,
   "builds": [
     {
-      "src": "static/**/*",
-      "use": "@vercel/static"
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "buildCommand": "npx vite build",
+        "outputDirectory": "dist/public"
+      }
     }
   ],
   "routes": [
     {
       "src": "/assets/(.*)",
-      "dest": "/static/assets/$1"
+      "dest": "/assets/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "/static/index.html"
+      "dest": "/index.html"
     }
   ]
 }
