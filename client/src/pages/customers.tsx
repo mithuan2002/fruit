@@ -199,11 +199,13 @@ export default function Customers() {
                                       <Gift className="h-4 w-4 text-green-600" />
                                       <span className="text-sm font-medium text-green-800">E-Coupon</span>
                                     </div>
-                                    <ECouponCard
-                                      customerName={customer.name}
-                                      shopName={user?.shopName || "aplo"}
-                                      couponCode={customer.referralCode}
-                                    />
+                                    {selectedCustomer && (
+                                      <ECouponCard
+                                        customerName={selectedCustomer.name}
+                                        shopName={user?.shopName || "Your Shop"}
+                                        couponCode={selectedCustomer.referralCode || "N/A"}
+                                      />
+                                    )}
                                   </div>
                                 )}
 

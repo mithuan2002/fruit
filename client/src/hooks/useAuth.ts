@@ -16,6 +16,14 @@ interface AuthResponse {
   message: string;
 }
 
+// Define OnboardingData interface for clarity, assuming it's used in mutations
+interface OnboardingData {
+  adminName: string;
+  shopName: string;
+  whatsappBusinessNumber: string;
+  industry: string;
+}
+
 export function useAuth() {
   const queryClient = useQueryClient();
 
@@ -60,7 +68,7 @@ export function useAuth() {
     mutationFn: async (credentials: { username: string; password: string }) => {
       const response = await fetch("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify(credentials),
+        body: JSON.JSON.stringify(credentials),
         headers: { "Content-Type": "application/json" },
       });
       if (!response.ok) {
@@ -89,13 +97,8 @@ export function useAuth() {
     },
   });
 
-  const onboardMutation = useMutation({
-    mutationFn: async (data: {
-      adminName: string;
-      shopName: string;
-      whatsappBusinessNumber: string;
-      industry: string;
-    }) => {
+  const onboardMutation = useMutation<AuthResponse, Error, OnboardingData>({
+    mutationFn: async (data: OnboardingData) => {
       const response = await fetch("/api/auth/onboard", {
         method: "POST",
         body: JSON.stringify(data),
@@ -107,8 +110,26 @@ export function useAuth() {
       }
       return await response.json() as AuthResponse;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/auth/user"], data);
+    },
+  });
+
+  const updateProfileMutation = useMutation<AuthResponse, Error, OnboardingData>({
+    mutationFn: async (data: OnboardingData) => {
+      const response = await fetch("/api/auth/update-profile", {
+        method: "PUT",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Profile update failed");
+      }
+      return await response.json() as AuthResponse;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/auth/user"], data);
     },
   });
 
@@ -120,9 +141,11 @@ export function useAuth() {
     register: registerMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,
     onboard: onboardMutation.mutateAsync,
+    updateProfile: updateProfileMutation.mutateAsync,
     isLoggingIn: loginMutation.isPending,
     isRegistering: registerMutation.isPending,
     isLoggingOut: logoutMutation.isPending,
     isOnboarding: onboardMutation.isPending,
+    isUpdatingProfile: updateProfileMutation.isPending,
   };
 }

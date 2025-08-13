@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart, MessageSquare, LogOut, Store, Package, ShoppingCart } from "lucide-react";
+import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart, MessageSquare, LogOut, Store, Package, ShoppingCart, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ const navigation = [
   { name: "Sales Processing", href: "/sales-processing", icon: ShoppingCart },
   { name: "WhatsApp Center", href: "/whatsapp-center", icon: MessageSquare },
   { name: "POS Integration", href: "/pos-integration", icon: Store },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export default function Sidebar() {

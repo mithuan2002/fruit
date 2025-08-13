@@ -20,6 +20,7 @@ import CustomersSetupGuide from "@/pages/customers-setup-guide";
 import Auth from "@/pages/auth";
 import Onboarding from "@/pages/onboarding";
 import Landing from "@/pages/landing";
+import Settings from "./pages/settings";
 
 import Sidebar from "@/components/layout/sidebar";
 
@@ -58,6 +59,7 @@ function Router() {
             <Route path="/reports" component={Reports} />
             <Route path="/whatsapp-center" component={WhatsAppCenter} />
             <Route path="/pos-integration" component={POSIntegration} />
+            <Route path="/settings" component={Settings} />
             <Route path="/whatsapp-setup-guide" component={WhatsAppSetupGuide} />
             <Route path="/dashboard-setup-guide" component={DashboardSetupGuide} />
             <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />

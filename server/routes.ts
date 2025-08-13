@@ -410,6 +410,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/auth/update-profile", async (req, res) => {
+    try {
+      if (!(req as any).session?.user) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const validatedData = onboardingSchema.parse(req.body);
+      const userId = (req as any).session.user.id;
+
+      console.log("Updating profile for user:", userId, "with data:", validatedData);
+
+      const updatedUser = await storage.updateUser(userId, validatedData);
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Update session with new user data
+      (req as any).session.user = {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        adminName: updatedUser.adminName,
+        shopName: updatedUser.shopName,
+        whatsappBusinessNumber: updatedUser.whatsappBusinessNumber,
+        industry: updatedUser.industry,
+        isOnboarded: updatedUser.isOnboarded
+      };
+
+      res.json({
+        user: (req as any).session.user,
+        message: "Profile updated successfully"
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Profile update error:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
   // Protected routes (require authentication)
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {
