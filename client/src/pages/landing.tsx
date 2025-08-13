@@ -25,7 +25,7 @@ export default function Landing() {
       <section className="container mx-auto px-6 py-20 text-center">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-            Supercharge Your Business by 
+            Grow Your Business by 
             <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"> Rewarding Customers</span>
           </h1>
           <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
@@ -133,7 +133,7 @@ export default function Landing() {
       <section className="container mx-auto px-6 py-20">
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-12 text-center text-white">
           <h2 className="text-4xl font-bold mb-4">Ready to Grow Your Business?</h2>
-          <p className="text-xl mb-8 opacity-90">Join thousands of businesses using Fruitbox to drive growth through referral</p>
+          <p className="text-xl mb-8 opacity-90">Join businesses using Fruitbox to drive real growth through referral</p>
           <Link href="/auth" data-testid="button-get-started-cta">
             <button className="inline-flex items-center px-8 py-4 bg-white text-blue-600 text-lg font-semibold rounded-xl hover:bg-gray-50 transition-colors transform hover:scale-105 shadow-lg">
               Get Started Now
@@ -154,7 +154,7 @@ export default function Landing() {
           </div>
           <div className="flex items-center space-x-6 text-gray-600">
             <Globe className="w-4 h-4" />
-            <span className="text-sm">Referral Marketing Made Simple</span>
+            <span className="text-sm">2025 all rights reserved</span>
           </div>
         </div>
       </footer>
