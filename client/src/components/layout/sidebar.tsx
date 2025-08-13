@@ -8,8 +8,8 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
   { name: "Campaigns", href: "/campaigns", icon: Megaphone },
   { name: "Customers", href: "/customers", icon: Users },
-  { name: "POS Integration", href: "/pos-integration", icon: Store },
   { name: "WhatsApp Center", href: "/whatsapp-center", icon: MessageSquare },
+  { name: "POS Integration", href: "/pos-integration", icon: Store },
 ];
 
 export default function Sidebar() {
