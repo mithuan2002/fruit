@@ -8,6 +8,10 @@
   ],
   "routes": [
     {
+      "src": "/assets/(.*)",
+      "dest": "/static/assets/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/static/index.html"
     }
