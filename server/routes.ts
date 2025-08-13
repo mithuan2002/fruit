@@ -14,6 +14,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { interaktService } from "./interaktService";
+import { posManager, posWebhookSchema, SquareIntegration, ShopifyIntegration, GenericPOSIntegration } from "./posIntegration";
 import bcrypt from "bcryptjs";
 import session from "express-session";
 import MemoryStore from "memorystore";
@@ -901,6 +902,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch campaign stats" });
+    }
+  });
+
+  // ===========================================
+  // POS INTEGRATION ROUTES
+  // ===========================================
+
+  // Get all available POS integrations
+  app.get("/api/pos/integrations", requireAuth, async (req, res) => {
+    try {
+      const integrations = posManager.getAllIntegrations().map(integration => ({
+        name: integration.name,
+        connected: true // We'll implement connection status later
+      }));
+      
+      res.json(integrations);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get POS integrations" });
+    }
+  });
+
+  // Add POS integration
+  app.post("/api/pos/integrations", requireAuth, async (req, res) => {
+    try {
+      const { type, config } = req.body;
+      
+      let integration;
+      switch (type.toLowerCase()) {
+        case 'square':
+          integration = new SquareIntegration(config.apiKey, config.environment || 'sandbox');
+          break;
+        case 'shopify':
+          integration = new ShopifyIntegration(config.shopUrl, config.accessToken);
+          break;
+        case 'generic':
+          integration = new GenericPOSIntegration(config.apiUrl, config.headers || {});
+          break;
+        default:
+          return res.status(400).json({ message: "Unsupported POS type" });
+      }
+
+      // Test authentication
+      const isAuthenticated = await integration.authenticate();
+      if (!isAuthenticated) {
+        return res.status(400).json({ message: "Failed to authenticate with POS system" });
+      }
+
+      posManager.addIntegration(integration);
+      
+      res.json({ 
+        message: `${integration.name} integration added successfully`,
+        name: integration.name
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to add POS integration" });
+    }
+  });
+
+  // Sync customers from POS systems
+  app.post("/api/pos/sync", requireAuth, async (req, res) => {
+    try {
+      console.log("Starting POS customer sync...");
+      
+      const posCustomers = await posManager.syncAllCustomers();
+      let imported = 0;
+      let skipped = 0;
+
+      for (const posCustomer of posCustomers) {
+        try {
+          // Check if customer already exists by phone
+          if (posCustomer.phone) {
+            const existing = await storage.getCustomerByPhone(posCustomer.phone);
+            if (existing) {
+              skipped++;
+              continue;
+            }
+          }
+
+          // Generate referral code
+          const referralCode = await storage.generateUniqueCode();
+
+          // Create customer in our system
+          await storage.createCustomer({
+            name: posCustomer.name,
+            phoneNumber: posCustomer.phone || "",
+            email: posCustomer.email || null,
+            points: 2, // Default welcome points
+            referralCode
+          });
+
+          imported++;
+          console.log(`Imported customer: ${posCustomer.name} from ${posCustomer.source}`);
+        } catch (error) {
+          console.error(`Failed to import customer ${posCustomer.name}:`, error);
+          skipped++;
+        }
+      }
+
+      res.json({
+        message: "Customer sync completed",
+        imported,
+        skipped,
+        total: posCustomers.length
+      });
+    } catch (error) {
+      console.error("POS sync failed:", error);
+      res.status(500).json({ message: "Failed to sync customers from POS" });
+    }
+  });
+
+  // Webhook endpoint for POS systems
+  app.post("/api/pos/webhook/:provider", async (req, res) => {
+    try {
+      const provider = req.params.provider;
+      console.log(`Received webhook from ${provider}:`, req.body);
+
+      // Process different webhook formats
+      let customer, event;
+      
+      if (provider === 'square') {
+        // Square webhook format
+        const squareData = req.body.data?.object?.customer;
+        if (squareData) {
+          customer = {
+            name: `${squareData.given_name || ""} ${squareData.family_name || ""}`.trim(),
+            phone: squareData.phone_number,
+            email: squareData.email_address,
+            source: "Square"
+          };
+          event = req.body.type?.includes('created') ? 'customer_created' : 'customer_updated';
+        }
+      } else if (provider === 'shopify') {
+        // Shopify webhook format
+        const shopifyCustomer = req.body;
+        customer = {
+          name: `${shopifyCustomer.first_name || ""} ${shopifyCustomer.last_name || ""}`.trim(),
+          phone: shopifyCustomer.phone,
+          email: shopifyCustomer.email,
+          source: "Shopify"
+        };
+        event = 'customer_created';
+      } else {
+        // Generic webhook format - will be validated
+        const validatedData = posWebhookSchema.parse(req.body);
+        customer = validatedData.customer;
+        event = validatedData.event;
+      }
+
+      if (customer && event === 'customer_created') {
+        // Check if customer already exists
+        if (customer.phone) {
+          const existing = await storage.getCustomerByPhone(customer.phone);
+          if (!existing) {
+            // Generate referral code and create customer
+            const referralCode = await storage.generateUniqueCode();
+            
+            await storage.createCustomer({
+              name: customer.name,
+              phoneNumber: customer.phone || "",
+              email: customer.email || null,
+              points: 2, // Default welcome points
+              referralCode
+            });
+
+            console.log(`Auto-created customer from ${provider}: ${customer.name}`);
+            
+            // Send welcome message if phone number is available
+            if (customer.phone) {
+              try {
+                await interaktService.sendWelcomeMessage(
+                  customer.phone,
+                  customer.name,
+                  referralCode,
+                  referralCode
+                );
+              } catch (error) {
+                console.error("Failed to send welcome message:", error);
+              }
+            }
+          }
+        }
+      }
+
+      res.status(200).json({ received: true });
+    } catch (error) {
+      console.error("Webhook processing failed:", error);
+      res.status(400).json({ message: "Invalid webhook data" });
     }
   });
 

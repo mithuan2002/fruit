@@ -10,6 +10,7 @@ import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
 import Reports from "@/pages/reports";
 import WhatsAppCenter from "@/pages/whatsapp-center";
+import POSIntegration from "@/pages/pos-integration";
 import WhatsAppSetupGuide from "@/pages/whatsapp-setup-guide";
 import DashboardSetupGuide from "@/pages/dashboard-setup-guide";
 import CampaignsSetupGuide from "@/pages/campaigns-setup-guide";
@@ -52,6 +53,7 @@ function Router() {
             <Route path="/customers" component={Customers} />
             <Route path="/reports" component={Reports} />
             <Route path="/whatsapp-center" component={WhatsAppCenter} />
+            <Route path="/pos-integration" component={POSIntegration} />
             <Route path="/whatsapp-setup-guide" component={WhatsAppSetupGuide} />
             <Route path="/dashboard-setup-guide" component={DashboardSetupGuide} />
             <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />

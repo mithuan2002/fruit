@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart, MessageSquare, LogOut } from "lucide-react";
+import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart, MessageSquare, LogOut, Store } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -8,6 +8,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
   { name: "Campaigns", href: "/campaigns", icon: Megaphone },
   { name: "Customers", href: "/customers", icon: Users },
+  { name: "POS Integration", href: "/pos-integration", icon: Store },
   { name: "WhatsApp Center", href: "/whatsapp-center", icon: MessageSquare },
 ];
 

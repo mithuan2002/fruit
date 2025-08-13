@@ -4,7 +4,16 @@ Fruitbox is a comprehensive referral marketing management system built as a full
 
 ## Recent Changes (January 2025)
 
-### Simplified E-Coupon System Complete (Latest - August 13, 2025)
+### POS Integration System Complete (Latest - August 13, 2025)
+- Built comprehensive POS integration system supporting Square, Shopify, and custom APIs
+- Automatic customer sync from POS systems with referral code generation
+- Real-time webhook support for instant customer creation from POS transactions
+- Professional POS Integration page with configuration forms for different providers
+- Customers automatically added to referral program when they make purchases
+- WhatsApp welcome messages sent automatically to new POS customers
+- Support for both manual sync and real-time webhook-based integration
+
+### Simplified E-Coupon System Complete (Previous - August 13, 2025)
 - Created simple e-coupon cards showing only: shop name, customer name, and referral code
 - No duplicate codes - referral code IS the coupon code (one code for everything)
 - Removed all separate coupon generation - uses existing referral code only
