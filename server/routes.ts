@@ -78,6 +78,10 @@ const routeLogger = {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] [ROUTE-INFO] [${route}] ${message}`, data ? JSON.stringify(data, null, 2) : '');
   },
+  warn: (route: string, message: string, data?: any) => {
+    const timestamp = new Date().toISOString();
+    console.warn(`[${timestamp}] [ROUTE-WARN] [${route}] ${message}`, data ? JSON.stringify(data, null, 2) : '');
+  },
   error: (route: string, message: string, error: any, data?: any) => {
     const timestamp = new Date().toISOString();
     console.error(`[${timestamp}] [ROUTE-ERROR] [${route}] ${message}`, { error: error.message || error, data });
