@@ -3,11 +3,15 @@
   "version": 2,
   "builds": [
     {
-      "src": "server/index.ts",
-      "use": "@vercel/node",
+      "src": "package.json",
+      "use": "@vercel/static-build",
       "config": {
-        "includeFiles": ["client/**", "shared/**", "server/**"]
+        "distDir": "dist"
       }
+    },
+    {
+      "src": "server/index.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -17,15 +21,9 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/server/index.ts"
+      "dest": "/dist/$1"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "functions": {
-    "server/index.ts": {
-      "includeFiles": "**"
-    }
-  }
+  "outputDirectory": "dist",
+  "buildCommand": "npm run build"
 }
