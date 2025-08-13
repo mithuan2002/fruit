@@ -199,6 +199,18 @@ export default function SalesProcessingPage() {
   };
 
   const selectProduct = (productId: string) => {
+    if (productId === "manual") {
+      setCurrentItem(prev => ({
+        ...prev,
+        productId: undefined,
+        productName: "",
+        productSku: undefined,
+        unitPrice: 0,
+        totalPrice: 0
+      }));
+      return;
+    }
+    
     const product = products.find(p => p.id === productId);
     if (product) {
       setCurrentItem(prev => ({
@@ -232,14 +244,14 @@ export default function SalesProcessingPage() {
             <div>
               <Label htmlFor="customer">Customer (Optional)</Label>
               <Select
-                value={saleData.customerId || ""}
-                onValueChange={(value) => setSaleData(prev => ({ ...prev, customerId: value || undefined }))}
+                value={saleData.customerId || "none"}
+                onValueChange={(value) => setSaleData(prev => ({ ...prev, customerId: value === "none" ? undefined : value }))}
               >
                 <SelectTrigger data-testid="select-customer">
                   <SelectValue placeholder="Select a customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No customer selected</SelectItem>
+                  <SelectItem value="none">No customer selected</SelectItem>
                   {customers.map((customer) => (
                     <SelectItem key={customer.id} value={customer.id}>
                       {customer.name} ({customer.phoneNumber})
@@ -263,14 +275,14 @@ export default function SalesProcessingPage() {
             <div>
               <Label htmlFor="campaign">Campaign (Optional)</Label>
               <Select
-                value={saleData.campaignId || ""}
-                onValueChange={(value) => setSaleData(prev => ({ ...prev, campaignId: value || undefined }))}
+                value={saleData.campaignId || "none"}
+                onValueChange={(value) => setSaleData(prev => ({ ...prev, campaignId: value === "none" ? undefined : value }))}
               >
                 <SelectTrigger data-testid="select-campaign">
                   <SelectValue placeholder="Select a campaign" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No campaign selected</SelectItem>
+                  <SelectItem value="none">No campaign selected</SelectItem>
                   {campaigns.map((campaign) => (
                     <SelectItem key={campaign.id} value={campaign.id}>
                       {campaign.name}
@@ -294,14 +306,14 @@ export default function SalesProcessingPage() {
               <div>
                 <Label htmlFor="paymentMethod">Payment Method</Label>
                 <Select
-                  value={saleData.paymentMethod || ""}
-                  onValueChange={(value) => setSaleData(prev => ({ ...prev, paymentMethod: value || undefined }))}
+                  value={saleData.paymentMethod || "none"}
+                  onValueChange={(value) => setSaleData(prev => ({ ...prev, paymentMethod: value === "none" ? undefined : value }))}
                 >
                   <SelectTrigger data-testid="select-payment-method">
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Not specified</SelectItem>
+                    <SelectItem value="none">Not specified</SelectItem>
                     <SelectItem value="cash">Cash</SelectItem>
                     <SelectItem value="card">Card</SelectItem>
                     <SelectItem value="digital">Digital Payment</SelectItem>
@@ -324,14 +336,14 @@ export default function SalesProcessingPage() {
             <div>
               <Label htmlFor="product">Select Product (Optional)</Label>
               <Select
-                value={currentItem.productId || ""}
+                value={currentItem.productId || "manual"}
                 onValueChange={selectProduct}
               >
                 <SelectTrigger data-testid="select-product">
                   <SelectValue placeholder="Choose from products" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Manual entry</SelectItem>
+                  <SelectItem value="manual">Manual entry</SelectItem>
                   {products.map((product) => (
                     <SelectItem key={product.id} value={product.id}>
                       {product.name} - ${parseFloat(product.price).toFixed(2)}
