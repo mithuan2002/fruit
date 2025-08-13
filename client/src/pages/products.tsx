@@ -351,10 +351,6 @@ export default function ProductsPage() {
             <p className="text-muted-foreground mb-4">
               Create your first product to start setting up point calculations
             </p>
-            <Button onClick={() => setIsDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add First Product
-            </Button>
           </CardContent>
         </Card>
       ) : (
