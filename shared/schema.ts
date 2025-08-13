@@ -28,7 +28,13 @@ export const campaigns = pgTable("campaigns", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
-  rewardPerReferral: integer("reward_per_referral").notNull(),
+  // Point calculation rules
+  pointCalculationType: text("point_calculation_type").notNull().default("fixed"), // fixed, percentage, tier
+  rewardPerReferral: integer("reward_per_referral").notNull(), // Fixed points per referral
+  percentageRate: decimal("percentage_rate", { precision: 5, scale: 2 }), // Percentage of sale amount
+  minimumPurchase: decimal("minimum_purchase", { precision: 10, scale: 2 }).default("0"), // Minimum purchase for points
+  maximumPoints: integer("maximum_points"), // Maximum points per referral
+  // Campaign details
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date").notNull(),
   isActive: boolean("is_active").notNull().default(true),
@@ -41,6 +47,7 @@ export const campaigns = pgTable("campaigns", {
 }, (table) => ({
   activeIdx: index("campaigns_active_idx").on(table.isActive),
   dateIdx: index("campaigns_date_idx").on(table.startDate, table.endDate),
+  typeIdx: index("campaigns_type_idx").on(table.pointCalculationType),
 }));
 
 export const coupons = pgTable("coupons", {
@@ -100,6 +107,92 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   typeIdx: index("whatsapp_messages_type_idx").on(table.type),
   statusIdx: index("whatsapp_messages_status_idx").on(table.status),
   dateIdx: index("whatsapp_messages_date_idx").on(table.sentAt),
+}));
+
+// Products table for product-specific point calculations
+export const products = pgTable("products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  sku: text("sku").unique(),
+  category: text("category"),
+  // Point calculation rules for this specific product
+  pointCalculationType: text("point_calculation_type").notNull().default("inherit"), // inherit, fixed, percentage, tier
+  fixedPoints: integer("fixed_points"), // Fixed points for referral of this product
+  percentageRate: decimal("percentage_rate", { precision: 5, scale: 2 }), // Percentage of product price
+  minimumQuantity: integer("minimum_quantity").default(1), // Minimum quantity for points
+  bonusMultiplier: decimal("bonus_multiplier", { precision: 3, scale: 2 }).default("1.00"), // Bonus multiplier for this product
+  // Product status
+  isActive: boolean("is_active").notNull().default(true),
+  stockQuantity: integer("stock_quantity").default(-1), // -1 for unlimited
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  activeIdx: index("products_active_idx").on(table.isActive),
+  categoryIdx: index("products_category_idx").on(table.category),
+  skuIdx: index("products_sku_idx").on(table.sku),
+  priceIdx: index("products_price_idx").on(table.price),
+}));
+
+// Point calculation tiers for complex point systems
+export const pointTiers = pgTable("point_tiers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  campaignId: varchar("campaign_id").references(() => campaigns.id, { onDelete: "cascade" }),
+  productId: varchar("product_id").references(() => products.id, { onDelete: "cascade" }),
+  // Tier definition
+  minAmount: decimal("min_amount", { precision: 10, scale: 2 }).notNull(),
+  maxAmount: decimal("max_amount", { precision: 10, scale: 2 }),
+  points: integer("points").notNull(),
+  multiplier: decimal("multiplier", { precision: 3, scale: 2 }).default("1.00"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  campaignIdx: index("point_tiers_campaign_idx").on(table.campaignId),
+  productIdx: index("point_tiers_product_idx").on(table.productId),
+  amountIdx: index("point_tiers_amount_idx").on(table.minAmount, table.maxAmount),
+}));
+
+// Sales records for tracking actual purchases and point calculation
+export const sales = pgTable("sales", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  referralId: varchar("referral_id").references(() => referrals.id, { onDelete: "set null" }),
+  campaignId: varchar("campaign_id").references(() => campaigns.id, { onDelete: "set null" }),
+  // Sale details
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  pointsEarned: integer("points_earned").notNull().default(0),
+  referralCode: text("referral_code"),
+  // Metadata
+  posTransactionId: text("pos_transaction_id"), // From POS integration
+  paymentMethod: text("payment_method"), // cash, card, digital
+  status: text("status").notNull().default("completed"), // pending, completed, refunded, cancelled
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  customerIdx: index("sales_customer_idx").on(table.customerId),
+  referralIdx: index("sales_referral_idx").on(table.referralId),
+  statusIdx: index("sales_status_idx").on(table.status),
+  dateIdx: index("sales_date_idx").on(table.createdAt),
+  codeIdx: index("sales_referral_code_idx").on(table.referralCode),
+}));
+
+// Sale items for detailed product tracking
+export const saleItems = pgTable("sale_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  saleId: varchar("sale_id").notNull().references(() => sales.id, { onDelete: "cascade" }),
+  productId: varchar("product_id").references(() => products.id, { onDelete: "set null" }),
+  // Item details
+  productName: text("product_name").notNull(),
+  productSku: text("product_sku"),
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  pointsEarned: integer("points_earned").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  saleIdx: index("sale_items_sale_idx").on(table.saleId),
+  productIdx: index("sale_items_product_idx").on(table.productId),
 }));
 
 // New tables for enhanced functionality
@@ -201,11 +294,57 @@ export const customersRelations = relations(customers, ({ many }) => ({
   whatsappMessages: many(whatsappMessages),
   pointsTransactions: many(pointsTransactions),
   rewardRedemptions: many(rewardRedemptions),
+  sales: many(sales),
 }));
 
 export const campaignsRelations = relations(campaigns, ({ many }) => ({
   coupons: many(coupons),
   referrals: many(referrals),
+  pointTiers: many(pointTiers),
+  sales: many(sales),
+}));
+
+export const productsRelations = relations(products, ({ many }) => ({
+  pointTiers: many(pointTiers),
+  saleItems: many(saleItems),
+}));
+
+export const pointTiersRelations = relations(pointTiers, ({ one }) => ({
+  campaign: one(campaigns, {
+    fields: [pointTiers.campaignId],
+    references: [campaigns.id],
+  }),
+  product: one(products, {
+    fields: [pointTiers.productId],
+    references: [products.id],
+  }),
+}));
+
+export const salesRelations = relations(sales, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [sales.customerId],
+    references: [customers.id],
+  }),
+  referral: one(referrals, {
+    fields: [sales.referralId],
+    references: [referrals.id],
+  }),
+  campaign: one(campaigns, {
+    fields: [sales.campaignId],
+    references: [campaigns.id],
+  }),
+  items: many(saleItems),
+}));
+
+export const saleItemsRelations = relations(saleItems, ({ one }) => ({
+  sale: one(sales, {
+    fields: [saleItems.saleId],
+    references: [sales.id],
+  }),
+  product: one(products, {
+    fields: [saleItems.productId],
+    references: [products.id],
+  }),
 }));
 
 export const couponsRelations = relations(coupons, ({ one }) => ({
@@ -288,6 +427,7 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
 }).extend({
   startDate: z.union([z.date(), z.string().transform(str => new Date(str))]),
   endDate: z.union([z.date(), z.string().transform(str => new Date(str))]),
+  pointCalculationType: z.enum(["fixed", "percentage", "tier"]).default("fixed"),
 });
 
 export const insertCouponSchema = createInsertSchema(coupons).omit({
@@ -311,6 +451,33 @@ export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages).
   readAt: true,
 }).extend({
   type: z.enum(["welcome_referral", "coupon_generated", "reward_earned", "broadcast"]),
+});
+
+// Product and Sales schemas
+export const insertProductSchema = createInsertSchema(products).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  pointCalculationType: z.enum(["inherit", "fixed", "percentage", "tier"]).default("inherit"),
+});
+
+export const insertPointTierSchema = createInsertSchema(pointTiers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSaleSchema = createInsertSchema(sales).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  status: z.enum(["pending", "completed", "refunded", "cancelled"]).default("completed"),
+});
+
+export const insertSaleItemSchema = createInsertSchema(saleItems).omit({
+  id: true,
+  createdAt: true,
 });
 
 // New schema exports
@@ -390,6 +557,19 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
 export type OnboardingData = z.infer<typeof onboardingSchema>;
 
+// New table types
+export type Product = typeof products.$inferSelect;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+
+export type PointTier = typeof pointTiers.$inferSelect;
+export type InsertPointTier = z.infer<typeof insertPointTierSchema>;
+
+export type Sale = typeof sales.$inferSelect;
+export type InsertSale = z.infer<typeof insertSaleSchema>;
+
+export type SaleItem = typeof saleItems.$inferSelect;
+export type InsertSaleItem = z.infer<typeof insertSaleItemSchema>;
+
 // Updated business logic schemas
 export const redeemPointsSchema = z.object({
   pointsToRedeem: z.number().min(1, "Must redeem at least 1 point"),
@@ -409,3 +589,23 @@ export const couponRedemptionSchema = z.object({
   customerId: z.string().optional(),
   saleAmount: z.number().min(0, "Sale amount must be positive").optional(),
 });
+
+// Process sale schema for point calculation
+export const processSaleSchema = z.object({
+  customerId: z.string().optional(),
+  referralCode: z.string().optional(),
+  campaignId: z.string().optional(),
+  totalAmount: z.number().min(0, "Sale amount must be positive"),
+  items: z.array(z.object({
+    productId: z.string().optional(),
+    productName: z.string().min(1, "Product name is required"),
+    productSku: z.string().optional(),
+    quantity: z.number().min(1, "Quantity must be at least 1"),
+    unitPrice: z.number().min(0, "Unit price must be positive"),
+    totalPrice: z.number().min(0, "Total price must be positive"),
+  })),
+  posTransactionId: z.string().optional(),
+  paymentMethod: z.string().optional(),
+});
+
+export type ProcessSale = z.infer<typeof processSaleSchema>;

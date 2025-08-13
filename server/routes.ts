@@ -10,11 +10,16 @@ import {
   insertUserSchema,
   loginUserSchema,
   onboardingSchema,
-  type User
+  insertProductSchema,
+  insertSaleSchema,
+  processSaleSchema,
+  type User,
+  type ProcessSale
 } from "@shared/schema";
 import { z } from "zod";
 import { interaktService } from "./interaktService";
 import { posManager, posWebhookSchema, SquareIntegration, ShopifyIntegration, GenericPOSIntegration } from "./posIntegration";
+import { PointsCalculator } from "./pointsCalculator";
 import bcrypt from "bcryptjs";
 import session from "express-session";
 import MemoryStore from "memorystore";
@@ -383,6 +388,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate: new Date(endDate),
         isActive: req.body.isActive ?? true,
         goalCount: Number(req.body.goalCount) || 100,
+        pointCalculationType: req.body.pointCalculationType || "fixed",
+        percentageRate: req.body.percentageRate ? String(req.body.percentageRate) : null,
+        minimumPurchase: req.body.minimumPurchase ? String(req.body.minimumPurchase) : "0",
+        maximumPoints: req.body.maximumPoints ? Number(req.body.maximumPoints) : null,
       };
 
       // Validate dates
@@ -902,6 +911,238 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch campaign stats" });
+    }
+  });
+
+  // ===========================================
+  // PRODUCTS MANAGEMENT ROUTES
+  // ===========================================
+
+  app.get("/api/products", requireAuth, async (req, res) => {
+    try {
+      const products = await storage.getAllProducts();
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  app.get("/api/products/active", requireAuth, async (req, res) => {
+    try {
+      const products = await storage.getActiveProducts();
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch active products" });
+    }
+  });
+
+  app.post("/api/products", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(validatedData);
+      res.status(201).json(product);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create product" });
+    }
+  });
+
+  app.put("/api/products/:id", requireAuth, async (req, res) => {
+    try {
+      const product = await storage.updateProduct(req.params.id, req.body);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update product" });
+    }
+  });
+
+  app.delete("/api/products/:id", requireAuth, async (req, res) => {
+    try {
+      const deleted = await storage.deleteProduct(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json({ success: true, message: "Product deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+
+  // ===========================================
+  // SALES PROCESSING ROUTES
+  // ===========================================
+
+  app.post("/api/sales/process", requireAuth, async (req, res) => {
+    try {
+      const validatedData = processSaleSchema.parse(req.body);
+      
+      // Get campaign and products for point calculation
+      const campaign = validatedData.campaignId ? await storage.getCampaign(validatedData.campaignId) : null;
+      const productIds = validatedData.items.map(item => item.productId).filter(Boolean);
+      const products = productIds.length > 0 ? await Promise.all(productIds.map(id => storage.getProduct(id!))) : [];
+      const validProducts = products.filter(Boolean);
+
+      // Calculate points using the PointsCalculator
+      const pointCalculation = await PointsCalculator.calculatePoints(
+        validatedData, 
+        campaign, 
+        validProducts, 
+        campaign ? await storage.getPointTiersByCampaign(campaign.id) : []
+      );
+
+      // Find referrer customer if referral code provided
+      let referrerCustomer = null;
+      let referral = null;
+      if (validatedData.referralCode) {
+        referrerCustomer = await storage.getCustomerByCouponCode(validatedData.referralCode);
+      }
+
+      // Create sale record
+      const sale = await storage.createSale({
+        customerId: validatedData.customerId || null,
+        referralId: referral?.id || null,
+        campaignId: validatedData.campaignId || campaign?.id || null,
+        totalAmount: validatedData.totalAmount.toString(),
+        pointsEarned: pointCalculation.totalPoints,
+        referralCode: validatedData.referralCode || null,
+        posTransactionId: validatedData.posTransactionId || null,
+        paymentMethod: validatedData.paymentMethod || null,
+      });
+
+      // Create sale items
+      for (let i = 0; i < validatedData.items.length; i++) {
+        const item = validatedData.items[i];
+        await storage.createSaleItem({
+          saleId: sale.id,
+          productId: item.productId || null,
+          productName: item.productName,
+          productSku: item.productSku || null,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice.toString(),
+          totalPrice: item.totalPrice.toString(),
+          pointsEarned: pointCalculation.itemPoints[i]?.points || 0,
+        });
+      }
+
+      // If referral code was used, process the referral
+      if (referrerCustomer && pointCalculation.totalPoints > 0) {
+        // Create referral record
+        referral = await storage.createReferral({
+          referrerId: referrerCustomer.id,
+          referredCustomerId: validatedData.customerId || null,
+          campaignId: campaign?.id || null,
+          referralCode: validatedData.referralCode,
+          pointsEarned: pointCalculation.totalPoints,
+          saleAmount: validatedData.totalAmount.toString(),
+          status: "completed",
+        });
+
+        // Update sale with referral ID
+        await storage.updateSale(sale.id, { referralId: referral.id });
+
+        // Update referrer customer points and referral count
+        await storage.updateCustomer(referrerCustomer.id, {
+          points: referrerCustomer.points + pointCalculation.totalPoints,
+          pointsEarned: referrerCustomer.pointsEarned + pointCalculation.totalPoints,
+          totalReferrals: referrerCustomer.totalReferrals + 1,
+        });
+
+        // Create points transaction record
+        await storage.createPointsTransaction({
+          customerId: referrerCustomer.id,
+          referralId: referral.id,
+          type: "earned",
+          points: pointCalculation.totalPoints,
+          description: `Points earned from sale: $${validatedData.totalAmount}`,
+        });
+
+        // Send WhatsApp notification
+        try {
+          await interaktService.sendPointsEarnedMessage(
+            referrerCustomer.phoneNumber,
+            referrerCustomer.name,
+            pointCalculation.totalPoints,
+            referrerCustomer.points + pointCalculation.totalPoints
+          );
+
+          await storage.createWhatsappMessage({
+            customerId: referrerCustomer.id,
+            phoneNumber: referrerCustomer.phoneNumber,
+            message: `Points earned: ${pointCalculation.totalPoints} points from $${validatedData.totalAmount} sale`,
+            type: "reward_earned",
+            status: "sent"
+          });
+        } catch (error) {
+          console.error("Failed to send points earned message:", error);
+        }
+      }
+
+      res.json({
+        success: true,
+        sale,
+        pointsEarned: pointCalculation.totalPoints,
+        pointCalculation: {
+          totalPoints: pointCalculation.totalPoints,
+          itemBreakdown: pointCalculation.itemPoints,
+          appliedRules: pointCalculation.appliedRules,
+        },
+        referral,
+        message: referrerCustomer ? 
+          `Sale processed successfully! ${referrerCustomer.name} earned ${pointCalculation.totalPoints} points.` :
+          "Sale processed successfully!"
+      });
+    } catch (error) {
+      console.error("Sale processing error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to process sale" });
+    }
+  });
+
+  app.post("/api/sales/preview-points", requireAuth, async (req, res) => {
+    try {
+      const validatedData = processSaleSchema.parse(req.body);
+      
+      // Get campaign and products for point calculation
+      const campaign = validatedData.campaignId ? await storage.getCampaign(validatedData.campaignId) : null;
+      const productIds = validatedData.items.map(item => item.productId).filter(Boolean);
+      const products = productIds.length > 0 ? await Promise.all(productIds.map(id => storage.getProduct(id!))) : [];
+      const validProducts = products.filter(Boolean);
+
+      // Preview points calculation
+      const pointCalculation = await PointsCalculator.previewPoints(
+        validatedData, 
+        campaign, 
+        validProducts, 
+        campaign ? await storage.getPointTiersByCampaign(campaign.id) : []
+      );
+
+      res.json({
+        totalPoints: pointCalculation.totalPoints,
+        itemBreakdown: pointCalculation.itemPoints,
+        appliedRules: pointCalculation.appliedRules,
+        campaignName: campaign?.name || "No active campaign",
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to preview points calculation" });
+    }
+  });
+
+  app.get("/api/sales", requireAuth, async (req, res) => {
+    try {
+      const sales = await storage.getAllSales();
+      res.json(sales);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sales" });
     }
   });
 

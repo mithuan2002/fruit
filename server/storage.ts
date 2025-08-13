@@ -19,6 +19,14 @@ import {
   type InsertSystemConfig,
   type User,
   type InsertUser,
+  type Product,
+  type InsertProduct,
+  type PointTier,
+  type InsertPointTier,
+  type Sale,
+  type InsertSale,
+  type SaleItem,
+  type InsertSaleItem,
   customers,
   campaigns,
   coupons,
@@ -29,6 +37,10 @@ import {
   rewardRedemptions,
   systemConfig,
   users,
+  products,
+  pointTiers,
+  sales,
+  saleItems,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -107,6 +119,39 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+
+  // Product operations
+  getProduct(id: string): Promise<Product | undefined>;
+  getProductBySku(sku: string): Promise<Product | undefined>;
+  getAllProducts(): Promise<Product[]>;
+  getActiveProducts(): Promise<Product[]>;
+  getProductsByCategory(category: string): Promise<Product[]>;
+  createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined>;
+  deleteProduct(id: string): Promise<boolean>;
+
+  // Point Tier operations
+  getPointTier(id: string): Promise<PointTier | undefined>;
+  getPointTiersByCampaign(campaignId: string): Promise<PointTier[]>;
+  getPointTiersByProduct(productId: string): Promise<PointTier[]>;
+  createPointTier(tier: InsertPointTier): Promise<PointTier>;
+  updatePointTier(id: string, updates: Partial<PointTier>): Promise<PointTier | undefined>;
+  deletePointTier(id: string): Promise<boolean>;
+
+  // Sale operations
+  getSale(id: string): Promise<Sale | undefined>;
+  getAllSales(): Promise<Sale[]>;
+  getSalesByCustomer(customerId: string): Promise<Sale[]>;
+  getSalesByCampaign(campaignId: string): Promise<Sale[]>;
+  getSalesByReferralCode(referralCode: string): Promise<Sale[]>;
+  createSale(sale: InsertSale): Promise<Sale>;
+  updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined>;
+
+  // Sale Item operations
+  getSaleItem(id: string): Promise<SaleItem | undefined>;
+  getSaleItemsBySale(saleId: string): Promise<SaleItem[]>;
+  createSaleItem(saleItem: InsertSaleItem): Promise<SaleItem>;
+  updateSaleItem(id: string, updates: Partial<SaleItem>): Promise<SaleItem | undefined>;
   
   // Utility operations
   generateUniqueCode(): Promise<string>;
@@ -170,7 +215,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCustomer(id: string): Promise<boolean> {
     const result = await db.delete(customers).where(eq(customers.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Campaign operations
@@ -203,7 +248,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCampaign(id: string): Promise<boolean> {
     const result = await db.delete(campaigns).where(eq(campaigns.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Coupon operations
@@ -247,7 +292,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCoupon(id: string): Promise<boolean> {
     const result = await db.delete(coupons).where(eq(coupons.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Referral operations
@@ -355,7 +400,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteReward(id: string): Promise<boolean> {
     const result = await db.delete(rewards).where(eq(rewards.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Reward redemption operations
@@ -535,6 +580,153 @@ export class DatabaseStorage implements IStorage {
       rewardsDistributed,
       conversionRate: totalCustomers > 0 ? activeReferrals / totalCustomers : 0,
     };
+  }
+
+  // Product operations
+  async getProduct(id: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product || undefined;
+  }
+
+  async getProductBySku(sku: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.sku, sku));
+    return product || undefined;
+  }
+
+  async getAllProducts(): Promise<Product[]> {
+    return await db.select().from(products).orderBy(desc(products.createdAt));
+  }
+
+  async getActiveProducts(): Promise<Product[]> {
+    return await db.select().from(products).where(eq(products.isActive, true)).orderBy(desc(products.createdAt));
+  }
+
+  async getProductsByCategory(category: string): Promise<Product[]> {
+    return await db.select().from(products).where(eq(products.category, category));
+  }
+
+  async createProduct(insertProduct: InsertProduct): Promise<Product> {
+    const [product] = await db
+      .insert(products)
+      .values(insertProduct)
+      .returning();
+    return product;
+  }
+
+  async updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined> {
+    const [product] = await db
+      .update(products)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(products.id, id))
+      .returning();
+    return product || undefined;
+  }
+
+  async deleteProduct(id: string): Promise<boolean> {
+    const result = await db.delete(products).where(eq(products.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Point Tier operations
+  async getPointTier(id: string): Promise<PointTier | undefined> {
+    const [tier] = await db.select().from(pointTiers).where(eq(pointTiers.id, id));
+    return tier || undefined;
+  }
+
+  async getPointTiersByCampaign(campaignId: string): Promise<PointTier[]> {
+    return await db.select().from(pointTiers).where(eq(pointTiers.campaignId, campaignId));
+  }
+
+  async getPointTiersByProduct(productId: string): Promise<PointTier[]> {
+    return await db.select().from(pointTiers).where(eq(pointTiers.productId, productId));
+  }
+
+  async createPointTier(tier: InsertPointTier): Promise<PointTier> {
+    const [pointTier] = await db
+      .insert(pointTiers)
+      .values(tier)
+      .returning();
+    return pointTier;
+  }
+
+  async updatePointTier(id: string, updates: Partial<PointTier>): Promise<PointTier | undefined> {
+    const [tier] = await db
+      .update(pointTiers)
+      .set(updates)
+      .where(eq(pointTiers.id, id))
+      .returning();
+    return tier || undefined;
+  }
+
+  async deletePointTier(id: string): Promise<boolean> {
+    const result = await db.delete(pointTiers).where(eq(pointTiers.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Sale operations
+  async getSale(id: string): Promise<Sale | undefined> {
+    const [sale] = await db.select().from(sales).where(eq(sales.id, id));
+    return sale || undefined;
+  }
+
+  async getAllSales(): Promise<Sale[]> {
+    return await db.select().from(sales).orderBy(desc(sales.createdAt));
+  }
+
+  async getSalesByCustomer(customerId: string): Promise<Sale[]> {
+    return await db.select().from(sales).where(eq(sales.customerId, customerId));
+  }
+
+  async getSalesByCampaign(campaignId: string): Promise<Sale[]> {
+    return await db.select().from(sales).where(eq(sales.campaignId, campaignId));
+  }
+
+  async getSalesByReferralCode(referralCode: string): Promise<Sale[]> {
+    return await db.select().from(sales).where(eq(sales.referralCode, referralCode));
+  }
+
+  async createSale(sale: InsertSale): Promise<Sale> {
+    const [newSale] = await db
+      .insert(sales)
+      .values(sale)
+      .returning();
+    return newSale;
+  }
+
+  async updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined> {
+    const [sale] = await db
+      .update(sales)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(sales.id, id))
+      .returning();
+    return sale || undefined;
+  }
+
+  // Sale Item operations
+  async getSaleItem(id: string): Promise<SaleItem | undefined> {
+    const [item] = await db.select().from(saleItems).where(eq(saleItems.id, id));
+    return item || undefined;
+  }
+
+  async getSaleItemsBySale(saleId: string): Promise<SaleItem[]> {
+    return await db.select().from(saleItems).where(eq(saleItems.saleId, saleId));
+  }
+
+  async createSaleItem(saleItem: InsertSaleItem): Promise<SaleItem> {
+    const [item] = await db
+      .insert(saleItems)
+      .values(saleItem)
+      .returning();
+    return item;
+  }
+
+  async updateSaleItem(id: string, updates: Partial<SaleItem>): Promise<SaleItem | undefined> {
+    const [item] = await db
+      .update(saleItems)
+      .set(updates)
+      .where(eq(saleItems.id, id))
+      .returning();
+    return item || undefined;
   }
 }
 
