@@ -1,13 +1,18 @@
 
-# Exclude everything except what's needed for the build
-*
-!package.json
-!package-lock.json
-!vercel.json
-!client/
-!shared/
-!vite.config.ts
-!tsconfig.json
-!tailwind.config.ts
-!postcss.config.js
-!components.json
+# Exclude development files but include necessary build files
+node_modules/
+.env
+.env.local
+.replit
+*.log
+.DS_Store
+thumbs.db
+coverage/
+.nyc_output/
+.pytest_cache/
+__pycache__/
+.cache/
+.parcel-cache/
+dist-dev/
+.vscode/
+.idea/
