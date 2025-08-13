@@ -909,6 +909,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POS INTEGRATION ROUTES
   // ===========================================
 
+  // POS setup request form submission
+  app.post("/api/pos/setup-request", requireAuth, async (req, res) => {
+    try {
+      const { name, phone, email, businessType, message } = req.body;
+
+      if (!name || !phone || !email || !businessType) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Create email content
+      const emailContent = `
+        New POS Integration Setup Request
+        
+        Name: ${name}
+        Phone: ${phone}
+        Email: ${email}
+        Business Type: ${businessType}
+        Message: ${message || 'No additional message'}
+        
+        Request submitted at: ${new Date().toISOString()}
+      `;
+
+      // For now, we'll just log the request
+      // In a real implementation, you would integrate with an email service like SendGrid, Nodemailer, etc.
+      console.log("POS Setup Request:", {
+        name,
+        phone,
+        email,
+        businessType,
+        message,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log("Email would be sent to mithuan137@gmail.com with content:");
+      console.log(emailContent);
+
+      res.json({ 
+        success: true, 
+        message: "POS integration request submitted successfully" 
+      });
+    } catch (error) {
+      console.error("Failed to process POS setup request:", error);
+      res.status(500).json({ message: "Failed to submit POS setup request" });
+    }
+  });
+
   // Get all available POS integrations
   app.get("/api/pos/integrations", requireAuth, async (req, res) => {
     try {
