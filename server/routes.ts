@@ -265,12 +265,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         referralCode
       });
 
-      // Generate unique e-coupon code for the customer
-      const eCouponCode = await storage.generateUniqueCode("EC");
-
-      // Create permanent e-coupon for the customer
+      // Create permanent e-coupon using the referral code (no separate coupon code)
       const eCoupon = await storage.createCoupon({
-        code: eCouponCode,
+        code: referralCode, // Use referral code as coupon code
         customerId: customer.id,
         value: 10, // 10% discount
         valueType: "percentage",
@@ -279,19 +276,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiresAt: null // Never expires
       });
 
-      // Send welcome message via Interakt with both referral code and e-coupon
+      // Send welcome message via Interakt with referral code
       try {
         await interaktService.sendWelcomeMessage(
           customer.phoneNumber,
           customer.name,
           referralCode,
-          eCouponCode
+          referralCode // Same code for both referral and coupon
         );
 
         await storage.createWhatsappMessage({
           customerId: customer.id,
           phoneNumber: customer.phoneNumber,
-          message: `Welcome message with referral code: ${referralCode} and e-coupon: ${eCouponCode}`,
+          message: `Welcome message with referral code: ${referralCode}`,
           type: "welcome_referral",
           status: "sent"
         });
