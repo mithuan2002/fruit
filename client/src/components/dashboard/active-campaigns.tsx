@@ -113,17 +113,7 @@ export default function ActiveCampaigns({ onCreateCampaign, onCampaignClick }: A
           </div>
         )}
       </div>
-      <div className="px-6 py-3 bg-gray-50 text-center">
-        <Button 
-          variant="ghost" 
-          onClick={onCreateCampaign}
-          className="text-primary hover:text-blue-700 text-sm font-medium"
-          data-testid="button-create-campaign"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create New Campaign
-        </Button>
-      </div>
+      
     </Card>
   );
 }
