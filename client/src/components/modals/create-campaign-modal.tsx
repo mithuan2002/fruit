@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -22,6 +23,10 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
     startDate: "",
     endDate: "",
     goalCount: 100,
+    pointCalculationType: "fixed",
+    percentageRate: "",
+    minimumPurchase: "0",
+    maximumPoints: "",
   });
 
   const { toast } = useToast();
@@ -44,6 +49,10 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
         startDate: "",
         endDate: "",
         goalCount: 100,
+        pointCalculationType: "fixed",
+        percentageRate: "",
+        minimumPurchase: "0",
+        maximumPoints: "",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/active"] });
@@ -163,6 +172,74 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Describe the campaign..."
             />
+          </div>
+
+          <div className="border-t pt-4">
+            <h3 className="font-medium mb-3">Point Calculation Rules</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="pointCalculationType">Calculation Type</Label>
+                <Select
+                  value={formData.pointCalculationType}
+                  onValueChange={(value) => setFormData({ ...formData, pointCalculationType: value })}
+                >
+                  <SelectTrigger data-testid="select-point-calculation-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">Fixed Points</SelectItem>
+                    <SelectItem value="percentage">Percentage of Sale Amount</SelectItem>
+                    <SelectItem value="tier">Tier-based</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.pointCalculationType === "percentage" && (
+                <div>
+                  <Label htmlFor="percentageRate">Percentage Rate (%)</Label>
+                  <Input
+                    id="percentageRate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    data-testid="input-percentage-rate"
+                    value={formData.percentageRate}
+                    onChange={(e) => setFormData({ ...formData, percentageRate: e.target.value })}
+                    placeholder="e.g., 5 for 5%"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="minimumPurchase">Minimum Purchase ($)</Label>
+                  <Input
+                    id="minimumPurchase"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    data-testid="input-minimum-purchase"
+                    value={formData.minimumPurchase}
+                    onChange={(e) => setFormData({ ...formData, minimumPurchase: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="maximumPoints">Maximum Points per Sale</Label>
+                  <Input
+                    id="maximumPoints"
+                    type="number"
+                    min="0"
+                    data-testid="input-maximum-points"
+                    value={formData.maximumPoints}
+                    onChange={(e) => setFormData({ ...formData, maximumPoints: e.target.value })}
+                    placeholder="Optional limit"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
           
           <div className="flex justify-end space-x-3 pt-4">

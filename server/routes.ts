@@ -1147,6 +1147,230 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===========================================
+  // PRODUCTS ROUTES
+  // ===========================================
+
+  // Get all products
+  app.get("/api/products", async (req, res) => {
+    try {
+      const products = await storage.getAllProducts();
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  // Get active products
+  app.get("/api/products/active", async (req, res) => {
+    try {
+      const products = await storage.getActiveProducts();
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch active products" });
+    }
+  });
+
+  // Create product
+  app.post("/api/products", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertProductSchema.parse(req.body);
+      const product = await storage.createProduct(validatedData);
+      res.status(201).json(product);
+    } catch (error) {
+      console.error("Product creation error:", error);
+      res.status(500).json({ message: "Failed to create product" });
+    }
+  });
+
+  // Update product
+  app.put("/api/products/:id", requireAuth, async (req, res) => {
+    try {
+      const product = await storage.updateProduct(req.params.id, req.body);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update product" });
+    }
+  });
+
+  // Delete product
+  app.delete("/api/products/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteProduct(req.params.id);
+      if (!success) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete product" });
+    }
+  });
+
+  // ===========================================
+  // SALES PROCESSING ROUTES
+  // ===========================================
+
+  // Preview points calculation for a sale
+  app.post("/api/sales/preview-points", requireAuth, async (req, res) => {
+    try {
+      const saleData = processSaleSchema.parse(req.body);
+      
+      // Get campaign and products for calculation
+      const campaign = saleData.campaignId ? await storage.getCampaign(saleData.campaignId) : null;
+      const productIds = saleData.items.map(item => item.productId).filter(Boolean) as string[];
+      const products = productIds.length > 0 ? 
+        await Promise.all(productIds.map(id => storage.getProduct(id))) : [];
+      
+      // Calculate points
+      const calculation = await PointsCalculator.previewPoints(
+        saleData,
+        campaign,
+        products.filter(p => p !== undefined),
+        // Point tiers would be fetched here if needed
+      );
+      
+      res.json(calculation);
+    } catch (error) {
+      console.error("Points preview error:", error);
+      res.status(500).json({ message: "Failed to preview points calculation" });
+    }
+  });
+
+  // Process a complete sale with referral points
+  app.post("/api/sales/process", requireAuth, async (req, res) => {
+    try {
+      const saleData = processSaleSchema.parse(req.body);
+      
+      // Find customer and campaign
+      let customer = null;
+      if (saleData.customerId) {
+        customer = await storage.getCustomer(saleData.customerId);
+      } else if (saleData.referralCode) {
+        customer = await storage.getCustomerByCouponCode(saleData.referralCode);
+      }
+
+      const campaign = saleData.campaignId ? await storage.getCampaign(saleData.campaignId) : null;
+      
+      // Get products for calculation
+      const productIds = saleData.items.map(item => item.productId).filter(Boolean) as string[];
+      const products = productIds.length > 0 ? 
+        await Promise.all(productIds.map(id => storage.getProduct(id))) : [];
+      
+      // Calculate points
+      const pointCalculation = await PointsCalculator.calculatePoints(
+        saleData,
+        campaign,
+        products.filter(p => p !== undefined),
+      );
+
+      // Create sale record
+      const sale = await storage.createSale({
+        customerId: customer?.id || null,
+        campaignId: campaign?.id || null,
+        totalAmount: saleData.totalAmount,
+        pointsEarned: pointCalculation.totalPoints,
+        referralCode: saleData.referralCode || null,
+        posTransactionId: saleData.posTransactionId || null,
+        paymentMethod: saleData.paymentMethod || null,
+        status: "completed"
+      });
+
+      // Create sale items
+      const saleItems = await Promise.all(
+        saleData.items.map((item, index) => 
+          storage.createSaleItem({
+            saleId: sale.id,
+            productId: item.productId || null,
+            productName: item.productName,
+            productSku: item.productSku || null,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+            pointsEarned: pointCalculation.itemPoints[index]?.points || 0
+          })
+        )
+      );
+
+      // Update customer points if found
+      if (customer && pointCalculation.totalPoints > 0) {
+        await storage.updateCustomer(customer.id, {
+          points: customer.points + pointCalculation.totalPoints,
+          pointsEarned: customer.pointsEarned + pointCalculation.totalPoints,
+          totalReferrals: customer.totalReferrals + 1,
+        });
+
+        // Create referral record
+        const referral = await storage.createReferral({
+          referrerId: customer.id,
+          referredCustomerId: null, // Could be set if known
+          campaignId: campaign?.id || null,
+          referralCode: saleData.referralCode || customer.referralCode || "",
+          pointsEarned: pointCalculation.totalPoints,
+          saleAmount: saleData.totalAmount,
+          status: "completed",
+        });
+
+        // Send WhatsApp notification
+        try {
+          await interaktService.sendPointsEarnedMessage(
+            customer.phoneNumber,
+            customer.name,
+            pointCalculation.totalPoints,
+            customer.points + pointCalculation.totalPoints
+          );
+
+          await storage.createWhatsappMessage({
+            customerId: customer.id,
+            phoneNumber: customer.phoneNumber,
+            message: `Points earned: ${pointCalculation.totalPoints} points for sale`,
+            type: "reward_earned",
+            status: "sent"
+          });
+        } catch (error) {
+          console.error("Failed to send points earned message:", error);
+        }
+      }
+
+      res.status(201).json({
+        success: true,
+        sale,
+        saleItems,
+        pointCalculation,
+        customer: customer ? {
+          id: customer.id,
+          name: customer.name,
+          newPointsBalance: customer.points + pointCalculation.totalPoints
+        } : null
+      });
+    } catch (error) {
+      console.error("Sale processing error:", error);
+      res.status(500).json({ message: "Failed to process sale" });
+    }
+  });
+
+  // Get all sales
+  app.get("/api/sales", requireAuth, async (req, res) => {
+    try {
+      const sales = await storage.getAllSales();
+      res.json(sales);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sales" });
+    }
+  });
+
+  // Get sales by customer
+  app.get("/api/sales/customer/:customerId", requireAuth, async (req, res) => {
+    try {
+      const sales = await storage.getSalesByCustomer(req.params.customerId);
+      res.json(sales);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch customer sales" });
+    }
+  });
+
+  // ===========================================
   // POS INTEGRATION ROUTES
   // ===========================================
 
