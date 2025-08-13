@@ -985,7 +985,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const campaign = validatedData.campaignId ? await storage.getCampaign(validatedData.campaignId) : null;
       const productIds = validatedData.items.map(item => item.productId).filter(Boolean);
       const products = productIds.length > 0 ? await Promise.all(productIds.map(id => storage.getProduct(id!))) : [];
-      const validProducts = products.filter(Boolean);
+      const validProducts = products.filter((p): p is NonNullable<typeof p> => p !== undefined);
 
       // Calculate points using the PointsCalculator
       const pointCalculation = await PointsCalculator.calculatePoints(
@@ -1012,6 +1012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         referralCode: validatedData.referralCode || null,
         posTransactionId: validatedData.posTransactionId || null,
         paymentMethod: validatedData.paymentMethod || null,
+        status: "completed",
       });
 
       // Create sale items
@@ -1036,7 +1037,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           referrerId: referrerCustomer.id,
           referredCustomerId: validatedData.customerId || null,
           campaignId: campaign?.id || null,
-          referralCode: validatedData.referralCode,
+          referralCode: validatedData.referralCode || "",
           pointsEarned: pointCalculation.totalPoints,
           saleAmount: validatedData.totalAmount.toString(),
           status: "completed",
@@ -1113,7 +1114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const campaign = validatedData.campaignId ? await storage.getCampaign(validatedData.campaignId) : null;
       const productIds = validatedData.items.map(item => item.productId).filter(Boolean);
       const products = productIds.length > 0 ? await Promise.all(productIds.map(id => storage.getProduct(id!))) : [];
-      const validProducts = products.filter(Boolean);
+      const validProducts = products.filter((p): p is NonNullable<typeof p> => p !== undefined);
 
       // Preview points calculation
       const pointCalculation = await PointsCalculator.previewPoints(
@@ -1269,7 +1270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sale = await storage.createSale({
         customerId: customer?.id || null,
         campaignId: campaign?.id || null,
-        totalAmount: saleData.totalAmount,
+        totalAmount: saleData.totalAmount.toString(),
         pointsEarned: pointCalculation.totalPoints,
         referralCode: saleData.referralCode || null,
         posTransactionId: saleData.posTransactionId || null,
@@ -1286,8 +1287,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             productName: item.productName,
             productSku: item.productSku || null,
             quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
+            unitPrice: item.unitPrice.toString(),
+            totalPrice: item.totalPrice.toString(),
             pointsEarned: pointCalculation.itemPoints[index]?.points || 0
           })
         )
@@ -1308,7 +1309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           campaignId: campaign?.id || null,
           referralCode: saleData.referralCode || customer.referralCode || "",
           pointsEarned: pointCalculation.totalPoints,
-          saleAmount: saleData.totalAmount,
+          saleAmount: saleData.totalAmount.toString(),
           status: "completed",
         });
 
