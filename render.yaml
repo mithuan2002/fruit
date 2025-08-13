@@ -1,0 +1,19 @@
+
+services:
+  - type: web
+    name: fruitbox
+    env: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: INTERAKT_API_TOKEN
+        sync: false
+      - key: INTERAKT_BUSINESS_NUMBER
+        sync: false
