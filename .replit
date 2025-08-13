@@ -7,7 +7,7 @@ channel = "stable-25_05"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["npm", "run", "start"]
+run = ["sh", "-c", "echo 'Static deployment - no run command needed'"]
 build = ["npm", "run", "build"]
 
 [[ports]]
@@ -37,6 +37,15 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Production Server"
+author = 46324731
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_ENV=production npm start"
 
 [agent]
 integrations = ["javascript_log_in_with_replit==1.0.0", "javascript_database==1.0.0", "javascript_websocket==1.0.0"]
