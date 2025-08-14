@@ -33,7 +33,7 @@ export default function PointsSetupPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<PointRule | null>(null);
   const [activeTab, setActiveTab] = useState<'product' | 'campaign'>('product');
-  
+
   const [formData, setFormData] = useState<PointRule>({
     type: 'product',
     targetId: '',
@@ -60,7 +60,7 @@ export default function PointsSetupPage() {
     queryFn: () => {
       // For demo, return mock data based on existing products and campaigns
       const mockRules: PointRule[] = [];
-      
+
       // Add some example product rules
       products.slice(0, 3).forEach((product, index) => {
         mockRules.push({
@@ -143,6 +143,58 @@ export default function PointsSetupPage() {
     }
   });
 
+  const createPointRuleMutation = useMutation({
+    mutationFn: async (ruleData: PointRule) => {
+      const response = await fetch("/api/point-rules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(ruleData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to create point rule");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Points Rule Added",
+        description: data.message || `Successfully added points rule for ${formData.targetName}`,
+      });
+
+      // Reset form
+      setFormData({
+        type: 'product',
+        targetId: '',
+        targetName: '',
+        productCode: '',
+        pointsType: 'fixed',
+        pointsValue: 10,
+        minQuantity: 1,
+        description: '',
+        isActive: true
+      });
+
+      setIsDialogOpen(false);
+      setEditingRule(null);
+
+      // Refresh queries
+      queryClient.invalidateQueries({ queryKey: ["/api/point-rules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add points rule",
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       type: activeTab,
@@ -159,27 +211,19 @@ export default function PointsSetupPage() {
     setIsDialogOpen(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.targetName) {
+
+    if (!formData.targetName || !formData.pointsValue) {
       toast({
-        title: "Error",
-        description: "Please enter a product name or select a product/campaign",
-        variant: "destructive"
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
       });
       return;
     }
 
-    // Ensure targetId is set for manual entries
-    if (!formData.targetId && formData.targetName) {
-      setFormData({ ...formData, targetId: 'manual-product' });
-    }
-
-    saveRuleMutation.mutate({
-      ...formData,
-      targetId: formData.targetId || 'manual-product'
-    });
+    createPointRuleMutation.mutate(formData);
   };
 
   const editRule = (rule: PointRule) => {
@@ -193,7 +237,7 @@ export default function PointsSetupPage() {
     const target = formData.type === 'product' 
       ? products.find(p => p.id === targetId)
       : campaigns.find(c => c.id === targetId);
-    
+
     if (target) {
       const productCode = formData.type === 'product' ? (target as any).productCode : undefined;
       setFormData({
@@ -225,7 +269,7 @@ export default function PointsSetupPage() {
             Set up and manage points rewards for products and campaigns in one simple interface
           </p>
         </div>
-        
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button 
@@ -246,7 +290,7 @@ export default function PointsSetupPage() {
                 Configure how customers earn points for products or campaigns
               </DialogDescription>
             </DialogHeader>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4" data-testid="points-rule-form">
               <Tabs value={formData.type} onValueChange={(value) => {
                 setFormData({ ...formData, type: value as 'product' | 'campaign' });
@@ -256,7 +300,7 @@ export default function PointsSetupPage() {
                   <TabsTrigger value="product" data-testid="tab-product">Product Points</TabsTrigger>
                   <TabsTrigger value="campaign" data-testid="tab-campaign">Campaign Points</TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="product" className="space-y-4">
                   <div>
                     <Label htmlFor="product-code">Product Code</Label>
@@ -267,7 +311,7 @@ export default function PointsSetupPage() {
                       onChange={(e) => {
                         const code = e.target.value;
                         setFormData({ ...formData, productCode: code });
-                        
+
                         // Auto-find product by code
                         if (code.trim()) {
                           const product = products.find(p => p.productCode === code.trim());
@@ -285,7 +329,7 @@ export default function PointsSetupPage() {
                       data-testid="input-product-code"
                     />
                   </div>
-                  
+
                   <div>
                     <Label htmlFor="product-name">Product Name *</Label>
                     <Input
@@ -304,7 +348,7 @@ export default function PointsSetupPage() {
                       data-testid="input-product-name"
                     />
                   </div>
-                  
+
                   {products.length > 0 && (
                     <div>
                       <Label htmlFor="product-select">Or Select from Existing Products</Label>
@@ -322,7 +366,7 @@ export default function PointsSetupPage() {
                       </Select>
                     </div>
                   )}
-                  
+
                   {formData.targetId && formData.targetName && (
                     <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                       <div className="flex items-center gap-2 text-green-800">
@@ -340,7 +384,7 @@ export default function PointsSetupPage() {
                     </div>
                   )}
                 </TabsContent>
-                
+
                 <TabsContent value="campaign" className="space-y-4">
                   <div>
                     <Label htmlFor="campaign-select">Select Campaign</Label>
@@ -431,10 +475,10 @@ export default function PointsSetupPage() {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={saveRuleMutation.isPending}
+                  disabled={saveRuleMutation.isPending || createPointRuleMutation.isPending}
                   data-testid="button-save-rule"
                 >
-                  {saveRuleMutation.isPending ? 'Saving...' : (editingRule ? 'Update' : 'Save')} Rule
+                  {editingRule ? 'Update' : 'Save'} Rule
                 </Button>
               </div>
             </form>
@@ -455,7 +499,7 @@ export default function PointsSetupPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-blue-200 bg-blue-50 dark:bg-blue-900/20" data-testid="card-example-percentage">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -467,7 +511,7 @@ export default function PointsSetupPage() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="border-purple-200 bg-purple-50 dark:bg-purple-900/20" data-testid="card-example-campaign">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -486,7 +530,7 @@ export default function PointsSetupPage() {
         <h2 className="text-xl font-semibold text-gray-900 dark:text-white" data-testid="current-rules-title">
           Current Points Rules
         </h2>
-        
+
         {pointRules.length === 0 ? (
           <Card data-testid="card-no-rules">
             <CardContent className="p-8 text-center">
@@ -540,7 +584,7 @@ export default function PointsSetupPage() {
                         {getPointsDisplay(rule)}
                       </span>
                     </div>
-                    
+
                     {rule.minQuantity && rule.minQuantity > 1 && (
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Min Qty:</span>
@@ -549,7 +593,7 @@ export default function PointsSetupPage() {
                         </span>
                       </div>
                     )}
-                    
+
                     {rule.description && (
                       <p 
                         className="text-xs text-gray-500 dark:text-gray-400 mt-2" 
@@ -559,7 +603,7 @@ export default function PointsSetupPage() {
                       </p>
                     )}
                   </div>
-                  
+
                   <div className="flex gap-2 mt-4">
                     <Button 
                       size="sm" 

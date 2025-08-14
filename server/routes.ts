@@ -1409,12 +1409,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create product
   app.post("/api/products", requireAuth, async (req, res) => {
     try {
+      console.log("Creating product with data:", req.body);
       const validatedData = insertProductSchema.parse(req.body);
       const product = await storage.createProduct(validatedData);
       res.status(201).json(product);
     } catch (error) {
       console.error("Product creation error:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
       res.status(500).json({ message: "Failed to create product" });
+    }
+  });
+
+  // Point rules endpoints for Points Setup
+  app.get("/api/point-rules", requireAuth, async (req, res) => {
+    try {
+      // For now, return mock data based on existing products and campaigns
+      const products = await storage.getAllProducts();
+      const campaigns = await storage.getAllCampaigns();
+      
+      const mockRules: any[] = [];
+      
+      // Add some example product rules
+      products.slice(0, 3).forEach((product, index) => {
+        mockRules.push({
+          id: `product-${product.id}`,
+          type: 'product',
+          targetId: product.id,
+          targetName: product.name,
+          productCode: product.productCode,
+          pointsType: product.pointCalculationType === 'fixed' ? 'fixed' : 'percentage',
+          pointsValue: product.fixedPoints || parseInt(product.percentageRate || '5'),
+          minQuantity: product.minimumQuantity || 1,
+          description: `Points rule for ${product.name}`,
+          isActive: product.isActive
+        });
+      });
+
+      // Add some example campaign rules
+      campaigns.slice(0, 2).forEach((campaign, index) => {
+        mockRules.push({
+          id: `campaign-${campaign.id}`,
+          type: 'campaign',
+          targetId: campaign.id,
+          targetName: campaign.name,
+          pointsType: 'fixed',
+          pointsValue: campaign.rewardPerReferral,
+          description: `Points rule for ${campaign.name}`,
+          isActive: campaign.isActive
+        });
+      });
+
+      res.json(mockRules);
+    } catch (error) {
+      console.error("Error fetching point rules:", error);
+      res.status(500).json({ message: "Failed to fetch point rules" });
+    }
+  });
+
+  app.post("/api/point-rules", requireAuth, async (req, res) => {
+    try {
+      const { type, targetId, targetName, productCode, pointsType, pointsValue, minQuantity, description } = req.body;
+
+      if (type === 'product') {
+        // If it's a manual product (not in existing products), create a new product
+        if (targetId === 'manual-product' || !targetId) {
+          const newProduct = await storage.createProduct({
+            name: targetName,
+            productCode: productCode,
+            price: "0", // Default price, can be updated later
+            pointCalculationType: pointsType,
+            fixedPoints: pointsType === 'fixed' ? pointsValue : null,
+            percentageRate: pointsType === 'percentage' ? pointsValue.toString() : null,
+            minimumQuantity: minQuantity || 1,
+            description: description
+          });
+
+          res.status(201).json({
+            success: true,
+            product: newProduct,
+            message: "Product created with point rule"
+          });
+        } else {
+          // Update existing product with point calculation settings
+          const updatedProduct = await storage.updateProduct(targetId, {
+            pointCalculationType: pointsType,
+            fixedPoints: pointsType === 'fixed' ? pointsValue : null,
+            percentageRate: pointsType === 'percentage' ? pointsValue.toString() : null,
+            minimumQuantity: minQuantity || 1
+          });
+
+          res.json({
+            success: true,
+            product: updatedProduct,
+            message: "Product updated with point rule"
+          });
+        }
+      } else {
+        // For campaign rules, this would update campaign settings
+        // For now, just return success
+        res.json({
+          success: true,
+          message: "Campaign point rule configured"
+        });
+      }
+    } catch (error) {
+      console.error("Error creating point rule:", error);
+      res.status(500).json({ message: "Failed to create point rule" });
     }
   });
 

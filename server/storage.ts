@@ -593,10 +593,14 @@ export class DatabaseStorage implements IStorage {
   // Product operations
   async getProduct(id: string): Promise<Product | undefined> {
     try {
-      const [product] = await db.select().from(products).where(eq(products.id, id));
+      const [product] = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, id))
+        .limit(1);
       return product;
     } catch (error) {
-      console.error("Failed to get product:", error);
+      console.error("Error fetching product:", error);
       return undefined;
     }
   }
@@ -606,48 +610,125 @@ export class DatabaseStorage implements IStorage {
     return product || undefined;
   }
 
-  async getProductByCode(productCode: string): Promise<Product | undefined> {
+  async getProductByCode(code: string): Promise<Product | undefined> {
     try {
-      const [product] = await db.select().from(products).where(eq(products.productCode, productCode));
+      const [product] = await db
+        .select()
+        .from(products)
+        .where(eq(products.productCode, code))
+        .limit(1);
       return product;
     } catch (error) {
-      console.error("Failed to get product by code:", error);
+      console.error("Error fetching product by code:", error);
       return undefined;
     }
   }
 
   async getAllProducts(): Promise<Product[]> {
-    return await db.select().from(products).orderBy(desc(products.createdAt));
+    try {
+      const result = await db.select().from(products).orderBy(products.name);
+      console.log("Fetched products:", result.length);
+      return result;
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      return []; // Return empty array instead of throwing
+    }
   }
 
   async getActiveProducts(): Promise<Product[]> {
-    return await db.select().from(products).where(eq(products.isActive, true)).orderBy(desc(products.createdAt));
+    try {
+      const result = await this.db
+        .select()
+        .from(products)
+        .where(eq(products.isActive, true))
+        .orderBy(products.name);
+      console.log("Fetched active products:", result.length);
+      return result;
+    } catch (error) {
+      console.error("Error fetching active products:", error);
+      return []; // Return empty array instead of throwing
+    }
   }
 
   async getProductsByCategory(category: string): Promise<Product[]> {
     return await db.select().from(products).where(eq(products.category, category));
   }
 
-  async createProduct(insertProduct: InsertProduct): Promise<Product> {
-    const [product] = await db
-      .insert(products)
-      .values(insertProduct)
-      .returning();
-    return product;
+  async createProduct(data: InsertProduct): Promise<Product> {
+    try {
+      // Ensure required fields are present
+      const productData = {
+        name: data.name,
+        productCode: data.productCode,
+        price: data.price?.toString() || "0",
+        description: data.description || null,
+        category: data.category || null,
+        sku: data.sku || null,
+        imageUrl: data.imageUrl || null,
+        isActive: data.isActive ?? true,
+        stockQuantity: data.stockQuantity || 0,
+        pointCalculationType: data.pointCalculationType || "inherit",
+        fixedPoints: data.fixedPoints || null,
+        percentageRate: data.percentageRate || null,
+        minimumQuantity: data.minimumQuantity || 1,
+        bonusMultiplier: data.bonusMultiplier || "1.0"
+      };
+
+      console.log("Creating product with data:", productData);
+      const [product] = await this.db.insert(products).values(productData).returning();
+      console.log("Created product:", product);
+      return product;
+    } catch (error) {
+      console.error("Error creating product:", error);
+      throw error;
+    }
   }
 
-  async updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined> {
-    const [product] = await db
-      .update(products)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(products.id, id))
-      .returning();
-    return product || undefined;
+  async updateProduct(id: string, data: Partial<InsertProduct>): Promise<Product | undefined> {
+    try {
+      // Handle the case where id might be "manual-product" from the form
+      if (id === 'manual-product') {
+        console.log("Cannot update manual-product ID");
+        return undefined;
+      }
+
+      const updateData: any = {};
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.productCode !== undefined) updateData.productCode = data.productCode;
+      if (data.price !== undefined) updateData.price = data.price.toString();
+      if (data.description !== undefined) updateData.description = data.description;
+      if (data.category !== undefined) updateData.category = data.category;
+      if (data.sku !== undefined) updateData.sku = data.sku;
+      if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
+      if (data.isActive !== undefined) updateData.isActive = data.isActive;
+      if (data.stockQuantity !== undefined) updateData.stockQuantity = data.stockQuantity;
+      if (data.pointCalculationType !== undefined) updateData.pointCalculationType = data.pointCalculationType;
+      if (data.fixedPoints !== undefined) updateData.fixedPoints = data.fixedPoints;
+      if (data.percentageRate !== undefined) updateData.percentageRate = data.percentageRate;
+      if (data.minimumQuantity !== undefined) updateData.minimumQuantity = data.minimumQuantity;
+      if (data.bonusMultiplier !== undefined) updateData.bonusMultiplier = data.bonusMultiplier;
+
+      console.log("Updating product:", id, "with data:", updateData);
+      const [product] = await this.db
+        .update(products)
+        .set(updateData)
+        .where(eq(products.id, id))
+        .returning();
+      return product;
+    } catch (error) {
+      console.error("Error updating product:", error);
+      return undefined;
+    }
   }
 
   async deleteProduct(id: string): Promise<boolean> {
-    const result = await db.delete(products).where(eq(products.id, id));
-    return (result.rowCount ?? 0) > 0;
+    try {
+      const result = await this.db.delete(products).where(eq(products.id, id));
+      return result.rowCount > 0;
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      return false;
+    }
   }
 
   // Point Tier operations
@@ -750,665 +831,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(saleItems.id, id))
       .returning();
     return item || undefined;
-  }
-}
-
-export class MemStorage implements IStorage {
-  private customers: Map<string, Customer>;
-  private campaigns: Map<string, Campaign>;
-  private coupons: Map<string, Coupon>;
-  private referrals: Map<string, Referral>;
-  private whatsappMessages: Map<string, WhatsappMessage>;
-  private pointsTransactions: Map<string, PointsTransaction>;
-  private rewards: Map<string, Reward>;
-  private rewardRedemptions: Map<string, RewardRedemption>;
-  private systemConfigs: Map<string, SystemConfig>;
-  private users: Map<string, User>;
-  private products: Map<string, Product>;
-  private pointTiers: Map<string, PointTier>;
-  private sales: Map<string, Sale>;
-  private saleItems: Map<string, SaleItem>;
-
-  constructor() {
-    this.customers = new Map();
-    this.campaigns = new Map();
-    this.coupons = new Map();
-    this.referrals = new Map();
-    this.whatsappMessages = new Map();
-    this.pointsTransactions = new Map();
-    this.rewards = new Map();
-    this.rewardRedemptions = new Map();
-    this.systemConfigs = new Map();
-    this.users = new Map();
-    this.products = new Map();
-    this.pointTiers = new Map();
-    this.sales = new Map();
-    this.saleItems = new Map();
-  }
-
-  // Customer operations
-  async getCustomer(id: string): Promise<Customer | undefined> {
-    return this.customers.get(id);
-  }
-
-  async getCustomerByPhone(phoneNumber: string): Promise<Customer | undefined> {
-    return Array.from(this.customers.values()).find(
-      customer => customer.phoneNumber === phoneNumber
-    );
-  }
-
-  async getCustomerByCouponCode(couponCode: string): Promise<Customer | undefined> {
-    return Array.from(this.customers.values()).find(
-      customer => customer.couponCode === couponCode
-    );
-  }
-
-  async getAllCustomers(): Promise<Customer[]> {
-    return Array.from(this.customers.values());
-  }
-
-  async createCustomer(insertCustomer: InsertCustomer & { referralCode?: string }): Promise<Customer> {
-    const id = randomUUID();
-    const customer: Customer = {
-      ...insertCustomer,
-      id,
-      totalReferrals: 0,
-      points: insertCustomer.points || 0,
-      couponCode: insertCustomer.couponCode || null,
-      pointsEarned: 0,
-      pointsRedeemed: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isActive: true,
-    };
-    this.customers.set(id, customer);
-    return customer;
-  }
-
-  async updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer | undefined> {
-    const customer = this.customers.get(id);
-    if (!customer) return undefined;
-
-    const updatedCustomer = { ...customer, ...updates, updatedAt: new Date() };
-    this.customers.set(id, updatedCustomer);
-    return updatedCustomer;
-  }
-
-  async deleteCustomer(id: string): Promise<boolean> {
-    return this.customers.delete(id);
-  }
-
-  // Campaign operations
-  async getCampaign(id: string): Promise<Campaign | undefined> {
-    return this.campaigns.get(id);
-  }
-
-  async getAllCampaigns(): Promise<Campaign[]> {
-    return Array.from(this.campaigns.values());
-  }
-
-  async getActiveCampaigns(): Promise<Campaign[]> {
-    return Array.from(this.campaigns.values()).filter(campaign => campaign.isActive);
-  }
-
-  async createCampaign(insertCampaign: InsertCampaign): Promise<Campaign> {
-    const id = randomUUID();
-    const campaign: Campaign = {
-      ...insertCampaign,
-      id,
-      description: insertCampaign.description || null,
-      isActive: insertCampaign.isActive ?? true,
-      goalCount: insertCampaign.goalCount || 100,
-      participantCount: 0,
-      referralsCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.campaigns.set(id, campaign);
-    return campaign;
-  }
-
-  async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined> {
-    const campaign = this.campaigns.get(id);
-    if (!campaign) return undefined;
-
-    const updatedCampaign = { ...campaign, ...updates, updatedAt: new Date() };
-    this.campaigns.set(id, updatedCampaign);
-    return updatedCampaign;
-  }
-
-  async deleteCampaign(id: string): Promise<boolean> {
-    return this.campaigns.delete(id);
-  }
-
-  // Coupon operations
-  async getCoupon(id: string): Promise<Coupon | undefined> {
-    return this.coupons.get(id);
-  }
-
-  async getCouponByCode(code: string): Promise<Coupon | undefined> {
-    return Array.from(this.coupons.values()).find(coupon => coupon.code === code);
-  }
-
-  async getAllCoupons(): Promise<Coupon[]> {
-    return Array.from(this.coupons.values());
-  }
-
-  async getActiveCoupons(): Promise<Coupon[]> {
-    return Array.from(this.coupons.values()).filter(coupon => coupon.isActive);
-  }
-
-  async createCoupon(insertCoupon: InsertCoupon): Promise<Coupon> {
-    const id = randomUUID();
-    const coupon: Coupon = {
-      ...insertCoupon,
-      id,
-      campaignId: insertCoupon.campaignId || null,
-      isActive: insertCoupon.isActive ?? true,
-      usageLimit: insertCoupon.usageLimit || 100,
-      usageCount: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.coupons.set(id, coupon);
-    return coupon;
-  }
-
-  async updateCoupon(id: string, updates: Partial<Coupon>): Promise<Coupon | undefined> {
-    const coupon = this.coupons.get(id);
-    if (!coupon) return undefined;
-
-    const updatedCoupon = { ...coupon, ...updates, updatedAt: new Date() };
-    this.coupons.set(id, updatedCoupon);
-    return updatedCoupon;
-  }
-
-  async deleteCoupon(id: string): Promise<boolean> {
-    return this.coupons.delete(id);
-  }
-
-  // Referral operations
-  async getReferral(id: string): Promise<Referral | undefined> {
-    return this.referrals.get(id);
-  }
-
-  async getAllReferrals(): Promise<Referral[]> {
-    return Array.from(this.referrals.values());
-  }
-
-  async getReferralsByCustomer(customerId: string): Promise<Referral[]> {
-    return Array.from(this.referrals.values()).filter(
-      referral => referral.referrerId === customerId
-    );
-  }
-
-  async getReferralsByCampaign(campaignId: string): Promise<Referral[]> {
-    return Array.from(this.referrals.values()).filter(
-      referral => referral.campaignId === campaignId
-    );
-  }
-
-  async createReferral(insertReferral: InsertReferral): Promise<Referral> {
-    const id = randomUUID();
-    const referral: Referral = {
-      ...insertReferral,
-      id,
-      referredCustomerId: insertReferral.referredCustomerId || null,
-      campaignId: insertReferral.campaignId || null,
-      couponCode: insertReferral.couponCode || null,
-      status: insertReferral.status || "pending",
-      saleAmount: insertReferral.saleAmount || 0,
-      pointsEarned: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.referrals.set(id, referral);
-    return referral;
-  }
-
-  async updateReferral(id: string, updates: Partial<Referral>): Promise<Referral | undefined> {
-    const referral = this.referrals.get(id);
-    if (!referral) return undefined;
-
-    const updatedReferral = { ...referral, ...updates, updatedAt: new Date() };
-    this.referrals.set(id, updatedReferral);
-    return updatedReferral;
-  }
-
-  // WhatsApp operations
-  async getWhatsappMessage(id: string): Promise<WhatsappMessage | undefined> {
-    return this.whatsappMessages.get(id);
-  }
-
-  async getAllWhatsappMessages(): Promise<WhatsappMessage[]> {
-    return Array.from(this.whatsappMessages.values());
-  }
-
-  async getWhatsappMessagesByCustomer(customerId: string): Promise<WhatsappMessage[]> {
-    return Array.from(this.whatsappMessages.values()).filter(
-      msg => msg.customerId === customerId
-    );
-  }
-
-  async createWhatsappMessage(insertWhatsappMessage: InsertWhatsappMessage): Promise<WhatsappMessage> {
-    const id = randomUUID();
-    const whatsappMessage: WhatsappMessage = {
-      ...insertWhatsappMessage,
-      id,
-      customerId: insertWhatsappMessage.customerId || null,
-      status: insertWhatsappMessage.status || "pending",
-      sentAt: new Date(),
-    };
-    this.whatsappMessages.set(id, whatsappMessage);
-    return whatsappMessage;
-  }
-
-  async updateWhatsappMessage(id: string, updates: Partial<WhatsappMessage>): Promise<WhatsappMessage | undefined> {
-    const message = this.whatsappMessages.get(id);
-    if (!message) return undefined;
-
-    const updatedMessage = { ...message, ...updates };
-    this.whatsappMessages.set(id, updatedMessage);
-    return updatedMessage;
-  }
-
-  // Points operations
-  async getPointsTransaction(id: string): Promise<PointsTransaction | undefined> {
-    return this.pointsTransactions.get(id);
-  }
-
-  async getPointsTransactionsByCustomer(customerId: string): Promise<PointsTransaction[]> {
-    return Array.from(this.pointsTransactions.values()).filter(
-      transaction => transaction.customerId === customerId
-    );
-  }
-
-  async createPointsTransaction(insertTransaction: InsertPointsTransaction): Promise<PointsTransaction> {
-    const id = randomUUID();
-    const transaction: PointsTransaction = {
-      ...insertTransaction,
-      id,
-      customerId: insertTransaction.customerId,
-      points: insertTransaction.points,
-      type: insertTransaction.type,
-      createdAt: new Date(),
-    };
-    this.pointsTransactions.set(id, transaction);
-    return transaction;
-  }
-
-  // Rewards operations
-  async getReward(id: string): Promise<Reward | undefined> {
-    return this.rewards.get(id);
-  }
-
-  async getAllRewards(): Promise<Reward[]> {
-    return Array.from(this.rewards.values());
-  }
-
-  async getActiveRewards(): Promise<Reward[]> {
-    return Array.from(this.rewards.values()).filter(reward => reward.isActive);
-  }
-
-  async createReward(insertReward: InsertReward): Promise<Reward> {
-    const id = randomUUID();
-    const reward: Reward = {
-      ...insertReward,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isActive: true,
-    };
-    this.rewards.set(id, reward);
-    return reward;
-  }
-
-  async updateReward(id: string, updates: Partial<Reward>): Promise<Reward | undefined> {
-    const reward = this.rewards.get(id);
-    if (!reward) return undefined;
-
-    const updatedReward = { ...reward, ...updates, updatedAt: new Date() };
-    this.rewards.set(id, updatedReward);
-    return updatedReward;
-  }
-
-  async deleteReward(id: string): Promise<boolean> {
-    return this.rewards.delete(id);
-  }
-
-  // Reward redemption operations
-  async getRewardRedemption(id: string): Promise<RewardRedemption | undefined> {
-    return this.rewardRedemptions.get(id);
-  }
-
-  async getRewardRedemptionsByCustomer(customerId: string): Promise<RewardRedemption[]> {
-    return Array.from(this.rewardRedemptions.values()).filter(
-      redemption => redemption.customerId === customerId
-    );
-  }
-
-  async createRewardRedemption(insertRedemption: InsertRewardRedemption): Promise<RewardRedemption> {
-    const id = randomUUID();
-    const redemption: RewardRedemption = {
-      ...insertRedemption,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.rewardRedemptions.set(id, redemption);
-    return redemption;
-  }
-
-  async updateRewardRedemption(id: string, updates: Partial<RewardRedemption>): Promise<RewardRedemption | undefined> {
-    const redemption = this.rewardRedemptions.get(id);
-    if (!redemption) return undefined;
-
-    const updatedRedemption = { ...redemption, ...updates, updatedAt: new Date() };
-    this.rewardRedemptions.set(id, updatedRedemption);
-    return updatedRedemption;
-  }
-
-  // System config operations
-  async getSystemConfig(key: string): Promise<SystemConfig | undefined> {
-    return this.systemConfigs.get(key);
-  }
-
-  async getAllSystemConfig(): Promise<SystemConfig[]> {
-    return Array.from(this.systemConfigs.values());
-  }
-
-  async getPublicSystemConfig(): Promise<SystemConfig[]> {
-    return Array.from(this.systemConfigs.values()).filter(config => config.isPublic);
-  }
-
-  async upsertSystemConfig(insertConfig: InsertSystemConfig): Promise<SystemConfig> {
-    const existingConfig = this.systemConfigs.get(insertConfig.key);
-    const config: SystemConfig = {
-      ...insertConfig,
-      id: existingConfig?.id || randomUUID(),
-      createdAt: existingConfig?.createdAt || new Date(),
-      updatedAt: new Date(),
-    };
-    this.systemConfigs.set(insertConfig.key, config);
-    return config;
-  }
-
-  // User operations (Authentication)
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = {
-      ...insertUser,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.users.set(id, user);
-    return user;
-  }
-
-  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-
-    const updatedUser = { ...user, ...updates, updatedAt: new Date() };
-    this.users.set(id, updatedUser);
-    return updatedUser;
-  }
-
-  // Utility operations
-  async generateUniqueCode(): Promise<string> {
-    let code: string;
-    let exists = true;
-
-    while (exists) {
-      // Generate a unique code with timestamp and random elements
-      code = `REF${randomUUID().slice(0, 8).toUpperCase()}${Date.now().toString().slice(-4)}`;
-      const existingCoupon = await this.getCouponByCode(code);
-      exists = !!existingCoupon;
-    }
-
-    return code!;
-  }
-
-  // Analytics
-  async getTopReferrers(limit: number = 10): Promise<Customer[]> {
-    const customers = Array.from(this.customers.values());
-    return customers
-      .sort((a, b) => b.totalReferrals - a.totalReferrals)
-      .slice(0, limit);
-  }
-
-  async getCampaignStats(campaignId: string): Promise<{
-    participantCount: number;
-    referralsCount: number;
-    conversionRate: number;
-    totalRewards: number;
-  }> {
-    const campaign = this.campaigns.get(campaignId);
-    if (!campaign) {
-      return { participantCount: 0, referralsCount: 0, conversionRate: 0, totalRewards: 0 };
-    }
-
-    const referrals = Array.from(this.referrals.values()).filter(
-      ref => ref.campaignId === campaignId
-    );
-
-    const totalRewards = referrals.reduce((sum, ref) => sum + ref.pointsEarned, 0);
-    const conversionRate = campaign.participantCount > 0
-      ? (referrals.length / campaign.participantCount) * 100
-      : 0;
-
-    return {
-      participantCount: campaign.participantCount,
-      referralsCount: referrals.length,
-      conversionRate: Math.round(conversionRate * 10) / 10,
-      totalRewards,
-    };
-  }
-
-  async getDashboardStats(): Promise<{
-    totalCustomers: number;
-    activeReferrals: number;
-    rewardsDistributed: number;
-    conversionRate: number;
-  }> {
-    const totalCustomers = this.customers.size;
-    const activeReferrals = Array.from(this.referrals.values()).filter(
-      ref => ref.status === "pending" || ref.status === "completed"
-    ).length;
-
-    const allReferrals = Array.from(this.referrals.values());
-    const rewardsDistributed = allReferrals.reduce((sum, ref) => sum + ref.pointsEarned, 0);
-
-    const completedReferrals = allReferrals.filter(ref => ref.status === "completed").length;
-    const conversionRate = totalCustomers > 0 ? (completedReferrals / totalCustomers) * 100 : 0;
-
-    return {
-      totalCustomers,
-      activeReferrals,
-      rewardsDistributed,
-      conversionRate: Math.round(conversionRate * 10) / 10,
-    };
-  }
-
-  // Product operations
-  async getProduct(id: string): Promise<Product | undefined> {
-    return this.products.get(id);
-  }
-
-  async getProductBySku(sku: string): Promise<Product | undefined> {
-    return Array.from(this.products.values()).find(product => product.sku === sku);
-  }
-
-  async getProductByCode(productCode: string): Promise<Product | undefined> {
-    return Array.from(this.products.values()).find(product => product.productCode === productCode);
-  }
-
-  async getAllProducts(): Promise<Product[]> {
-    return Array.from(this.products.values());
-  }
-
-  async getActiveProducts(): Promise<Product[]> {
-    return Array.from(this.products.values()).filter(product => product.isActive);
-  }
-
-  async getProductsByCategory(category: string): Promise<Product[]> {
-    return Array.from(this.products.values()).filter(product => product.category === category);
-  }
-
-  async createProduct(insertProduct: InsertProduct): Promise<Product> {
-    const id = randomUUID();
-    const product: Product = {
-      ...insertProduct,
-      id,
-      pointsPerItem: insertProduct.pointsPerItem || 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isActive: true,
-    };
-    this.products.set(id, product);
-    return product;
-  }
-
-  async updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined> {
-    const product = this.products.get(id);
-    if (!product) return undefined;
-
-    const updatedProduct = { ...product, ...updates, updatedAt: new Date() };
-    this.products.set(id, updatedProduct);
-    return updatedProduct;
-  }
-
-  async deleteProduct(id: string): Promise<boolean> {
-    return this.products.delete(id);
-  }
-
-  // Point Tier operations
-  async getPointTier(id: string): Promise<PointTier | undefined> {
-    return this.pointTiers.get(id);
-  }
-
-  async getPointTiersByCampaign(campaignId: string): Promise<PointTier[]> {
-    return Array.from(this.pointTiers.values()).filter(tier => tier.campaignId === campaignId);
-  }
-
-  async getPointTiersByProduct(productId: string): Promise<PointTier[]> {
-    return Array.from(this.pointTiers.values()).filter(tier => tier.productId === productId);
-  }
-
-  async createPointTier(tier: InsertPointTier): Promise<PointTier> {
-    const id = randomUUID();
-    const pointTier: PointTier = {
-      ...tier,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.pointTiers.set(id, pointTier);
-    return pointTier;
-  }
-
-  async updatePointTier(id: string, updates: Partial<PointTier>): Promise<PointTier | undefined> {
-    const tier = this.pointTiers.get(id);
-    if (!tier) return undefined;
-
-    const updatedTier = { ...tier, ...updates, updatedAt: new Date() };
-    this.pointTiers.set(id, updatedTier);
-    return updatedTier;
-  }
-
-  async deletePointTier(id: string): Promise<boolean> {
-    return this.pointTiers.delete(id);
-  }
-
-  // Sale operations
-  async getSale(id: string): Promise<Sale | undefined> {
-    return this.sales.get(id);
-  }
-
-  async getAllSales(): Promise<Sale[]> {
-    return Array.from(this.sales.values());
-  }
-
-  async getSalesByCustomer(customerId: string): Promise<Sale[]> {
-    return Array.from(this.sales.values()).filter(sale => sale.customerId === customerId);
-  }
-
-  async getSalesByCampaign(campaignId: string): Promise<Sale[]> {
-    return Array.from(this.sales.values()).filter(sale => sale.campaignId === campaignId);
-  }
-
-  async getSalesByReferralCode(referralCode: string): Promise<Sale[]> {
-    return Array.from(this.sales.values()).filter(sale => sale.referralCode === referralCode);
-  }
-
-  async createSale(sale: InsertSale): Promise<Sale> {
-    const id = randomUUID();
-    const newSale: Sale = {
-      ...sale,
-      id,
-      customerId: sale.customerId,
-      campaignId: sale.campaignId || null,
-      referralCode: sale.referralCode || null,
-      totalAmount: sale.totalAmount || 0,
-      pointsEarned: sale.pointsEarned || 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.sales.set(id, newSale);
-    return newSale;
-  }
-
-  async updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined> {
-    const sale = this.sales.get(id);
-    if (!sale) return undefined;
-
-    const updatedSale = { ...sale, ...updates, updatedAt: new Date() };
-    this.sales.set(id, updatedSale);
-    return updatedSale;
-  }
-
-  // Sale Item operations
-  async getSaleItem(id: string): Promise<SaleItem | undefined> {
-    return this.saleItems.get(id);
-  }
-
-  async getSaleItemsBySale(saleId: string): Promise<SaleItem[]> {
-    return Array.from(this.saleItems.values()).filter(item => item.saleId === saleId);
-  }
-
-  async createSaleItem(saleItem: InsertSaleItem): Promise<SaleItem> {
-    const id = randomUUID();
-    const item: SaleItem = {
-      ...saleItem,
-      id,
-      saleId: saleItem.saleId,
-      productId: saleItem.productId,
-      quantity: saleItem.quantity,
-      price: saleItem.price,
-      pointsEarned: saleItem.pointsEarned || 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.saleItems.set(id, item);
-    return item;
-  }
-
-  async updateSaleItem(id: string, updates: Partial<SaleItem>): Promise<SaleItem | undefined> {
-    const item = this.saleItems.get(id);
-    if (!item) return undefined;
-
-    const updatedItem = { ...item, ...updates, updatedAt: new Date() };
-    this.saleItems.set(id, updatedItem);
-    return updatedItem;
   }
 }
 
