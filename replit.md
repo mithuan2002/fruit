@@ -1,130 +1,10 @@
 # Overview
 
-Fruitbox is a comprehensive referral marketing management system built as a full-stack web application. It provides businesses with tools to create and manage referral campaigns, track customer engagement, distribute coupon codes, and communicate with customers via automated WhatsApp messaging. The platform features a modern dashboard interface for monitoring campaign performance, customer management, and analytics reporting.
+Fruitbox is a comprehensive referral marketing management system designed as a full-stack web application. It enables businesses to create and manage referral campaigns, track customer engagement, distribute e-coupon codes, and communicate with customers via automated WhatsApp messaging. The platform provides a modern dashboard for monitoring campaign performance, customer management, and analytics reporting.
 
-## Recent Changes (August 2025)
+## Business Vision & Ambition
 
-### Successful Migration to Replit Environment (Latest - August 14, 2025)
-- Successfully migrated Fruitbox project from Replit Agent to standard Replit environment
-- Fixed all TypeScript compilation errors and schema validation issues
-- Configured PostgreSQL database with proper schema migration using Drizzle
-- Set up session management with dynamic session secrets for development
-- Verified authentication system functionality - registration and login working
-- Updated WhatsApp message schema to support "welcome_ecoupon" message type
-- All dependencies installed and configured properly for Replit environment
-- Server running successfully on port 5000 with proper request logging
-- Project now ready for continued development and deployment
-
-### Complete Database Schema Documentation (Previous - August 14, 2025)
-- Created comprehensive DATABASE_SETUP.md with complete schema documentation
-- Added SETUP_GUIDE.md for easy project import and configuration in new environments
-- Documented all 8 core database tables with relationships, indexes, and constraints
-- Included SQL examples, performance optimizations, and troubleshooting guides
-- Updated replit.md with detailed database architecture section
-- Ensured project is easily importable to new Replit environments with clear setup instructions
-
-### Automatic E-Coupon WhatsApp Integration Complete (Previous - August 14, 2025)
-- Implemented automatic e-coupon delivery via WhatsApp when new customers are added
-- Enhanced welcome message to include personalized e-coupon format matching the UI design
-- Integrated shop name from user profile into WhatsApp messages
-- Configured Interakt service to use user's business information dynamically
-- Updated message format to include: Shop name, Customer name, and Referral code
-- Added proper WhatsApp message tracking with "welcome_ecoupon" type
-- Customers now receive beautiful e-coupon details automatically via WhatsApp
-- Message includes instructions on how to use the code for referrals and personal discounts
-
-### Personalized E-Coupon UI Complete (Previous - August 14, 2025)
-- Redesigned e-coupon card with modern, personalized aesthetic
-- Added gradient background with emerald-to-blue color scheme
-- Included decorative floating elements for visual appeal
-- Enhanced typography with better hierarchy and spacing
-- Added personal touch with "Thank you for your referral!" message
-- Improved copy functionality with friendlier message format
-- Used contextual icons (Store, User, Sparkles) for better UX
-- Maintained clean design without overcrowding information
-- Fixed shop name display issue using proper useAuth hook
-
-### Product Code Input Fix Complete (Previous - August 14, 2025)
-- Fixed case-sensitivity issue in dashboard's "Process Referral Sale" section
-- Product code input field now accepts both uppercase and lowercase characters  
-- Implemented case-insensitive product lookup to match codes like "a123" or "A123"
-- Removed forced uppercase styling and input transformation
-- Users can now enter product codes in their natural case and system will find matches correctly
-- Resolved "product not found" error when entering valid lowercase product codes
-
-### Vercel Deployment Configuration Complete (Previous - August 13, 2025)
-- Configured comprehensive full-stack deployment for Vercel platform
-- Updated vercel.json for serverless Node.js backend and static frontend serving
-- Created proper .vercelignore to exclude development files while including source code
-- Built successful production build with 523KB frontend bundle and 109KB backend bundle
-- Created comprehensive DEPLOYMENT.md with step-by-step deployment instructions
-- Set up environment variable configuration for DATABASE_URL, SESSION_SECRET, and WhatsApp integration
-- Tested build process - frontend and backend compile successfully for production
-- Ready for immediate deployment to Vercel with database and authentication working
-
-### POS Integration System Complete (Previous - August 13, 2025)
-- Built comprehensive POS integration system supporting Square, Shopify, and custom APIs
-- Automatic customer sync from POS systems with referral code generation
-- Real-time webhook support for instant customer creation from POS transactions
-- Professional POS Integration page with configuration forms for different providers
-- Customers automatically added to referral program when they make purchases
-- WhatsApp welcome messages sent automatically to new POS customers
-- Support for both manual sync and real-time webhook-based integration
-
-### Simplified E-Coupon System Complete (Previous - August 13, 2025)
-- Created simple e-coupon cards showing only: shop name, customer name, and referral code
-- No duplicate codes - referral code IS the coupon code (one code for everything)
-- Removed all separate coupon generation - uses existing referral code only
-- Clean, minimalist design perfect for sharing via WhatsApp or other platforms
-- Shop name correctly displays from user profile (e.g., "aplo")
-- Copy functionality includes all three pieces of information for easy sharing
-- Eliminated complexity and duplicate code generation issues
-
-### Landing Page & Migration Complete (Previous - August 12, 2025)
-- Successfully migrated project from Replit Agent to standard Replit environment
-- Created completely separate landing page independent from authentication system
-- Landing page features modern gradient design with comprehensive feature showcase
-- Added industry-specific sections and clear call-to-action buttons
-- Implemented proper routing: landing page (/) → auth (/auth) → dashboard flow
-- Maintained all existing authentication and onboarding functionality
-- Project now runs cleanly with PostgreSQL database and proper security practices
-
-### Professional Authentication UI Complete (Previous)
-- Completely redesigned authentication pages with professional, modern interface
-- Added dark gradient background with floating elements and sophisticated branding
-- Enhanced desktop experience with split-screen layout showing product features
-- Improved form styling with rounded inputs, proper focus states, and placeholders
-- Added gradient buttons with hover effects and better visual hierarchy
-- Enhanced mobile responsiveness with condensed branding for smaller screens
-- Confirmed onboarding bug is fixed - users properly redirected after completing onboarding
-
-### Authentication & Onboarding System Complete (Previous)
-- Implemented username/password authentication system with secure bcryptjs hashing
-- Created comprehensive onboarding flow collecting shop details: admin name, shop name, WhatsApp business number, industry type
-- Added personalized experience based on industry selection (food, fashion, electronics, beauty, services, others)
-- Updated user interface to show shop information in sidebar and personalized dashboard content
-- Fixed CSS button visibility issues - improved contrast, hover states, and accessibility
-- Database schema enhanced with user profiles including shop information and onboarding status
-
-### Database Setup Complete (Previous)
-- Migrated from in-memory storage to PostgreSQL database with comprehensive schema
-- Enhanced schema with proper relationships, indexes, and additional tables for analytics
-- Added new tables: points_transactions, rewards, reward_redemptions, system_config, users
-- Improved data integrity with foreign key constraints and proper cascading rules
-- Created database indexes for optimal query performance
-- Seeded database with initial system configuration and reward catalog
-- Updated field names: couponCode → referralCode for consistency
-
-### WhatsApp Integration (Previous)
-- Successfully migrated from SMS to Interakt WhatsApp integration
-- Completely replaced SMS functionality with Interakt API integration
-- Removed WhatsApp Web.js simulation and implemented real Interakt messaging
-- Created automated messaging triggers for new customers, points earned, and points redeemed
-- Updated UI components (WhatsApp Center with Interakt integration)
-- Implemented Interakt API token and business number configuration interface
-- Added automatic welcome messages with referral codes for new customers
-- Added points earned notifications when customers refer others
-- Added points redemption confirmation messages
+Fruitbox aims to be the leading platform for businesses seeking to leverage referral marketing for customer acquisition and retention. By integrating seamlessly with POS systems and utilizing automated WhatsApp communication, Fruitbox provides a powerful, user-friendly solution to grow customer bases and drive sales through word-of-mouth referrals. Our ambition is to simplify referral program management for businesses of all sizes, making sophisticated marketing accessible and effective.
 
 # User Preferences
 
@@ -133,88 +13,63 @@ Preferred communication style: Simple, everyday language.
 # System Architecture
 
 ## Frontend Architecture
-- **Framework**: React with TypeScript for type safety and modern development
-- **Routing**: Wouter for lightweight client-side routing
-- **State Management**: TanStack Query (React Query) for server state management and caching
+- **Framework**: React with TypeScript
+- **Routing**: Wouter
+- **State Management**: TanStack Query for server state management and caching
 - **UI Framework**: Shadcn/ui components built on Radix UI primitives with Tailwind CSS for styling
 - **Build Tool**: Vite for fast development and optimized production builds
+- **UI/UX Decisions**: Modern aesthetic with dark gradient backgrounds, floating elements, and sophisticated branding. Emphasizes clean, minimalist e-coupon designs with personalized touches (gradient backgrounds, decorative elements, clear typography). Split-screen layouts for desktop authentication and enhanced mobile responsiveness.
 
 ## Backend Architecture
 - **Framework**: Express.js running on Node.js with TypeScript
-- **API Design**: RESTful API endpoints organized by resource (customers, campaigns, coupons, referrals, SMS)
+- **API Design**: RESTful API endpoints
 - **Data Validation**: Zod schemas for runtime type checking and validation
-- **Development Environment**: Full-stack development with Vite middleware integration
 
 ## Data Storage & Database Schema
 - **Database**: PostgreSQL with comprehensive schema for referral marketing system
 - **ORM**: Drizzle ORM for type-safe database operations and migrations
-- **Schema Management**: Centralized schema definitions in `shared/schema.ts` with automatic validation
-- **Connection**: Neon Database serverless PostgreSQL for cloud deployment
-
-### Core Tables (8 primary tables):
-1. **users** - Admin accounts and shop configuration
-2. **customers** - Customer profiles with referral codes and points tracking
-3. **products** - Product catalog with point calculation settings
-4. **campaigns** - Marketing campaigns with flexible reward rules
-5. **coupons** - Generated discount coupons linked to customers
-6. **referrals** - Comprehensive referral tracking and point awards
-7. **whatsapp_messages** - Message delivery tracking and status
-8. **points_transactions** - Detailed points earning/redemption history
-
-### Database Features:
-- **Relationships**: Properly defined foreign keys with CASCADE/SET NULL rules
-- **Indexes**: Performance-optimized indexes on critical columns (phone numbers, referral codes, dates)
-- **Constraints**: UNIQUE constraints on codes and phone numbers
-- **Audit Fields**: Created/updated timestamps on all tables
-- **Data Integrity**: Foreign key constraints maintain referential integrity
-
-### Schema Highlights:
-- UUID primary keys for all tables
-- Phone number and referral code indexing for fast lookups
-- Flexible point calculation types (fixed, percentage, tier-based)
-- Message status tracking for delivery confirmation
-- Soft deletes with is_active flags where appropriate
+- **Schema Management**: Centralized schema definitions with automatic validation
+- **Core Tables**: Users, customers, products, campaigns, coupons (referral codes), referrals, WhatsApp messages, and points transactions.
+- **Database Features**: UUID primary keys, performance-optimized indexes (phone numbers, referral codes), UNIQUE constraints, audit fields, and foreign key constraints for data integrity.
 
 ## Authentication & Authorization
-- **Session Management**: Express sessions with PostgreSQL session store (connect-pg-simple)
-- **Security**: Environment-based configuration for sensitive credentials
-- **API Protection**: Middleware-based request logging and error handling
+- **System**: Username/password authentication with bcryptjs hashing.
+- **Session Management**: Express sessions with PostgreSQL session store.
+- **Onboarding**: Comprehensive onboarding flow collecting shop details (admin name, shop name, WhatsApp business number, industry type) for personalized user experience.
 
-## External Integrations
-- **WhatsApp Service**: Interakt API integration for WhatsApp Business messaging
-- **Real-time Messaging**: Automated customer notifications for welcome, points earned, and redemption
-- **Environment Configuration**: Support for multiple deployment environments with fallback defaults
-- **Development Tools**: Replit-specific plugins for cloud development environment
+## External Integrations & Feature Specifications
+- **WhatsApp Integration**: Automated e-coupon delivery and notifications via WhatsApp for new customers, points earned, and redemptions.
+- **POS Integration**: Comprehensive system supporting Square, Shopify, and custom APIs for automatic customer sync, referral code generation, and real-time webhook support for instant customer creation from POS transactions.
+- **E-Coupon System**: Simple e-coupon cards using the referral code as the coupon code, with personalized UI for sharing.
 
 ## Architecture Patterns
-- **Monorepo Structure**: Shared schema and types between frontend and backend
-- **Component-Based UI**: Modular React components with consistent design system
-- **Service Layer**: Abstracted storage interface for flexible data persistence
-- **Error Handling**: Centralized error management with user-friendly messaging
-- **Real-time Updates**: Query invalidation and optimistic updates for responsive UX
+- **Monorepo Structure**: Shared schema and types between frontend and backend.
+- **Component-Based UI**: Modular React components.
+- **Service Layer**: Abstracted storage interface.
+- **Error Handling**: Centralized error management.
 
 # External Dependencies
 
 ## Core Services
-- **Neon Database**: Serverless PostgreSQL database hosting
-- **Interakt**: WhatsApp Business API service for customer communications
+- **Neon Database**: Serverless PostgreSQL database hosting.
+- **Interakt**: WhatsApp Business API service.
 
 ## Development & Deployment
-- **Replit**: Cloud development environment with specialized tooling
-- **Vite**: Frontend build tool and development server
-- **Node.js**: Server runtime environment
+- **Replit**: Cloud development environment.
+- **Vite**: Frontend build tool.
+- **Node.js**: Server runtime environment.
 
 ## UI & Styling
-- **Tailwind CSS**: Utility-first CSS framework
-- **Radix UI**: Headless component primitives
-- **Lucide React**: Icon library for consistent iconography
+- **Tailwind CSS**: Utility-first CSS framework.
+- **Radix UI**: Headless component primitives.
+- **Lucide React**: Icon library.
 
 ## Data & State Management
-- **Drizzle Kit**: Database migration and schema management
-- **TanStack Query**: Server state management and caching
-- **Zod**: Runtime schema validation
+- **Drizzle Kit**: Database migration and schema management.
+- **TanStack Query**: Server state management and caching.
+- **Zod**: Runtime schema validation.
 
 ## Form & Interaction
-- **React Hook Form**: Form state management with validation
-- **Date-fns**: Date manipulation and formatting utilities
-- **Wouter**: Lightweight React routing library
+- **React Hook Form**: Form state management.
+- **Date-fns**: Date manipulation.
+- **Wouter**: Lightweight React routing.

@@ -4,7 +4,7 @@ services:
     name: fruitbox
     env: node
     plan: starter
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npm run build && mkdir -p public && cp -r dist/public/* ./public/
     startCommand: npm start
     envVars:
       - key: NODE_ENV
