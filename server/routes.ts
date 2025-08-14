@@ -494,8 +494,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // No separate coupon creation - referral code IS the coupon code
 
-      // Send welcome message via Interakt with referral code
+      // Send welcome message via Interakt with personalized e-coupon
       try {
+        // Get user info from session to personalize the message
+        const user = (req as any).session?.user;
+        const shopName = user?.shopName || 'Our Store';
+        
+        // Configure Interakt with current user's business info
+        if (user?.whatsappBusinessNumber) {
+          interaktService.configure({
+            apiKey: process.env.INTERAKT_API_KEY || '',
+            apiUrl: process.env.INTERAKT_API_URL || 'https://api.interakt.ai/v1',
+            phoneNumber: user.whatsappBusinessNumber,
+            businessName: shopName
+          });
+        }
+
         await interaktService.sendWelcomeMessage(
           customer.phoneNumber,
           customer.name,
@@ -506,12 +520,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createWhatsappMessage({
           customerId: customer.id,
           phoneNumber: customer.phoneNumber,
-          message: `Welcome message with referral code: ${referralCode}`,
-          type: "welcome_referral",
+          message: `Welcome e-coupon sent: Shop: ${shopName}, Customer: ${customer.name}, Code: ${referralCode}`,
+          type: "welcome_ecoupon",
           status: "sent"
         });
       } catch (error) {
-        console.error("Failed to send welcome message:", error);
+        console.error("Failed to send welcome e-coupon message:", error);
       }
 
       res.status(201).json({

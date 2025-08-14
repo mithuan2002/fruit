@@ -4,7 +4,17 @@ Fruitbox is a comprehensive referral marketing management system built as a full
 
 ## Recent Changes (January 2025)
 
-### Personalized E-Coupon UI Complete (Latest - August 14, 2025)
+### Automatic E-Coupon WhatsApp Integration Complete (Latest - August 14, 2025)
+- Implemented automatic e-coupon delivery via WhatsApp when new customers are added
+- Enhanced welcome message to include personalized e-coupon format matching the UI design
+- Integrated shop name from user profile into WhatsApp messages
+- Configured Interakt service to use user's business information dynamically
+- Updated message format to include: Shop name, Customer name, and Referral code
+- Added proper WhatsApp message tracking with "welcome_ecoupon" type
+- Customers now receive beautiful e-coupon details automatically via WhatsApp
+- Message includes instructions on how to use the code for referrals and personal discounts
+
+### Personalized E-Coupon UI Complete (Previous - August 14, 2025)
 - Redesigned e-coupon card with modern, personalized aesthetic
 - Added gradient background with emerald-to-blue color scheme
 - Included decorative floating elements for visual appeal
