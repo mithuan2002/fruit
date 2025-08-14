@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ShoppingCart, Search, Plus, Minus, X, Calculator } from "lucide-react";
+import { ShoppingCart, Plus, Minus, X, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,8 +28,9 @@ interface BillingPOSProps {
 export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [couponCode, setCouponCode] = useState("");
   const [productCode, setProductCode] = useState("");
-  const [referralCode, setReferralCode] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [billingItems, setBillingItems] = useState<BillingItem[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,13 +61,50 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
     }
   });
 
-  // Lookup product by code
-  const lookupProduct = async (code: string) => {
+  // Lookup customer by coupon code
+  const lookupCustomer = async (code: string) => {
     if (!code.trim()) return;
+    
+    try {
+      const result = await apiRequest(`/api/coupons/verify/${code}`);
+      const customerData = await apiRequest(`/api/customers/${result.referrerId}`);
+      setCustomer(customerData);
+      toast({
+        title: "Customer Found",
+        description: `${customerData.name} - ${customerData.points} points`
+      });
+    } catch (error) {
+      toast({
+        title: "Customer Not Found",
+        description: `No customer found with coupon code: ${code}`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Add product by code with quantity
+  const addProduct = async () => {
+    if (!productCode.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a product code",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (quantity < 1) {
+      toast({
+        title: "Error",
+        description: "Quantity must be at least 1",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setLoading(true);
     try {
-      const product = await apiRequest(`/api/products/code/${code}`);
+      const product = await apiRequest(`/api/products/code/${productCode}`);
       
       // Calculate points per item for this product
       let pointsPerItem = 0;
@@ -82,19 +120,19 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
 
       const newItem: BillingItem = {
         productId: product.id,
-        productCode: code,
+        productCode: productCode,
         productName: product.name,
         unitPrice: parseFloat(product.price),
-        quantity: 1,
-        totalPrice: parseFloat(product.price),
+        quantity: quantity,
+        totalPrice: parseFloat(product.price) * quantity,
         pointsPerItem
       };
 
       // Check if item already exists, if so, increase quantity
-      const existingIndex = billingItems.findIndex(item => item.productCode === code);
+      const existingIndex = billingItems.findIndex(item => item.productCode === productCode);
       if (existingIndex >= 0) {
         const updatedItems = [...billingItems];
-        updatedItems[existingIndex].quantity += 1;
+        updatedItems[existingIndex].quantity += quantity;
         updatedItems[existingIndex].totalPrice = updatedItems[existingIndex].unitPrice * updatedItems[existingIndex].quantity;
         setBillingItems(updatedItems);
       } else {
@@ -102,40 +140,19 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
       }
 
       setProductCode("");
+      setQuantity(1);
       toast({
         title: "Product Added",
-        description: `${product.name} added to cart`
+        description: `${product.name} (${quantity}) added to cart`
       });
     } catch (error) {
       toast({
         title: "Product Not Found",
-        description: `No product found with code: ${code}`,
+        description: `No product found with code: ${productCode}`,
         variant: "destructive"
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Lookup customer by referral code
-  const lookupCustomer = async (code: string) => {
-    if (!code.trim()) return;
-    
-    try {
-      const result = await apiRequest(`/api/coupons/verify/${code}`);
-      // Get customer details from the verification result
-      const customerData = await apiRequest(`/api/customers/${result.referrerId}`);
-      setCustomer(customerData);
-      toast({
-        title: "Customer Found",
-        description: `${customerData.name} - ${customerData.points} points`
-      });
-    } catch (error) {
-      toast({
-        title: "Customer Not Found",
-        description: `No customer found with referral code: ${code}`,
-        variant: "destructive"
-      });
     }
   };
 
@@ -179,7 +196,7 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
 
     const saleData = {
       customerId: customer?.id,
-      referralCode: referralCode || undefined,
+      referralCode: couponCode || undefined,
       totalAmount: getTotalAmount(),
       items: billingItems.map(item => ({
         productId: item.productId,
@@ -197,9 +214,10 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
 
   const resetBilling = () => {
     setBillingItems([]);
-    setReferralCode("");
+    setCouponCode("");
     setCustomer(null);
     setProductCode("");
+    setQuantity(1);
   };
 
   return (
@@ -207,69 +225,83 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <ShoppingCart className="h-5 w-5" />
-          Billing POS
+          Point of Sale
         </CardTitle>
         <CardDescription>
-          Enter product codes to add items and process sales with automatic point calculation
+          Add customer coupon code and product codes to process sales with automatic point calculation
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Product Code Input */}
+        {/* Customer Coupon Code Input */}
         <div className="space-y-2">
-          <Label htmlFor="product-code">Product Code</Label>
+          <Label htmlFor="coupon-code">Customer Coupon Code (Optional)</Label>
           <div className="flex gap-2">
             <Input
-              id="product-code"
-              value={productCode}
-              onChange={(e) => setProductCode(e.target.value)}
+              id="coupon-code"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  lookupProduct(productCode);
+                  lookupCustomer(couponCode);
                 }
               }}
-              placeholder="Enter product code and press Enter"
+              placeholder="Enter customer coupon code"
               className="flex-1"
             />
             <Button 
-              onClick={() => lookupProduct(productCode)}
-              disabled={loading || !productCode.trim()}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Referral Code Input */}
-        <div className="space-y-2">
-          <Label htmlFor="referral-code">Customer Referral Code (Optional)</Label>
-          <div className="flex gap-2">
-            <Input
-              id="referral-code"
-              value={referralCode}
-              onChange={(e) => setReferralCode(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  lookupCustomer(referralCode);
-                }
-              }}
-              placeholder="Enter customer referral code"
-              className="flex-1"
-            />
-            <Button 
-              onClick={() => lookupCustomer(referralCode)}
-              disabled={!referralCode.trim()}
+              onClick={() => lookupCustomer(couponCode)}
+              disabled={!couponCode.trim()}
               variant="outline"
             >
-              <Search className="h-4 w-4" />
+              Find Customer
             </Button>
           </div>
           {customer && (
-            <div className="p-2 bg-green-50 rounded">
-              <span className="text-sm text-green-800">
+            <div className="p-3 bg-green-50 rounded border-l-4 border-green-500">
+              <span className="text-sm text-green-800 font-medium">
                 Customer: {customer.name} | Current Points: {customer.points}
               </span>
             </div>
           )}
+        </div>
+
+        {/* Product Code and Quantity Input */}
+        <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="product-code">Product Code</Label>
+              <Input
+                id="product-code"
+                value={productCode}
+                onChange={(e) => setProductCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    addProduct();
+                  }
+                }}
+                placeholder="Enter product code"
+                className="flex-1"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                className="flex-1"
+              />
+            </div>
+          </div>
+          <Button 
+            onClick={addProduct}
+            disabled={loading || !productCode.trim()}
+            className="w-full"
+          >
+            {loading ? 'Adding...' : 'Add Product to Cart'}
+          </Button>
         </div>
 
         {/* Billing Items */}
@@ -277,17 +309,17 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
           <div className="space-y-3">
             <Label>Items in Cart</Label>
             {billingItems.map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded">
+              <div key={index} className="flex items-center justify-between p-4 border rounded-lg bg-white">
                 <div className="flex-1">
-                  <div className="font-medium">{item.productName}</div>
+                  <div className="font-medium text-lg">{item.productName}</div>
                   <div className="text-sm text-gray-500">
                     Code: {item.productCode} | ${item.unitPrice.toFixed(2)} each
                   </div>
-                  <div className="text-xs text-blue-600">
+                  <div className="text-xs text-blue-600 font-medium">
                     {item.pointsPerItem} points per item
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Button
                     size="sm"
                     variant="outline"
@@ -295,7 +327,7 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
                   >
                     <Minus className="h-3 w-3" />
                   </Button>
-                  <span className="w-8 text-center">{item.quantity}</span>
+                  <span className="w-12 text-center font-medium text-lg">{item.quantity}</span>
                   <Button
                     size="sm"
                     variant="outline"
@@ -303,19 +335,19 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
                   >
                     <Plus className="h-3 w-3" />
                   </Button>
-                  <div className="text-right ml-4">
-                    <div className="font-medium">${item.totalPrice.toFixed(2)}</div>
-                    <div className="text-xs text-blue-600">
-                      {item.pointsPerItem * item.quantity} pts
+                  <div className="text-right ml-6">
+                    <div className="font-bold text-lg">${item.totalPrice.toFixed(2)}</div>
+                    <div className="text-sm text-blue-600 font-medium">
+                      {item.pointsPerItem * item.quantity} pts total
                     </div>
                   </div>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => removeItem(index)}
-                    className="ml-2"
+                    className="ml-3 text-red-600 hover:text-red-800"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -325,17 +357,17 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
 
         {/* Totals */}
         {billingItems.length > 0 && (
-          <div className="space-y-2 p-4 bg-gray-50 rounded">
+          <div className="space-y-3 p-6 bg-blue-50 rounded-lg border">
             <div className="flex justify-between items-center">
-              <span className="font-medium">Total Amount:</span>
-              <span className="font-bold text-lg">${getTotalAmount().toFixed(2)}</span>
+              <span className="font-semibold text-xl">Total Amount:</span>
+              <span className="font-bold text-2xl text-green-600">${getTotalAmount().toFixed(2)}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-blue-600 flex items-center gap-1">
-                <Calculator className="h-4 w-4" />
+              <span className="text-blue-700 flex items-center gap-2 font-semibold">
+                <Calculator className="h-5 w-5" />
                 Total Points to Award:
               </span>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+              <Badge variant="secondary" className="bg-blue-600 text-white text-lg px-4 py-2">
                 {getTotalPoints()} points
               </Badge>
             </div>
@@ -343,20 +375,21 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
         )}
 
         {/* Action Buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Button
             onClick={processSale}
             disabled={billingItems.length === 0 || processSaleMutation.isPending}
-            className="flex-1"
+            className="flex-1 h-12 text-lg font-semibold"
           >
-            {processSaleMutation.isPending ? 'Processing...' : 'Process Sale'}
+            {processSaleMutation.isPending ? 'Processing Sale...' : 'Complete Sale'}
           </Button>
           <Button
             onClick={resetBilling}
             variant="outline"
             disabled={billingItems.length === 0}
+            className="h-12 px-6"
           >
-            Clear Cart
+            Clear All
           </Button>
         </div>
       </CardContent>
