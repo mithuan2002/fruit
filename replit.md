@@ -4,7 +4,18 @@ Fruitbox is a comprehensive referral marketing management system built as a full
 
 ## Recent Changes (January 2025)
 
-### Product Code Input Fix Complete (Latest - August 14, 2025)
+### Personalized E-Coupon UI Complete (Latest - August 14, 2025)
+- Redesigned e-coupon card with modern, personalized aesthetic
+- Added gradient background with emerald-to-blue color scheme
+- Included decorative floating elements for visual appeal
+- Enhanced typography with better hierarchy and spacing
+- Added personal touch with "Thank you for your referral!" message
+- Improved copy functionality with friendlier message format
+- Used contextual icons (Store, User, Sparkles) for better UX
+- Maintained clean design without overcrowding information
+- Fixed shop name display issue using proper useAuth hook
+
+### Product Code Input Fix Complete (Previous - August 14, 2025)
 - Fixed case-sensitivity issue in dashboard's "Process Referral Sale" section
 - Product code input field now accepts both uppercase and lowercase characters  
 - Implemented case-insensitive product lookup to match codes like "a123" or "A123"
