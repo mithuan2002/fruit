@@ -16,6 +16,7 @@ import WhatsAppSetupGuide from "@/pages/whatsapp-setup-guide";
 import DashboardSetupGuide from "@/pages/dashboard-setup-guide";
 import CampaignsSetupGuide from "@/pages/campaigns-setup-guide";
 import CustomersSetupGuide from "@/pages/customers-setup-guide";
+import PointsSetupGuide from "@/pages/points-setup-guide";
 import Auth from "@/pages/auth";
 import Onboarding from "@/pages/onboarding";
 import Landing from "@/pages/landing";
@@ -62,6 +63,7 @@ function Router() {
             <Route path="/dashboard-setup-guide" component={DashboardSetupGuide} />
             <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />
             <Route path="/customers-setup-guide" component={CustomersSetupGuide} />
+            <Route path="/points-setup-guide" component={PointsSetupGuide} />
             <Route path="*">
               <Redirect to="/dashboard" />
             </Route>

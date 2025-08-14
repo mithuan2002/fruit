@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Target, Gift, Calculator } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -269,18 +270,26 @@ export default function PointsSetupPage() {
             Set up and manage points rewards for products and campaigns in one simple interface
           </p>
         </div>
+        
+        <div className="flex items-center gap-3">
+          <Link href="/points-setup-guide">
+            <Button variant="outline" size="sm">
+              <Target className="h-4 w-4 mr-2" />
+              Setup Guide
+            </Button>
+          </Link>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              onClick={() => setActiveTab('product')} 
-              className="flex items-center gap-2"
-              data-testid="button-add-points-rule"
-            >
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                onClick={() => setActiveTab('product')} 
+                className="flex items-center gap-2"
+                data-testid="button-add-points-rule"
+              >
               <Plus className="w-4 h-4" />
               Add Points Rule
-            </Button>
-          </DialogTrigger>
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle data-testid="dialog-title">
@@ -484,6 +493,7 @@ export default function PointsSetupPage() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Quick Setup Examples */}
