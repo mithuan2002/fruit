@@ -128,7 +128,7 @@ export interface IStorage {
   getActiveProducts(): Promise<Product[]>;
   getProductsByCategory(category: string): Promise<Product[]>;
   createProduct(product: InsertProduct): Promise<Product>;
-  updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined>;
+  updateProduct(id: string, updates: Partial<InsertProduct>): Promise<Product | undefined>;
   deleteProduct(id: string): Promise<boolean>;
 
   // Point Tier operations
@@ -724,7 +724,7 @@ export class DatabaseStorage implements IStorage {
   async deleteProduct(id: string): Promise<boolean> {
     try {
       const result = await db.delete(products).where(eq(products.id, id));
-      return result.rowCount > 0;
+      return (result.rowCount ?? 0) > 0;
     } catch (error) {
       console.error("Error deleting product:", error);
       return false;
