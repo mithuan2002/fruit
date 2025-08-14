@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
 import Products from "@/pages/products";
+import PointsSetup from "@/pages/points-setup";
 import SalesProcessing from "@/pages/sales-processing";
 import Reports from "@/pages/reports";
 import WhatsAppCenter from "@/pages/whatsapp-center";
@@ -55,6 +56,7 @@ function Router() {
             <Route path="/campaigns" component={Campaigns} />
             <Route path="/customers" component={Customers} />
             <Route path="/products" component={Products} />
+            <Route path="/points-setup" component={PointsSetup} />
             <Route path="/sales-processing" component={SalesProcessing} />
             <Route path="/reports" component={Reports} />
             <Route path="/whatsapp-center" component={WhatsAppCenter} />
