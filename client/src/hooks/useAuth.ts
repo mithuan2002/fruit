@@ -68,7 +68,7 @@ export function useAuth() {
     mutationFn: async (credentials: { username: string; password: string }) => {
       const response = await fetch("/api/auth/register", {
         method: "POST",
-        body: JSON.JSON.stringify(credentials),
+        body: JSON.stringify(credentials),
         headers: { "Content-Type": "application/json" },
       });
       if (!response.ok) {
