@@ -4,7 +4,15 @@ Fruitbox is a comprehensive referral marketing management system built as a full
 
 ## Recent Changes (January 2025)
 
-### Vercel Deployment Configuration Complete (Latest - August 13, 2025)
+### Product Code Input Fix Complete (Latest - August 14, 2025)
+- Fixed case-sensitivity issue in dashboard's "Process Referral Sale" section
+- Product code input field now accepts both uppercase and lowercase characters  
+- Implemented case-insensitive product lookup to match codes like "a123" or "A123"
+- Removed forced uppercase styling and input transformation
+- Users can now enter product codes in their natural case and system will find matches correctly
+- Resolved "product not found" error when entering valid lowercase product codes
+
+### Vercel Deployment Configuration Complete (Previous - August 13, 2025)
 - Configured comprehensive full-stack deployment for Vercel platform
 - Updated vercel.json for serverless Node.js backend and static frontend serving
 - Created proper .vercelignore to exclude development files while including source code

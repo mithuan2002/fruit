@@ -123,8 +123,10 @@ export default function CouponRedemption() {
       return;
     }
 
-    // Find product in available products
-    const product = availableProducts.find(p => p.productCode === currentProduct.productCode.trim());
+    // Find product in available products (case-insensitive comparison)
+    const product = availableProducts.find(p => 
+      p.productCode?.toLowerCase() === currentProduct.productCode.trim().toLowerCase()
+    );
     
     if (!product) {
       toast({
@@ -253,10 +255,10 @@ export default function CouponRedemption() {
                   value={currentProduct.productCode}
                   onChange={(e) => setCurrentProduct({
                     ...currentProduct,
-                    productCode: e.target.value.toUpperCase()
+                    productCode: e.target.value
                   })}
                   placeholder="Enter product code"
-                  className="uppercase"
+                  className=""
                 />
               </div>
 
