@@ -162,16 +162,24 @@ export default function PointsSetupPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.targetId || !formData.targetName) {
+    if (!formData.targetName) {
       toast({
         title: "Error",
-        description: "Please select a product or campaign",
+        description: "Please enter a product name or select a product/campaign",
         variant: "destructive"
       });
       return;
     }
 
-    saveRuleMutation.mutate(formData);
+    // Ensure targetId is set for manual entries
+    if (!formData.targetId && formData.targetName) {
+      setFormData({ ...formData, targetId: 'manual-product' });
+    }
+
+    saveRuleMutation.mutate({
+      ...formData,
+      targetId: formData.targetId || 'manual-product'
+    });
   };
 
   const editRule = (rule: PointRule) => {
@@ -279,31 +287,55 @@ export default function PointsSetupPage() {
                   </div>
                   
                   <div>
-                    <Label htmlFor="product-select">Or Select Product</Label>
-                    <Select value={formData.targetId} onValueChange={onTargetSelect}>
-                      <SelectTrigger data-testid="select-product">
-                        <SelectValue placeholder="Choose a product" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem key={product.id} value={product.id} data-testid={`option-product-${product.id}`}>
-                            {product.productCode ? `[${product.productCode}] ` : ''}{product.name} - ${product.price}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="product-name">Product Name *</Label>
+                    <Input
+                      id="product-name"
+                      placeholder="Enter product name"
+                      value={formData.targetName || ''}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        setFormData({ 
+                          ...formData, 
+                          targetName: name,
+                          targetId: name ? 'manual-product' : '',
+                          description: `Points rule for ${name}${formData.productCode ? ` (${formData.productCode})` : ''}`
+                        });
+                      }}
+                      data-testid="input-product-name"
+                    />
                   </div>
                   
-                  {formData.targetId && (
+                  {products.length > 0 && (
+                    <div>
+                      <Label htmlFor="product-select">Or Select from Existing Products</Label>
+                      <Select value={formData.targetId === 'manual-product' ? '' : formData.targetId} onValueChange={onTargetSelect}>
+                        <SelectTrigger data-testid="select-product">
+                          <SelectValue placeholder="Choose from existing products" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {products.map((product) => (
+                            <SelectItem key={product.id} value={product.id} data-testid={`option-product-${product.id}`}>
+                              {product.productCode ? `[${product.productCode}] ` : ''}{product.name} - ${product.price}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  {formData.targetId && formData.targetName && (
                     <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                       <div className="flex items-center gap-2 text-green-800">
                         <span className="font-medium">Selected:</span>
-                        {products.find(p => p.id === formData.targetId)?.productCode && (
+                        {formData.productCode && (
                           <span className="bg-green-100 px-2 py-1 rounded text-sm">
-                            {products.find(p => p.id === formData.targetId)?.productCode}
+                            {formData.productCode}
                           </span>
                         )}
                         <span>{formData.targetName}</span>
+                        {formData.targetId === 'manual-product' && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Manual Entry</span>
+                        )}
                       </div>
                     </div>
                   )}

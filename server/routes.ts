@@ -1369,15 +1369,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===========================================
-  // PRODUCTS ROUTES
+  // PRODUCTS ROUTES (UPDATED)
   // ===========================================
 
-  // Get all products
-  app.get("/api/products", async (req, res) => {
+  // Get all products (removing duplicate route)
+  app.get("/api/products", requireAuth, async (req, res) => {
     try {
       const products = await storage.getAllProducts();
       res.json(products);
     } catch (error) {
+      console.error("Error fetching products:", error);
       res.status(500).json({ message: "Failed to fetch products" });
     }
   });
