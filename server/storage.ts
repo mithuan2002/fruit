@@ -637,7 +637,7 @@ export class DatabaseStorage implements IStorage {
 
   async getActiveProducts(): Promise<Product[]> {
     try {
-      const result = await this.db
+      const result = await db
         .select()
         .from(products)
         .where(eq(products.isActive, true))
@@ -675,7 +675,7 @@ export class DatabaseStorage implements IStorage {
       };
 
       console.log("Creating product with data:", productData);
-      const [product] = await this.db.insert(products).values(productData).returning();
+      const [product] = await db.insert(products).values(productData).returning();
       console.log("Created product:", product);
       return product;
     } catch (error) {
@@ -709,7 +709,7 @@ export class DatabaseStorage implements IStorage {
       if (data.bonusMultiplier !== undefined) updateData.bonusMultiplier = data.bonusMultiplier;
 
       console.log("Updating product:", id, "with data:", updateData);
-      const [product] = await this.db
+      const [product] = await db
         .update(products)
         .set(updateData)
         .where(eq(products.id, id))
@@ -723,7 +723,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProduct(id: string): Promise<boolean> {
     try {
-      const result = await this.db.delete(products).where(eq(products.id, id));
+      const result = await db.delete(products).where(eq(products.id, id));
       return result.rowCount > 0;
     } catch (error) {
       console.error("Error deleting product:", error);
