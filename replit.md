@@ -2,9 +2,17 @@
 
 Fruitbox is a comprehensive referral marketing management system built as a full-stack web application. It provides businesses with tools to create and manage referral campaigns, track customer engagement, distribute coupon codes, and communicate with customers via automated WhatsApp messaging. The platform features a modern dashboard interface for monitoring campaign performance, customer management, and analytics reporting.
 
-## Recent Changes (January 2025)
+## Recent Changes (August 2025)
 
-### Automatic E-Coupon WhatsApp Integration Complete (Latest - August 14, 2025)
+### Complete Database Schema Documentation (Latest - August 14, 2025)
+- Created comprehensive DATABASE_SETUP.md with complete schema documentation
+- Added SETUP_GUIDE.md for easy project import and configuration in new environments
+- Documented all 8 core database tables with relationships, indexes, and constraints
+- Included SQL examples, performance optimizations, and troubleshooting guides
+- Updated replit.md with detailed database architecture section
+- Ensured project is easily importable to new Replit environments with clear setup instructions
+
+### Automatic E-Coupon WhatsApp Integration Complete (Previous - August 14, 2025)
 - Implemented automatic e-coupon delivery via WhatsApp when new customers are added
 - Enhanced welcome message to include personalized e-coupon format matching the UI design
 - Integrated shop name from user profile into WhatsApp messages
@@ -126,15 +134,35 @@ Preferred communication style: Simple, everyday language.
 - **Data Validation**: Zod schemas for runtime type checking and validation
 - **Development Environment**: Full-stack development with Vite middleware integration
 
-## Data Storage
+## Data Storage & Database Schema
 - **Database**: PostgreSQL with comprehensive schema for referral marketing system
 - **ORM**: Drizzle ORM for type-safe database operations and migrations
-- **Schema Management**: Centralized schema definitions in TypeScript with automatic validation
+- **Schema Management**: Centralized schema definitions in `shared/schema.ts` with automatic validation
 - **Connection**: Neon Database serverless PostgreSQL for cloud deployment
-- **Tables**: customers, campaigns, coupons, referrals, whatsapp_messages, points_transactions, rewards, reward_redemptions, system_config
-- **Relationships**: Properly defined foreign keys and cascading rules for data integrity
-- **Indexes**: Optimized indexes on frequently queried columns for performance
-- **Configuration**: System-wide settings stored in database for runtime configuration
+
+### Core Tables (8 primary tables):
+1. **users** - Admin accounts and shop configuration
+2. **customers** - Customer profiles with referral codes and points tracking
+3. **products** - Product catalog with point calculation settings
+4. **campaigns** - Marketing campaigns with flexible reward rules
+5. **coupons** - Generated discount coupons linked to customers
+6. **referrals** - Comprehensive referral tracking and point awards
+7. **whatsapp_messages** - Message delivery tracking and status
+8. **points_transactions** - Detailed points earning/redemption history
+
+### Database Features:
+- **Relationships**: Properly defined foreign keys with CASCADE/SET NULL rules
+- **Indexes**: Performance-optimized indexes on critical columns (phone numbers, referral codes, dates)
+- **Constraints**: UNIQUE constraints on codes and phone numbers
+- **Audit Fields**: Created/updated timestamps on all tables
+- **Data Integrity**: Foreign key constraints maintain referential integrity
+
+### Schema Highlights:
+- UUID primary keys for all tables
+- Phone number and referral code indexing for fast lookups
+- Flexible point calculation types (fixed, percentage, tier-based)
+- Message status tracking for delivery confirmation
+- Soft deletes with is_active flags where appropriate
 
 ## Authentication & Authorization
 - **Session Management**: Express sessions with PostgreSQL session store (connect-pg-simple)
