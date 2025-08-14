@@ -19,6 +19,7 @@ interface PointRule {
   type: 'product' | 'campaign';
   targetId: string;
   targetName: string;
+  productCode?: string;
   pointsType: 'fixed' | 'percentage';
   pointsValue: number;
   minQuantity?: number;
@@ -37,6 +38,7 @@ export default function PointsSetupPage() {
     type: 'product',
     targetId: '',
     targetName: '',
+    productCode: '',
     pointsType: 'fixed',
     pointsValue: 10,
     minQuantity: 1,
@@ -146,6 +148,7 @@ export default function PointsSetupPage() {
       type: activeTab,
       targetId: '',
       targetName: '',
+      productCode: '',
       pointsType: 'fixed',
       pointsValue: 10,
       minQuantity: 1,
@@ -184,11 +187,13 @@ export default function PointsSetupPage() {
       : campaigns.find(c => c.id === targetId);
     
     if (target) {
+      const productCode = formData.type === 'product' ? (target as any).productCode : undefined;
       setFormData({
         ...formData,
         targetId,
         targetName: target.name,
-        description: `Points rule for ${target.name}`
+        productCode: productCode || '',
+        description: `Points rule for ${target.name}${productCode ? ` (${productCode})` : ''}`
       });
     }
   };
@@ -246,7 +251,35 @@ export default function PointsSetupPage() {
                 
                 <TabsContent value="product" className="space-y-4">
                   <div>
-                    <Label htmlFor="product-select">Select Product</Label>
+                    <Label htmlFor="product-code">Product Code</Label>
+                    <Input
+                      id="product-code"
+                      placeholder="Enter product code (e.g., SKU123)"
+                      value={formData.productCode || ''}
+                      onChange={(e) => {
+                        const code = e.target.value;
+                        setFormData({ ...formData, productCode: code });
+                        
+                        // Auto-find product by code
+                        if (code.trim()) {
+                          const product = products.find(p => p.productCode === code.trim());
+                          if (product) {
+                            setFormData({
+                              ...formData,
+                              productCode: code,
+                              targetId: product.id,
+                              targetName: product.name,
+                              description: `Points rule for ${product.name} (${product.productCode})`
+                            });
+                          }
+                        }
+                      }}
+                      data-testid="input-product-code"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="product-select">Or Select Product</Label>
                     <Select value={formData.targetId} onValueChange={onTargetSelect}>
                       <SelectTrigger data-testid="select-product">
                         <SelectValue placeholder="Choose a product" />
@@ -254,12 +287,26 @@ export default function PointsSetupPage() {
                       <SelectContent>
                         {products.map((product) => (
                           <SelectItem key={product.id} value={product.id} data-testid={`option-product-${product.id}`}>
-                            {product.name} - ${product.price}
+                            {product.productCode ? `[${product.productCode}] ` : ''}{product.name} - ${product.price}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
+                  
+                  {formData.targetId && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-green-800">
+                        <span className="font-medium">Selected:</span>
+                        {products.find(p => p.id === formData.targetId)?.productCode && (
+                          <span className="bg-green-100 px-2 py-1 rounded text-sm">
+                            {products.find(p => p.id === formData.targetId)?.productCode}
+                          </span>
+                        )}
+                        <span>{formData.targetName}</span>
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
                 
                 <TabsContent value="campaign" className="space-y-4">
