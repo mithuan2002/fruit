@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Phone, Star, TrendingUp, Users, Eye, Copy, Search, Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/layout/header";
 import CustomerAddForm from "@/components/customer-add-form";
 import ECouponCard from "@/components/e-coupon-card";
-import type { Customer, Coupon, User } from "@shared/schema";
+import type { Customer, Coupon } from "@shared/schema";
 import { Input } from "@/components/ui/input";
 
 export default function Customers() {
@@ -28,10 +29,8 @@ export default function Customers() {
     enabled: !!selectedCustomer?.id,
   });
 
-  // Query for user data to get shop name
-  const { data: user } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
-  });
+  // Get user data to get shop name
+  const { user } = useAuth();
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
