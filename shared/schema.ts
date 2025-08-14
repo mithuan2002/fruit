@@ -94,7 +94,7 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   customerId: varchar("customer_id").references(() => customers.id, { onDelete: "set null" }),
   phoneNumber: text("phone_number").notNull(),
   message: text("message").notNull(),
-  type: text("type").notNull(), // welcome_referral, coupon_generated, reward_earned, broadcast
+  type: text("type").notNull(), // welcome_referral, welcome_ecoupon, coupon_generated, reward_earned, broadcast
   status: text("status").notNull().default("pending"), // pending, sent, delivered, failed, read
   errorMessage: text("error_message"),
   interaktMessageId: text("interakt_message_id"),
@@ -451,7 +451,7 @@ export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages).
   deliveredAt: true,
   readAt: true,
 }).extend({
-  type: z.enum(["welcome_referral", "coupon_generated", "reward_earned", "broadcast"]),
+  type: z.enum(["welcome_referral", "welcome_ecoupon", "coupon_generated", "reward_earned", "broadcast"]),
 });
 
 // Product and Sales schemas

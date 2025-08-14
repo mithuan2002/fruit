@@ -38,7 +38,7 @@ function setupAuth(app: Express) {
   const SessionStore = MemoryStore(session);
   
   app.use(session({
-    secret: process.env.SESSION_SECRET || 'dev-secret-key',
+    secret: process.env.SESSION_SECRET || 'fruitbox-dev-secret-key-' + Math.random().toString(36),
     store: new SessionStore({
       checkPeriod: 86400000 // prune expired entries every 24h
     }),
@@ -1492,7 +1492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const newProduct = await storage.createProduct({
             name: targetName,
             productCode: productCode,
-            price: "0", // Default price, can be updated later
+            price: 0, // Default price, can be updated later
             pointCalculationType: pointsType,
             fixedPoints: pointsType === 'fixed' ? pointsValue : null,
             percentageRate: pointsType === 'percentage' ? pointsValue.toString() : null,
