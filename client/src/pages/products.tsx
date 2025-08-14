@@ -18,9 +18,10 @@ export default function ProductsPage() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  
+
   const [formData, setFormData] = useState<InsertProduct>({
     name: "",
+    productCode: "",
     description: "",
     price: "0",
     sku: "",
@@ -106,6 +107,7 @@ export default function ProductsPage() {
   const resetForm = () => {
     setFormData({
       name: "",
+      productCode: "",
       description: "",
       price: "0",
       sku: "",
@@ -124,7 +126,7 @@ export default function ProductsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (editingProduct) {
       updateProductMutation.mutate({ id: editingProduct.id, data: formData });
     } else {
@@ -136,6 +138,7 @@ export default function ProductsPage() {
     setEditingProduct(product);
     setFormData({
       name: product.name,
+      productCode: product.productCode || "",
       description: product.description || "",
       price: product.price,
       sku: product.sku || "",
@@ -187,7 +190,7 @@ export default function ProductsPage() {
                 Configure product details and point calculation rules
               </DialogDescription>
             </DialogHeader>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -201,12 +204,13 @@ export default function ProductsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="sku">SKU</Label>
+                  <Label htmlFor="productCode">Product Code *</Label>
                   <Input
-                    id="sku"
-                    data-testid="input-product-sku"
-                    value={formData.sku}
-                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                    id="productCode"
+                    data-testid="input-product-code"
+                    value={formData.productCode || ''}
+                    onChange={(e) => setFormData({ ...formData, productCode: e.target.value })}
+                    required
                   />
                 </div>
               </div>
@@ -248,7 +252,7 @@ export default function ProductsPage() {
 
               <div className="border-t pt-4">
                 <h3 className="font-medium mb-3">Point Calculation Rules</h3>
-                
+
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="pointCalculationType">Point Calculation Type</Label>
@@ -363,6 +367,7 @@ export default function ProductsPage() {
                     <CardTitle className="text-lg">{product.name}</CardTitle>
                     <CardDescription>
                       {product.sku && `SKU: ${product.sku} • `}
+                      {product.productCode && `Code: ${product.productCode} • `}
                       ${parseFloat(product.price).toFixed(2)}
                     </CardDescription>
                   </div>
@@ -391,7 +396,7 @@ export default function ProductsPage() {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex justify-end space-x-2 mt-4">
                   <Button 
                     size="sm" 

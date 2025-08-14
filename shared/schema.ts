@@ -113,26 +113,27 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  productCode: text("product_code").unique().notNull(), // Unique product code for easy lookup
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
-  sku: text("sku").unique(),
   category: text("category"),
-  // Point calculation rules for this specific product
-  pointCalculationType: text("point_calculation_type").notNull().default("inherit"), // inherit, fixed, percentage, tier
-  fixedPoints: integer("fixed_points"), // Fixed points for referral of this product
-  percentageRate: decimal("percentage_rate", { precision: 5, scale: 2 }), // Percentage of product price
-  minimumQuantity: integer("minimum_quantity").default(1), // Minimum quantity for points
-  bonusMultiplier: decimal("bonus_multiplier", { precision: 3, scale: 2 }).default("1.00"), // Bonus multiplier for this product
-  // Product status
+  sku: text("sku"),
+  imageUrl: text("image_url"),
   isActive: boolean("is_active").notNull().default(true),
-  stockQuantity: integer("stock_quantity").default(-1), // -1 for unlimited
+  stockQuantity: integer("stock_quantity").default(0),
+  // Points calculation settings
+  pointCalculationType: text("point_calculation_type").notNull().default("inherit"), // inherit, fixed, percentage, tier
+  fixedPoints: integer("fixed_points"),
+  percentageRate: text("percentage_rate"), // stored as string for precision
+  minimumQuantity: integer("minimum_quantity").default(1),
+  bonusMultiplier: text("bonus_multiplier").default("1.0"), // stored as string for precision
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  activeIdx: index("products_active_idx").on(table.isActive),
+  nameIdx: index("products_name_idx").on(table.name),
   categoryIdx: index("products_category_idx").on(table.category),
   skuIdx: index("products_sku_idx").on(table.sku),
-  priceIdx: index("products_price_idx").on(table.price),
+  productCodeIdx: index("products_code_idx").on(table.productCode),
 }));
 
 // Point calculation tiers for complex point systems
@@ -454,12 +455,12 @@ export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages).
 });
 
 // Product and Sales schemas
-export const insertProductSchema = createInsertSchema(products).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-}).extend({
-  pointCalculationType: z.enum(["inherit", "fixed", "percentage", "tier"]).default("inherit"),
+export const insertProductSchema = createInsertSchema(products, {
+  productCode: z.string().min(1, "Product code is required"),
+  price: z.string().transform((val) => parseFloat(val)),
+  stockQuantity: z.number().optional(),
+  fixedPoints: z.number().optional(),
+  minimumQuantity: z.number().min(1).optional(),
 });
 
 export const insertPointTierSchema = createInsertSchema(pointTiers).omit({

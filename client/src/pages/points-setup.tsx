@@ -416,11 +416,11 @@ export default function PointsSetupPage() {
                 No points rules configured
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Add your first points rule to start rewarding customers for purchases and referrals
+                Add points rules to start rewarding customers for purchases and referrals
               </p>
-              <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-first-rule">
+              <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-rule">
                 <Plus className="w-4 h-4 mr-2" />
-                Add Your First Points Rule
+                Add Points Rule
               </Button>
             </CardContent>
           </Card>

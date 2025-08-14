@@ -123,6 +123,7 @@ export interface IStorage {
   // Product operations
   getProduct(id: string): Promise<Product | undefined>;
   getProductBySku(sku: string): Promise<Product | undefined>;
+  getProductByCode(productCode: string): Promise<Product | undefined>;
   getAllProducts(): Promise<Product[]>;
   getActiveProducts(): Promise<Product[]>;
   getProductsByCategory(category: string): Promise<Product[]>;
@@ -152,24 +153,6 @@ export interface IStorage {
   getSaleItemsBySale(saleId: string): Promise<SaleItem[]>;
   createSaleItem(saleItem: InsertSaleItem): Promise<SaleItem>;
   updateSaleItem(id: string, updates: Partial<SaleItem>): Promise<SaleItem | undefined>;
-  
-  // Utility operations
-  generateUniqueCode(): Promise<string>;
-
-  // Analytics
-  getTopReferrers(limit?: number): Promise<Customer[]>;
-  getCampaignStats(campaignId: string): Promise<{
-    participantCount: number;
-    referralsCount: number;
-    conversionRate: number;
-    totalRewards: number;
-  }>;
-  getDashboardStats(): Promise<{
-    totalCustomers: number;
-    activeReferrals: number;
-    rewardsDistributed: number;
-    conversionRate: number;
-  }>;
 }
 
 // Database logging utility
@@ -401,7 +384,7 @@ export class DatabaseStorage implements IStorage {
     return reward || undefined;
   }
 
-  async getAllRewards(): Promise<Reward[]> {
+  async getAllRewards(): Promise<Reward[]>{
     return await db.select().from(rewards).orderBy(desc(rewards.createdAt));
   }
 
@@ -514,21 +497,21 @@ export class DatabaseStorage implements IStorage {
   async generateUniqueCode(prefix: string = ""): Promise<string> {
     let code: string;
     let isUnique = false;
-    
+
     while (!isUnique) {
       const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       code = prefix ? `${prefix}${randomCode}` : randomCode;
-      
+
       // Check if code exists in customers or coupons
       const [existingCustomer] = await db.select().from(customers).where(eq(customers.referralCode, code)).limit(1);
       const [existingCoupon] = await db.select().from(coupons).where(eq(coupons.code, code)).limit(1);
-      
+
       if (!existingCustomer && !existingCoupon) {
         isUnique = true;
         return code;
       }
     }
-    
+
     return code!;
   }
 
@@ -609,13 +592,28 @@ export class DatabaseStorage implements IStorage {
 
   // Product operations
   async getProduct(id: string): Promise<Product | undefined> {
-    const [product] = await db.select().from(products).where(eq(products.id, id));
-    return product || undefined;
+    try {
+      const [product] = await db.select().from(products).where(eq(products.id, id));
+      return product;
+    } catch (error) {
+      console.error("Failed to get product:", error);
+      return undefined;
+    }
   }
 
   async getProductBySku(sku: string): Promise<Product | undefined> {
     const [product] = await db.select().from(products).where(eq(products.sku, sku));
     return product || undefined;
+  }
+
+  async getProductByCode(productCode: string): Promise<Product | undefined> {
+    try {
+      const [product] = await db.select().from(products).where(eq(products.productCode, productCode));
+      return product;
+    } catch (error) {
+      console.error("Failed to get product by code:", error);
+      return undefined;
+    }
   }
 
   async getAllProducts(): Promise<Product[]> {
@@ -761,6 +759,15 @@ export class MemStorage implements IStorage {
   private coupons: Map<string, Coupon>;
   private referrals: Map<string, Referral>;
   private whatsappMessages: Map<string, WhatsappMessage>;
+  private pointsTransactions: Map<string, PointsTransaction>;
+  private rewards: Map<string, Reward>;
+  private rewardRedemptions: Map<string, RewardRedemption>;
+  private systemConfigs: Map<string, SystemConfig>;
+  private users: Map<string, User>;
+  private products: Map<string, Product>;
+  private pointTiers: Map<string, PointTier>;
+  private sales: Map<string, Sale>;
+  private saleItems: Map<string, SaleItem>;
 
   constructor() {
     this.customers = new Map();
@@ -768,6 +775,15 @@ export class MemStorage implements IStorage {
     this.coupons = new Map();
     this.referrals = new Map();
     this.whatsappMessages = new Map();
+    this.pointsTransactions = new Map();
+    this.rewards = new Map();
+    this.rewardRedemptions = new Map();
+    this.systemConfigs = new Map();
+    this.users = new Map();
+    this.products = new Map();
+    this.pointTiers = new Map();
+    this.sales = new Map();
+    this.saleItems = new Map();
   }
 
   // Customer operations
@@ -791,7 +807,7 @@ export class MemStorage implements IStorage {
     return Array.from(this.customers.values());
   }
 
-  async createCustomer(insertCustomer: InsertCustomer & { couponCode?: string }): Promise<Customer> {
+  async createCustomer(insertCustomer: InsertCustomer & { referralCode?: string }): Promise<Customer> {
     const id = randomUUID();
     const customer: Customer = {
       ...insertCustomer,
@@ -802,6 +818,8 @@ export class MemStorage implements IStorage {
       pointsEarned: 0,
       pointsRedeemed: 0,
       createdAt: new Date(),
+      updatedAt: new Date(),
+      isActive: true,
     };
     this.customers.set(id, customer);
     return customer;
@@ -811,7 +829,7 @@ export class MemStorage implements IStorage {
     const customer = this.customers.get(id);
     if (!customer) return undefined;
 
-    const updatedCustomer = { ...customer, ...updates };
+    const updatedCustomer = { ...customer, ...updates, updatedAt: new Date() };
     this.customers.set(id, updatedCustomer);
     return updatedCustomer;
   }
@@ -844,6 +862,7 @@ export class MemStorage implements IStorage {
       participantCount: 0,
       referralsCount: 0,
       createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.campaigns.set(id, campaign);
     return campaign;
@@ -853,7 +872,7 @@ export class MemStorage implements IStorage {
     const campaign = this.campaigns.get(id);
     if (!campaign) return undefined;
 
-    const updatedCampaign = { ...campaign, ...updates };
+    const updatedCampaign = { ...campaign, ...updates, updatedAt: new Date() };
     this.campaigns.set(id, updatedCampaign);
     return updatedCampaign;
   }
@@ -889,6 +908,7 @@ export class MemStorage implements IStorage {
       usageLimit: insertCoupon.usageLimit || 100,
       usageCount: 0,
       createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.coupons.set(id, coupon);
     return coupon;
@@ -898,7 +918,7 @@ export class MemStorage implements IStorage {
     const coupon = this.coupons.get(id);
     if (!coupon) return undefined;
 
-    const updatedCoupon = { ...coupon, ...updates };
+    const updatedCoupon = { ...coupon, ...updates, updatedAt: new Date() };
     this.coupons.set(id, updatedCoupon);
     return updatedCoupon;
   }
@@ -938,7 +958,9 @@ export class MemStorage implements IStorage {
       couponCode: insertReferral.couponCode || null,
       status: insertReferral.status || "pending",
       saleAmount: insertReferral.saleAmount || 0,
+      pointsEarned: 0,
       createdAt: new Date(),
+      updatedAt: new Date(),
     };
     this.referrals.set(id, referral);
     return referral;
@@ -948,7 +970,7 @@ export class MemStorage implements IStorage {
     const referral = this.referrals.get(id);
     if (!referral) return undefined;
 
-    const updatedReferral = { ...referral, ...updates };
+    const updatedReferral = { ...referral, ...updates, updatedAt: new Date() };
     this.referrals.set(id, updatedReferral);
     return updatedReferral;
   }
@@ -990,7 +1012,158 @@ export class MemStorage implements IStorage {
     return updatedMessage;
   }
 
-  // Utility methods
+  // Points operations
+  async getPointsTransaction(id: string): Promise<PointsTransaction | undefined> {
+    return this.pointsTransactions.get(id);
+  }
+
+  async getPointsTransactionsByCustomer(customerId: string): Promise<PointsTransaction[]> {
+    return Array.from(this.pointsTransactions.values()).filter(
+      transaction => transaction.customerId === customerId
+    );
+  }
+
+  async createPointsTransaction(insertTransaction: InsertPointsTransaction): Promise<PointsTransaction> {
+    const id = randomUUID();
+    const transaction: PointsTransaction = {
+      ...insertTransaction,
+      id,
+      customerId: insertTransaction.customerId,
+      points: insertTransaction.points,
+      type: insertTransaction.type,
+      createdAt: new Date(),
+    };
+    this.pointsTransactions.set(id, transaction);
+    return transaction;
+  }
+
+  // Rewards operations
+  async getReward(id: string): Promise<Reward | undefined> {
+    return this.rewards.get(id);
+  }
+
+  async getAllRewards(): Promise<Reward[]> {
+    return Array.from(this.rewards.values());
+  }
+
+  async getActiveRewards(): Promise<Reward[]> {
+    return Array.from(this.rewards.values()).filter(reward => reward.isActive);
+  }
+
+  async createReward(insertReward: InsertReward): Promise<Reward> {
+    const id = randomUUID();
+    const reward: Reward = {
+      ...insertReward,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isActive: true,
+    };
+    this.rewards.set(id, reward);
+    return reward;
+  }
+
+  async updateReward(id: string, updates: Partial<Reward>): Promise<Reward | undefined> {
+    const reward = this.rewards.get(id);
+    if (!reward) return undefined;
+
+    const updatedReward = { ...reward, ...updates, updatedAt: new Date() };
+    this.rewards.set(id, updatedReward);
+    return updatedReward;
+  }
+
+  async deleteReward(id: string): Promise<boolean> {
+    return this.rewards.delete(id);
+  }
+
+  // Reward redemption operations
+  async getRewardRedemption(id: string): Promise<RewardRedemption | undefined> {
+    return this.rewardRedemptions.get(id);
+  }
+
+  async getRewardRedemptionsByCustomer(customerId: string): Promise<RewardRedemption[]> {
+    return Array.from(this.rewardRedemptions.values()).filter(
+      redemption => redemption.customerId === customerId
+    );
+  }
+
+  async createRewardRedemption(insertRedemption: InsertRewardRedemption): Promise<RewardRedemption> {
+    const id = randomUUID();
+    const redemption: RewardRedemption = {
+      ...insertRedemption,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.rewardRedemptions.set(id, redemption);
+    return redemption;
+  }
+
+  async updateRewardRedemption(id: string, updates: Partial<RewardRedemption>): Promise<RewardRedemption | undefined> {
+    const redemption = this.rewardRedemptions.get(id);
+    if (!redemption) return undefined;
+
+    const updatedRedemption = { ...redemption, ...updates, updatedAt: new Date() };
+    this.rewardRedemptions.set(id, updatedRedemption);
+    return updatedRedemption;
+  }
+
+  // System config operations
+  async getSystemConfig(key: string): Promise<SystemConfig | undefined> {
+    return this.systemConfigs.get(key);
+  }
+
+  async getAllSystemConfig(): Promise<SystemConfig[]> {
+    return Array.from(this.systemConfigs.values());
+  }
+
+  async getPublicSystemConfig(): Promise<SystemConfig[]> {
+    return Array.from(this.systemConfigs.values()).filter(config => config.isPublic);
+  }
+
+  async upsertSystemConfig(insertConfig: InsertSystemConfig): Promise<SystemConfig> {
+    const existingConfig = this.systemConfigs.get(insertConfig.key);
+    const config: SystemConfig = {
+      ...insertConfig,
+      id: existingConfig?.id || randomUUID(),
+      createdAt: existingConfig?.createdAt || new Date(),
+      updatedAt: new Date(),
+    };
+    this.systemConfigs.set(insertConfig.key, config);
+    return config;
+  }
+
+  // User operations (Authentication)
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.username === username);
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const id = randomUUID();
+    const user: User = {
+      ...insertUser,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.set(id, user);
+    return user;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+
+    const updatedUser = { ...user, ...updates, updatedAt: new Date() };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  // Utility operations
   async generateUniqueCode(): Promise<string> {
     let code: string;
     let exists = true;
@@ -1064,6 +1237,178 @@ export class MemStorage implements IStorage {
       rewardsDistributed,
       conversionRate: Math.round(conversionRate * 10) / 10,
     };
+  }
+
+  // Product operations
+  async getProduct(id: string): Promise<Product | undefined> {
+    return this.products.get(id);
+  }
+
+  async getProductBySku(sku: string): Promise<Product | undefined> {
+    return Array.from(this.products.values()).find(product => product.sku === sku);
+  }
+
+  async getProductByCode(productCode: string): Promise<Product | undefined> {
+    return Array.from(this.products.values()).find(product => product.productCode === productCode);
+  }
+
+  async getAllProducts(): Promise<Product[]> {
+    return Array.from(this.products.values());
+  }
+
+  async getActiveProducts(): Promise<Product[]> {
+    return Array.from(this.products.values()).filter(product => product.isActive);
+  }
+
+  async getProductsByCategory(category: string): Promise<Product[]> {
+    return Array.from(this.products.values()).filter(product => product.category === category);
+  }
+
+  async createProduct(insertProduct: InsertProduct): Promise<Product> {
+    const id = randomUUID();
+    const product: Product = {
+      ...insertProduct,
+      id,
+      pointsPerItem: insertProduct.pointsPerItem || 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isActive: true,
+    };
+    this.products.set(id, product);
+    return product;
+  }
+
+  async updateProduct(id: string, updates: Partial<Product>): Promise<Product | undefined> {
+    const product = this.products.get(id);
+    if (!product) return undefined;
+
+    const updatedProduct = { ...product, ...updates, updatedAt: new Date() };
+    this.products.set(id, updatedProduct);
+    return updatedProduct;
+  }
+
+  async deleteProduct(id: string): Promise<boolean> {
+    return this.products.delete(id);
+  }
+
+  // Point Tier operations
+  async getPointTier(id: string): Promise<PointTier | undefined> {
+    return this.pointTiers.get(id);
+  }
+
+  async getPointTiersByCampaign(campaignId: string): Promise<PointTier[]> {
+    return Array.from(this.pointTiers.values()).filter(tier => tier.campaignId === campaignId);
+  }
+
+  async getPointTiersByProduct(productId: string): Promise<PointTier[]> {
+    return Array.from(this.pointTiers.values()).filter(tier => tier.productId === productId);
+  }
+
+  async createPointTier(tier: InsertPointTier): Promise<PointTier> {
+    const id = randomUUID();
+    const pointTier: PointTier = {
+      ...tier,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.pointTiers.set(id, pointTier);
+    return pointTier;
+  }
+
+  async updatePointTier(id: string, updates: Partial<PointTier>): Promise<PointTier | undefined> {
+    const tier = this.pointTiers.get(id);
+    if (!tier) return undefined;
+
+    const updatedTier = { ...tier, ...updates, updatedAt: new Date() };
+    this.pointTiers.set(id, updatedTier);
+    return updatedTier;
+  }
+
+  async deletePointTier(id: string): Promise<boolean> {
+    return this.pointTiers.delete(id);
+  }
+
+  // Sale operations
+  async getSale(id: string): Promise<Sale | undefined> {
+    return this.sales.get(id);
+  }
+
+  async getAllSales(): Promise<Sale[]> {
+    return Array.from(this.sales.values());
+  }
+
+  async getSalesByCustomer(customerId: string): Promise<Sale[]> {
+    return Array.from(this.sales.values()).filter(sale => sale.customerId === customerId);
+  }
+
+  async getSalesByCampaign(campaignId: string): Promise<Sale[]> {
+    return Array.from(this.sales.values()).filter(sale => sale.campaignId === campaignId);
+  }
+
+  async getSalesByReferralCode(referralCode: string): Promise<Sale[]> {
+    return Array.from(this.sales.values()).filter(sale => sale.referralCode === referralCode);
+  }
+
+  async createSale(sale: InsertSale): Promise<Sale> {
+    const id = randomUUID();
+    const newSale: Sale = {
+      ...sale,
+      id,
+      customerId: sale.customerId,
+      campaignId: sale.campaignId || null,
+      referralCode: sale.referralCode || null,
+      totalAmount: sale.totalAmount || 0,
+      pointsEarned: sale.pointsEarned || 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.sales.set(id, newSale);
+    return newSale;
+  }
+
+  async updateSale(id: string, updates: Partial<Sale>): Promise<Sale | undefined> {
+    const sale = this.sales.get(id);
+    if (!sale) return undefined;
+
+    const updatedSale = { ...sale, ...updates, updatedAt: new Date() };
+    this.sales.set(id, updatedSale);
+    return updatedSale;
+  }
+
+  // Sale Item operations
+  async getSaleItem(id: string): Promise<SaleItem | undefined> {
+    return this.saleItems.get(id);
+  }
+
+  async getSaleItemsBySale(saleId: string): Promise<SaleItem[]> {
+    return Array.from(this.saleItems.values()).filter(item => item.saleId === saleId);
+  }
+
+  async createSaleItem(saleItem: InsertSaleItem): Promise<SaleItem> {
+    const id = randomUUID();
+    const item: SaleItem = {
+      ...saleItem,
+      id,
+      saleId: saleItem.saleId,
+      productId: saleItem.productId,
+      quantity: saleItem.quantity,
+      price: saleItem.price,
+      pointsEarned: saleItem.pointsEarned || 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.saleItems.set(id, item);
+    return item;
+  }
+
+  async updateSaleItem(id: string, updates: Partial<SaleItem>): Promise<SaleItem | undefined> {
+    const item = this.saleItems.get(id);
+    if (!item) return undefined;
+
+    const updatedItem = { ...item, ...updates, updatedAt: new Date() };
+    this.saleItems.set(id, updatedItem);
+    return updatedItem;
   }
 }
 

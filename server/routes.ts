@@ -1382,6 +1382,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get product by code
+  app.get("/api/products/code/:code", requireAuth, async (req, res) => {
+    try {
+      const product = await storage.getProductByCode(req.params.code);
+      if (!product) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      res.json(product);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch product by code" });
+    }
+  });
+
   // Get active products
   app.get("/api/products/active", async (req, res) => {
     try {
