@@ -10,10 +10,7 @@ export default function POSIntegrationPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Header 
-        title="POS Integration" 
-        description="Connect your Point of Sale system to automatically sync customers and sales" 
-      />
+      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">POS Integration</h1>

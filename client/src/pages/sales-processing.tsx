@@ -69,10 +69,10 @@ export default function SalesProcessingPage() {
   });
 
   const previewPointsMutation = useMutation({
-    mutationFn: async (data: ProcessSale) => {
-      const response = await apiRequest("POST", "/api/sales/preview-points", data);
-      return await response.json() as PointPreview;
-    },
+    mutationFn: (data: ProcessSale) => apiRequest("/api/sales/preview-points", {
+      method: "POST",
+      body: JSON.stringify(data)
+    }),
     onSuccess: (data: PointPreview) => {
       setPointsPreview(data);
     },
@@ -86,14 +86,14 @@ export default function SalesProcessingPage() {
   });
 
   const processSaleMutation = useMutation({
-    mutationFn: async (data: ProcessSale) => {
-      const response = await apiRequest("POST", "/api/sales/process", data);
-      return await response.json();
-    },
-    onSuccess: (response: any) => {
+    mutationFn: (data: ProcessSale) => apiRequest("/api/sales/process", {
+      method: "POST",
+      body: JSON.stringify(data)
+    }),
+    onSuccess: (response) => {
       toast({
         title: "Success",
-        description: `Sale processed successfully! ${response.pointCalculation?.totalPoints || 0} points awarded.`
+        description: `Sale processed successfully! ${response.pointCalculation.totalPoints} points awarded.`
       });
       
       // Reset form
