@@ -10,7 +10,7 @@ import QuickActions from "@/components/dashboard/quick-actions";
 import CouponRedemption from "@/components/coupon-redemption";
 import IndustryWelcome from "@/components/industry-welcome";
 import { Button } from "@/components/ui/button";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Calculator, ShoppingCart, Store, Settings } from "lucide-react";
 
 export default function Dashboard() {
   return (
@@ -39,13 +39,53 @@ export default function Dashboard() {
           <IndustryWelcome />
           <StatsGrid />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <div className="space-y-6">
               <CouponRedemption />
             </div>
             <div className="space-y-6">
               <TopPerformers />
             </div>
+          </div>
+
+          {/* Quick Actions Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Link href="/points-setup">
+              <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center gap-2 hover:bg-blue-50 hover:border-blue-300 transition-colors">
+                <Calculator className="h-6 w-6 text-blue-600" />
+                <span className="font-medium">Points Setup</span>
+                <span className="text-xs text-gray-500">Configure point rules</span>
+              </Button>
+            </Link>
+            
+            <Link href="/sales-processing">
+              <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center gap-2 hover:bg-green-50 hover:border-green-300 transition-colors">
+                <ShoppingCart className="h-6 w-6 text-green-600" />
+                <span className="font-medium">Sales Processing</span>
+                <span className="text-xs text-gray-500">Process sales & points</span>
+              </Button>
+            </Link>
+            
+            <Link href="/pos-integration">
+              <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center gap-2 hover:bg-purple-50 hover:border-purple-300 transition-colors">
+                <Store className="h-6 w-6 text-purple-600" />
+                <span className="font-medium">POS Integration</span>
+                <span className="text-xs text-gray-500">Connect your POS</span>
+              </Button>
+            </Link>
+            
+            <Link href="/settings">
+              <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center gap-2 hover:bg-gray-50 hover:border-gray-300 transition-colors">
+                <Settings className="h-6 w-6 text-gray-600" />
+                <span className="font-medium">Settings</span>
+                <span className="text-xs text-gray-500">Manage your shop</span>
+              </Button>
+            </Link>
+          </div>
+
+          <div className="space-y-6">
+            <ActiveCampaigns />
+            <CouponManagement />
           </div>
         </div>
       </main>
