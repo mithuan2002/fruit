@@ -503,7 +503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Configure Interakt with current user's business info
         if (user?.whatsappBusinessNumber) {
           interaktService.configure({
-            apiKey: process.env.INTERAKT_API_KEY || '',
+            apiKey: process.env.INTERAKT_API_TOKEN || '',
             apiUrl: process.env.INTERAKT_API_URL || 'https://api.interakt.ai/v1',
             phoneNumber: user.whatsappBusinessNumber,
             businessName: shopName

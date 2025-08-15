@@ -38,11 +38,11 @@ class InteraktService {
 
   constructor() {
     // Auto-configure if environment variables are available
-    if (process.env.INTERAKT_API_KEY) {
+    if (process.env.INTERAKT_API_TOKEN) {
       this.configure({
-        apiKey: process.env.INTERAKT_API_KEY,
+        apiKey: process.env.INTERAKT_API_TOKEN,
         apiUrl: process.env.INTERAKT_API_URL || 'https://api.interakt.ai/v1',
-        phoneNumber: process.env.INTERAKT_PHONE_NUMBER || '',
+        phoneNumber: process.env.INTERAKT_BUSINESS_NUMBER || '',
         businessName: process.env.INTERAKT_BUSINESS_NAME || 'Your Business'
       });
     }
