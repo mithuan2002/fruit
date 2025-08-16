@@ -271,8 +271,9 @@ export default function WhatsAppCenter() {
             </Card>
           </div>
 
-          <Tabs defaultValue="configuration" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+          <Tabs defaultValue="automation" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="automation">Automation</TabsTrigger>
               <TabsTrigger value="configuration">Configuration</TabsTrigger>
               <TabsTrigger value="testing">Testing</TabsTrigger>
               <TabsTrigger value="broadcasting">Broadcasting</TabsTrigger>
