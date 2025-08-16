@@ -210,16 +210,62 @@ class InteraktService {
     return { total: phoneNumbers.length, sent, failed };
   }
 
-  // Create contact automatically by sending a message (Interakt's recommended approach)
+  // Create contact using Interakt's Contact API
   async createContact(phoneNumber: string, customerName: string, email?: string): Promise<InteraktResponse> {
-    console.log(`📞 Auto-creating contact for ${customerName} by sending welcome message`);
+    if (!this.isReady()) {
+      throw new Error('Interakt service not configured properly');
+    }
+
+    // Clean and format phone number
+    const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
+    const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
     
-    // Interakt creates contacts automatically when you send messages
-    // This is their recommended approach - no separate contact creation needed
-    return {
-      success: true,
-      messageId: 'auto_contact_creation'
-    };
+    console.log(`📞 Creating contact for ${customerName} (${formattedPhone}) in Interakt`);
+
+    try {
+      // First, try to create the contact using Interakt's contact creation API
+      const contactData = {
+        phoneNumber: formattedPhone,
+        countryCode: "91",
+        traits: {
+          name: customerName,
+          email: email || "",
+          phone: formattedPhone
+        }
+      };
+
+      console.log(`📤 Creating contact in Interakt:`, contactData);
+
+      const response = await axios.post(
+        `${this.apiUrl}/track/users/`,
+        contactData,
+        {
+          headers: {
+            'Authorization': `Basic ${this.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 15000
+        }
+      );
+
+      console.log('✅ Contact created successfully in Interakt:', response.status);
+      
+      return {
+        success: true,
+        messageId: response.data.id || 'contact_created'
+      };
+    } catch (error: any) {
+      console.error(`❌ Failed to create contact in Interakt:`, {
+        error: error.response?.data || error.message,
+        status: error.response?.status
+      });
+      
+      // If contact creation fails, return error
+      return {
+        success: false,
+        error: error.response?.data?.message || error.message || 'Failed to create contact'
+      };
+    }
   }
 
   // Get message delivery status

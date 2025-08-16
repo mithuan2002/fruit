@@ -512,8 +512,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log(`🔄 Starting COMPLETE automation flow for customer: ${customer.name} (${customer.phoneNumber})`);
 
-        // Send welcome message directly - Interakt creates contacts automatically
-        console.log(`💬 Sending welcome message to ${customer.phoneNumber}...`);
+        // Step 1: Create contact in Interakt first
+        console.log(`📞 Creating contact in Interakt for ${customer.phoneNumber}...`);
+        const contactResult = await interaktService.createContact(
+          customer.phoneNumber,
+          customer.name,
+          customer.email
+        );
+
+        if (!contactResult.success) {
+          console.error(`❌ Failed to create contact: ${contactResult.error}`);
+          await storage.createWhatsappMessage({
+            customerId: customer.id,
+            phoneNumber: customer.phoneNumber,
+            message: `❌ CONTACT CREATION FAILED: ${contactResult.error}`,
+            type: "welcome_ecoupon",
+            status: "failed"
+          });
+          
+          // Continue with customer creation but don't try to send message
+          return res.status(201).json({
+            customer,
+            referralCode,
+            message: `Customer created but WhatsApp contact creation failed: ${contactResult.error}`
+          });
+        }
+
+        console.log(`✅ Contact created successfully, now sending welcome message...`);
+
+        // Step 2: Send welcome message after contact is created
         const messageResult = await interaktService.sendWelcomeMessage(
           customer.phoneNumber,
           customer.name,
