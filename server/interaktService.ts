@@ -85,6 +85,7 @@ class InteraktService {
       const response = await axios.post(
         `${this.apiUrl}/track/events/`,
         {
+          event: 'text_message',
           phoneNumber: message.to.replace('+', ''),
           countryCode: message.to.substring(0, 3),
           callbackData: 'fruitbox_message',
@@ -99,15 +100,16 @@ class InteraktService {
         }
       );
 
+      console.log('✅ Interakt message sent successfully:', response.data);
       return {
         success: true,
-        messageId: response.data.messages?.[0]?.id || 'unknown'
+        messageId: response.data.id || response.data.messageId || 'unknown'
       };
     } catch (error: any) {
       console.error('❌ Failed to send Interakt message:', error.response?.data || error.message);
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message
+        error: error.response?.data?.message || error.response?.data?.error || error.message
       };
     }
   }
