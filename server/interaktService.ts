@@ -106,10 +106,21 @@ class InteraktService {
         messageId: response.data.id || response.data.messageId || 'unknown'
       };
     } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+      
+      // Check for specific error about phone number not existing
+      if (errorMessage && errorMessage.includes("phoneNumber doesn't exists")) {
+        console.error(`❌ Phone number ${message.to} not registered in Interakt. Please add this contact to your Interakt dashboard first.`);
+        return {
+          success: false,
+          error: `Phone number ${message.to} needs to be added to your Interakt contact list first. Please log into your Interakt dashboard and add this contact.`
+        };
+      }
+      
       console.error('❌ Failed to send Interakt message:', error.response?.data || error.message);
       return {
         success: false,
-        error: error.response?.data?.message || error.response?.data?.error || error.message
+        error: errorMessage
       };
     }
   }
