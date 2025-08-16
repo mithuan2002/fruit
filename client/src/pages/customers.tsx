@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Phone, Star, TrendingUp, Users, Eye, Copy, Search, Gift } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Phone, Star, TrendingUp, Users, Eye, Copy, Search, Gift, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/layout/header";
@@ -13,6 +14,8 @@ import CustomerAddForm from "@/components/customer-add-form";
 import ECouponCard from "@/components/e-coupon-card";
 import type { Customer, Coupon } from "@shared/schema";
 import { Input } from "@/components/ui/input";
+import { apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 
 export default function Customers() {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -38,6 +41,38 @@ export default function Customers() {
       title: "Copied!",
       description: "Code copied to clipboard",
     });
+  };
+
+  // Delete customer mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (customerId: string) => {
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete customer');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Success",
+        description: "Customer deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete customer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteCustomer = (customerId: string) => {
+    deleteMutation.mutate(customerId);
   };
 
   if (isLoading) {
@@ -150,17 +185,19 @@ export default function Customers() {
                             </Badge>
                           )}
 
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setSelectedCustomer(customer)}
-                              >
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Details
-                              </Button>
-                            </DialogTrigger>
+                          <div className="flex items-center space-x-2">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setSelectedCustomer(customer)}
+                                  data-testid={`button-view-details-${customer.id}`}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Details
+                                </Button>
+                              </DialogTrigger>
                             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                               <DialogHeader>
                                 <DialogTitle>Customer Details</DialogTitle>
@@ -240,6 +277,38 @@ export default function Customers() {
                               </div>
                             </DialogContent>
                           </Dialog>
+                          
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:text-red-700 hover:border-red-300"
+                                data-testid={`button-delete-${customer.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete <strong>{customer.name}</strong>? This action cannot be undone and will remove all their referral data.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteCustomer(customer.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                  data-testid={`button-confirm-delete-${customer.id}`}
+                                >
+                                  Delete Customer
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                         </div>
                       </div>
                     </div>

@@ -31,7 +31,7 @@ export interface InteraktResponse {
 
 class InteraktService {
   private apiKey: string = '';
-  private apiUrl: string = 'https://api.interakt.ai/v1';
+  private apiUrl: string = 'https://api.interakt.ai/v1/public';
   private phoneNumber: string = '';
   private businessName: string = '';
   private isConfigured: boolean = false;
@@ -41,7 +41,7 @@ class InteraktService {
     if (process.env.INTERAKT_API_TOKEN) {
       this.configure({
         apiKey: process.env.INTERAKT_API_TOKEN,
-        apiUrl: process.env.INTERAKT_API_URL || 'https://api.interakt.ai/v1',
+        apiUrl: process.env.INTERAKT_API_URL || 'https://api.interakt.ai/v1/public',
         phoneNumber: process.env.INTERAKT_BUSINESS_NUMBER || '',
         businessName: process.env.INTERAKT_BUSINESS_NAME || 'Your Business'
       });
@@ -83,17 +83,17 @@ class InteraktService {
 
     try {
       const response = await axios.post(
-        `${this.apiUrl}/messages`,
+        `${this.apiUrl}/track/events/`,
         {
-          messaging_product: 'whatsapp',
-          to: message.to,
-          type: message.type,
-          ...(message.text && { text: message.text }),
-          ...(message.template && { template: message.template })
+          phoneNumber: message.to.replace('+', ''),
+          countryCode: message.to.substring(0, 3),
+          callbackData: 'fruitbox_message',
+          type: 'Text',
+          message: message.text?.body || 'Hello from Fruitbox!'
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            'Authorization': `Basic ${this.apiKey}`,
             'Content-Type': 'application/json'
           }
         }

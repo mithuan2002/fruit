@@ -504,7 +504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (user?.whatsappBusinessNumber) {
           interaktService.configure({
             apiKey: process.env.INTERAKT_API_TOKEN || '',
-            apiUrl: process.env.INTERAKT_API_URL || 'https://api.interakt.ai/v1',
+            apiUrl: process.env.INTERAKT_API_URL || 'https://api.interakt.ai/v1/public',
             phoneNumber: user.whatsappBusinessNumber,
             businessName: shopName
           });
@@ -583,6 +583,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(customer);
     } catch (error) {
       res.status(500).json({ message: "Failed to update customer" });
+    }
+  });
+
+  // Delete customer
+  app.delete("/api/customers/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteCustomer(req.params.id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      res.json({ message: "Customer deleted successfully" });
+    } catch (error) {
+      console.error("Failed to delete customer:", error);
+      res.status(500).json({ message: "Failed to delete customer" });
     }
   });
 
