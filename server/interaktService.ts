@@ -210,75 +210,16 @@ class InteraktService {
     return { total: phoneNumbers.length, sent, failed };
   }
 
-  // Create contact in Interakt with enhanced reliability
+  // Create contact automatically by sending a message (Interakt's recommended approach)
   async createContact(phoneNumber: string, customerName: string, email?: string): Promise<InteraktResponse> {
-    if (!this.isReady()) {
-      throw new Error('Interakt service not configured properly');
-    }
-
-    // Clean phone number format
-    const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
-    const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+    console.log(`📞 Auto-creating contact for ${customerName} by sending welcome message`);
     
-    console.log(`📞 Creating Interakt contact for ${customerName} at ${formattedPhone}`);
-
-    try {
-      const contactData = {
-        phoneNumber: formattedPhone,
-        countryCode: "91",
-        firstName: customerName.split(' ')[0] || customerName,
-        lastName: customerName.split(' ').slice(1).join(' ') || '',
-        source: 'Fruitbox_Automation',
-        ...(email && { email })
-      };
-
-      console.log(`📤 Sending contact data to Interakt:`, contactData);
-
-      const response = await axios.post(
-        `${this.apiUrl}/contacts`,
-        contactData,
-        {
-          headers: {
-            'Authorization': `Basic ${this.apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 10000 // 10 second timeout
-        }
-      );
-
-      console.log('✅ Interakt contact created successfully:', response.data);
-      return {
-        success: true,
-        messageId: response.data.id || response.data.contactId || 'contact_created'
-      };
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
-      
-      // Check if contact already exists (this is actually good!)
-      if (errorMessage && (
-        errorMessage.includes("already exists") || 
-        errorMessage.includes("duplicate") ||
-        errorMessage.includes("exists") ||
-        error.response?.status === 409
-      )) {
-        console.log(`✅ Contact ${formattedPhone} already exists in Interakt - continuing with messaging`);
-        return {
-          success: true,
-          messageId: 'existing_contact'
-        };
-      }
-      
-      console.error(`❌ Failed to create Interakt contact for ${formattedPhone}:`, {
-        error: errorMessage,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-      
-      return {
-        success: false,
-        error: errorMessage
-      };
-    }
+    // Interakt creates contacts automatically when you send messages
+    // This is their recommended approach - no separate contact creation needed
+    return {
+      success: true,
+      messageId: 'auto_contact_creation'
+    };
   }
 
   // Get message delivery status

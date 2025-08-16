@@ -512,78 +512,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log(`🔄 Starting COMPLETE automation flow for customer: ${customer.name} (${customer.phoneNumber})`);
 
-        // Step 1: Automatically create contact in Interakt (MANDATORY)
-        console.log(`📞 Creating contact in Interakt for ${customer.phoneNumber}...`);
-        const contactResult = await interaktService.createContact(
+        // Send welcome message directly - Interakt creates contacts automatically
+        console.log(`💬 Sending welcome message to ${customer.phoneNumber}...`);
+        const messageResult = await interaktService.sendWelcomeMessage(
           customer.phoneNumber,
           customer.name,
-          customer.email || undefined
+          referralCode,
+          referralCode
         );
 
-        if (contactResult.success) {
-          console.log(`✅ Contact successfully created/verified in Interakt for ${customer.name}`);
-          
-          // Step 2: Wait a moment for Interakt to process the contact
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Step 3: Send welcome message with e-coupon
-          console.log(`💬 Sending welcome message to ${customer.phoneNumber}...`);
-          const messageResult = await interaktService.sendWelcomeMessage(
-            customer.phoneNumber,
-            customer.name,
-            referralCode,
-            referralCode
-          );
-
-          if (messageResult.success) {
-            await storage.createWhatsappMessage({
-              customerId: customer.id,
-              phoneNumber: customer.phoneNumber,
-              message: `✅ AUTOMATION SUCCESS: Contact created & welcome e-coupon sent - Shop: ${shopName}, Customer: ${customer.name}, Code: ${referralCode}`,
-              type: "welcome_ecoupon",
-              status: "sent"
-            });
-            console.log(`🎉 AUTOMATION COMPLETED SUCCESSFULLY for ${customer.name} - Message sent!`);
-          } else {
-            console.error(`❌ Message sending failed: ${messageResult.error}`);
-            
-            // Try one more time after another delay
-            console.log(`🔄 Retrying message send for ${customer.phoneNumber}...`);
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            
-            const retryResult = await interaktService.sendWelcomeMessage(
-              customer.phoneNumber,
-              customer.name,
-              referralCode,
-              referralCode
-            );
-            
-            if (retryResult.success) {
-              await storage.createWhatsappMessage({
-                customerId: customer.id,
-                phoneNumber: customer.phoneNumber,
-                message: `✅ AUTOMATION SUCCESS (retry): Contact created & welcome e-coupon sent - Shop: ${shopName}, Customer: ${customer.name}, Code: ${referralCode}`,
-                type: "welcome_ecoupon",
-                status: "sent"
-              });
-              console.log(`🎉 AUTOMATION COMPLETED ON RETRY for ${customer.name} - Message sent!`);
-            } else {
-              await storage.createWhatsappMessage({
-                customerId: customer.id,
-                phoneNumber: customer.phoneNumber,
-                message: `❌ AUTOMATION PARTIAL: Contact created but message failed after retry - Error: ${retryResult.error}`,
-                type: "welcome_ecoupon",
-                status: "failed"
-              });
-              console.error(`❌ Message still failed after retry: ${retryResult.error}`);
-            }
-          }
-        } else {
-          console.error(`❌ Failed to create contact in Interakt: ${contactResult.error}`);
+        if (messageResult.success) {
           await storage.createWhatsappMessage({
             customerId: customer.id,
             phoneNumber: customer.phoneNumber,
-            message: `❌ AUTOMATION FAILED: Could not create contact in Interakt - Error: ${contactResult.error}`,
+            message: `✅ AUTOMATION SUCCESS: Welcome e-coupon sent - Shop: ${shopName}, Customer: ${customer.name}, Code: ${referralCode}`,
+            type: "welcome_ecoupon",
+            status: "sent"
+          });
+          console.log(`🎉 AUTOMATION COMPLETED SUCCESSFULLY for ${customer.name} - Message sent!`);
+        } else {
+          console.error(`❌ Message sending failed: ${messageResult.error}`);
+          
+          await storage.createWhatsappMessage({
+            customerId: customer.id,
+            phoneNumber: customer.phoneNumber,
+            message: `❌ AUTOMATION FAILED: ${messageResult.error}`,
             type: "welcome_ecoupon",
             status: "failed"
           });
@@ -796,47 +749,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      let created = 0;
-      let existing = 0;
+      let sent = 0;
       let failed = 0;
 
-      console.log(`🔄 Starting batch sync for ${customers.length} customers`);
+      console.log(`🔄 Starting batch message send for ${customers.length} customers`);
 
       for (const customer of customers) {
         try {
-          const result = await interaktService.createContact(
+          const message = `🎉 Welcome to ${shopName}!\n\nYour referral code: *${customer.referralCode || 'WELCOME'}*\n\nThank you for being our valued customer! 💝`;
+          
+          const result = await interaktService.sendTextMessage(
             customer.phoneNumber,
-            customer.name,
-            customer.email || undefined
+            message
           );
 
           if (result.success) {
-            if (result.messageId === 'existing_contact') {
-              existing++;
-            } else {
-              created++;
-            }
+            sent++;
+            console.log(`✅ Message sent to ${customer.name}`);
           } else {
             failed++;
+            console.error(`❌ Failed to send message to ${customer.name}: ${result.error}`);
           }
 
           // Add delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (error) {
-          console.error(`Failed to sync customer ${customer.name}:`, error);
+          console.error(`Failed to message customer ${customer.name}:`, error);
           failed++;
         }
       }
 
-      console.log(`✅ Batch sync completed: ${created} created, ${existing} existing, ${failed} failed`);
+      console.log(`✅ Batch messaging completed: ${sent} sent, ${failed} failed`);
 
       res.json({
         success: true,
         total: customers.length,
-        created,
-        existing,
+        sent,
         failed,
-        message: `Sync completed: ${created} contacts created, ${existing} already existed, ${failed} failed`
+        message: `Messaging completed: ${sent} messages sent, ${failed} failed`
       });
     } catch (error) {
       console.error("Failed to sync contacts:", error);
