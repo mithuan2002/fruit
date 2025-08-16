@@ -188,6 +188,56 @@ class InteraktService {
     return { total: phoneNumbers.length, sent, failed };
   }
 
+  // Create contact in Interakt
+  async createContact(phoneNumber: string, customerName: string, email?: string): Promise<InteraktResponse> {
+    if (!this.isReady()) {
+      throw new Error('Interakt service not configured properly');
+    }
+
+    try {
+      const response = await axios.post(
+        `${this.apiUrl}/contacts`,
+        {
+          phoneNumber: phoneNumber.replace('+', ''),
+          countryCode: phoneNumber.substring(0, 3),
+          firstName: customerName.split(' ')[0] || customerName,
+          lastName: customerName.split(' ').slice(1).join(' ') || '',
+          email: email || undefined,
+          source: 'Fruitbox_Automation'
+        },
+        {
+          headers: {
+            'Authorization': `Basic ${this.apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('✅ Interakt contact created successfully:', response.data);
+      return {
+        success: true,
+        messageId: response.data.id || response.data.contactId || 'unknown'
+      };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
+      
+      // Check if contact already exists
+      if (errorMessage && (errorMessage.includes("already exists") || errorMessage.includes("duplicate"))) {
+        console.log(`ℹ️ Contact ${phoneNumber} already exists in Interakt`);
+        return {
+          success: true,
+          messageId: 'existing_contact'
+        };
+      }
+      
+      console.error('❌ Failed to create Interakt contact:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  }
+
   // Get message delivery status
   async getMessageStatus(messageId: string): Promise<any> {
     if (!this.isReady()) {

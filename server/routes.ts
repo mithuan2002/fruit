@@ -494,7 +494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // No separate coupon creation - referral code IS the coupon code
 
-      // Send welcome message via Interakt with personalized e-coupon
+      // Automation Flow: Create contact in Interakt and send welcome message
       try {
         // Get user info from session to personalize the message
         const user = (req as any).session?.user;
@@ -510,22 +510,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        await interaktService.sendWelcomeMessage(
+        console.log(`🔄 Starting automation flow for customer: ${customer.name} (${customer.phoneNumber})`);
+
+        // Step 1: Automatically create contact in Interakt
+        const contactResult = await interaktService.createContact(
           customer.phoneNumber,
           customer.name,
-          referralCode,
-          referralCode // Same code for both referral and coupon
+          customer.email || undefined
         );
 
+        if (contactResult.success) {
+          console.log(`✅ Contact created in Interakt for ${customer.name}`);
+          
+          // Step 2: Send welcome message with e-coupon
+          const messageResult = await interaktService.sendWelcomeMessage(
+            customer.phoneNumber,
+            customer.name,
+            referralCode,
+            referralCode // Same code for both referral and coupon
+          );
+
+          if (messageResult.success) {
+            await storage.createWhatsappMessage({
+              customerId: customer.id,
+              phoneNumber: customer.phoneNumber,
+              message: `Automation: Contact created & welcome e-coupon sent - Shop: ${shopName}, Customer: ${customer.name}, Code: ${referralCode}`,
+              type: "welcome_ecoupon",
+              status: "sent"
+            });
+            console.log(`✅ Automation completed successfully for ${customer.name}`);
+          } else {
+            console.error(`❌ Failed to send welcome message: ${messageResult.error}`);
+            await storage.createWhatsappMessage({
+              customerId: customer.id,
+              phoneNumber: customer.phoneNumber,
+              message: `Automation: Contact created but message failed - Error: ${messageResult.error}`,
+              type: "welcome_ecoupon",
+              status: "failed"
+            });
+          }
+        } else {
+          console.error(`❌ Failed to create contact in Interakt: ${contactResult.error}`);
+          await storage.createWhatsappMessage({
+            customerId: customer.id,
+            phoneNumber: customer.phoneNumber,
+            message: `Automation failed: Could not create contact in Interakt - Error: ${contactResult.error}`,
+            type: "welcome_ecoupon",
+            status: "failed"
+          });
+        }
+      } catch (error) {
+        console.error("❌ Automation flow failed:", error);
         await storage.createWhatsappMessage({
           customerId: customer.id,
           phoneNumber: customer.phoneNumber,
-          message: `Welcome e-coupon sent: Shop: ${shopName}, Customer: ${customer.name}, Code: ${referralCode}`,
+          message: `Automation flow error: ${error instanceof Error ? error.message : 'Unknown error'}`,
           type: "welcome_ecoupon",
-          status: "sent"
+          status: "failed"
         });
-      } catch (error) {
-        console.error("Failed to send welcome e-coupon message:", error);
       }
 
       res.status(201).json({
@@ -700,6 +742,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to send campaign messages:", error);
       res.status(500).json({ error: "Failed to send campaign messages" });
+    }
+  });
+
+  // Batch automation: Create all existing customers as contacts in Interakt
+  app.post("/api/interakt/sync-contacts", requireAuth, async (req, res) => {
+    try {
+      const customers = await storage.getAllCustomers();
+      
+      if (customers.length === 0) {
+        return res.status(400).json({ message: "No customers found to sync" });
+      }
+
+      // Get user info for configuration
+      const user = (req as any).session?.user;
+      const shopName = user?.shopName || 'Our Store';
+      
+      if (user?.whatsappBusinessNumber) {
+        interaktService.configure({
+          apiKey: process.env.INTERAKT_API_TOKEN || '',
+          apiUrl: process.env.INTERAKT_API_URL || 'https://api.interakt.ai/v1/public',
+          phoneNumber: user.whatsappBusinessNumber,
+          businessName: shopName
+        });
+      }
+
+      let created = 0;
+      let existing = 0;
+      let failed = 0;
+
+      console.log(`🔄 Starting batch sync for ${customers.length} customers`);
+
+      for (const customer of customers) {
+        try {
+          const result = await interaktService.createContact(
+            customer.phoneNumber,
+            customer.name,
+            customer.email || undefined
+          );
+
+          if (result.success) {
+            if (result.messageId === 'existing_contact') {
+              existing++;
+            } else {
+              created++;
+            }
+          } else {
+            failed++;
+          }
+
+          // Add delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } catch (error) {
+          console.error(`Failed to sync customer ${customer.name}:`, error);
+          failed++;
+        }
+      }
+
+      console.log(`✅ Batch sync completed: ${created} created, ${existing} existing, ${failed} failed`);
+
+      res.json({
+        success: true,
+        total: customers.length,
+        created,
+        existing,
+        failed,
+        message: `Sync completed: ${created} contacts created, ${existing} already existed, ${failed} failed`
+      });
+    } catch (error) {
+      console.error("Failed to sync contacts:", error);
+      res.status(500).json({ message: "Failed to sync contacts to Interakt" });
     }
   });
 

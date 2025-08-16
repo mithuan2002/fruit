@@ -22,7 +22,10 @@ import {
   RefreshCw,
   Phone,
   Key,
-  Building2
+  Building2,
+  Zap,
+  Upload,
+  Loader2
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -141,6 +144,28 @@ export default function WhatsAppCenter() {
     },
   });
 
+  // Sync contacts with Interakt
+  const syncContacts = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/interakt/sync-contacts");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Contacts Synced",
+        description: `Successfully synced ${data.synced} contacts to Interakt.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] }); // Invalidate customers to reflect sync status if needed
+    },
+    onError: () => {
+      toast({
+        title: "Sync Failed",
+        description: "Failed to sync contacts with Interakt. Please check your configuration and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleConfigSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     configureInterakt.mutate(config);
@@ -253,6 +278,65 @@ export default function WhatsAppCenter() {
               <TabsTrigger value="broadcasting">Broadcasting</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
+
+            {/* Automation Section */}
+            <TabsContent value="automation">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5" />
+                    Automation
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg border">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-green-100 rounded-lg">
+                        <Zap className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900">Automation Active</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          New customers automatically get added to Interakt contacts and receive welcome messages with e-coupons
+                        </p>
+                        <div className="flex items-center gap-2 mt-3">
+                          <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            Auto-configured
+                          </Badge>
+                          <Badge variant="outline" className="border-blue-200 text-blue-700">
+                            E-coupon included
+                          </Badge>
+                        </div>
+                        <div className="mt-4">
+                          <Button 
+                            onClick={() => syncContacts.mutate()} 
+                            disabled={syncContacts.isPending}
+                            variant="outline"
+                            size="sm"
+                            className="bg-white"
+                          >
+                            {syncContacts.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Syncing...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-4 h-4 mr-2" />
+                                Sync Existing Customers
+                              </>
+                            )}
+                          </Button>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Add all existing customers to Interakt contacts
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* Configuration Tab */}
             <TabsContent value="configuration">
