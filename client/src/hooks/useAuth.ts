@@ -40,10 +40,13 @@ export function useAuth() {
       return await response.json();
     },
     retry: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 30, // 30 minutes (increased from 5)
+    gcTime: 1000 * 60 * 60, // 1 hour in cache
     refetchOnWindowFocus: false,
-    refetchOnMount: true, // Only check once on mount
+    refetchOnMount: "always", // Ensure it only runs once per mount
     refetchInterval: false,
+    refetchOnReconnect: false,
+    enabled: true, // Only fetch when needed
   });
 
   const loginMutation = useMutation({

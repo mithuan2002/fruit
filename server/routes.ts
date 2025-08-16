@@ -517,7 +517,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const contactResult = await interaktService.createContact(
           customer.phoneNumber,
           customer.name,
-          customer.email
+          customer.email || undefined
         );
 
         if (!contactResult.success) {
