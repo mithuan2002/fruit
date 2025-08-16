@@ -494,7 +494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // No separate coupon creation - referral code IS the coupon code
 
-      // Automation Flow: Create contact in Interakt and send welcome message
+      // 🚀 COMPLETE AUTOMATION FLOW: Contact Creation + Messaging
       try {
         // Get user info from session to personalize the message
         const user = (req as any).session?.user;
@@ -510,9 +510,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        console.log(`🔄 Starting automation flow for customer: ${customer.name} (${customer.phoneNumber})`);
+        console.log(`🔄 Starting COMPLETE automation flow for customer: ${customer.name} (${customer.phoneNumber})`);
 
-        // Step 1: Automatically create contact in Interakt
+        // Step 1: Automatically create contact in Interakt (MANDATORY)
+        console.log(`📞 Creating contact in Interakt for ${customer.phoneNumber}...`);
         const contactResult = await interaktService.createContact(
           customer.phoneNumber,
           customer.name,
@@ -520,51 +521,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
 
         if (contactResult.success) {
-          console.log(`✅ Contact created in Interakt for ${customer.name}`);
+          console.log(`✅ Contact successfully created/verified in Interakt for ${customer.name}`);
           
-          // Step 2: Send welcome message with e-coupon
+          // Step 2: Wait a moment for Interakt to process the contact
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Step 3: Send welcome message with e-coupon
+          console.log(`💬 Sending welcome message to ${customer.phoneNumber}...`);
           const messageResult = await interaktService.sendWelcomeMessage(
             customer.phoneNumber,
             customer.name,
             referralCode,
-            referralCode // Same code for both referral and coupon
+            referralCode
           );
 
           if (messageResult.success) {
             await storage.createWhatsappMessage({
               customerId: customer.id,
               phoneNumber: customer.phoneNumber,
-              message: `Automation: Contact created & welcome e-coupon sent - Shop: ${shopName}, Customer: ${customer.name}, Code: ${referralCode}`,
+              message: `✅ AUTOMATION SUCCESS: Contact created & welcome e-coupon sent - Shop: ${shopName}, Customer: ${customer.name}, Code: ${referralCode}`,
               type: "welcome_ecoupon",
               status: "sent"
             });
-            console.log(`✅ Automation completed successfully for ${customer.name}`);
+            console.log(`🎉 AUTOMATION COMPLETED SUCCESSFULLY for ${customer.name} - Message sent!`);
           } else {
-            console.error(`❌ Failed to send welcome message: ${messageResult.error}`);
-            await storage.createWhatsappMessage({
-              customerId: customer.id,
-              phoneNumber: customer.phoneNumber,
-              message: `Automation: Contact created but message failed - Error: ${messageResult.error}`,
-              type: "welcome_ecoupon",
-              status: "failed"
-            });
+            console.error(`❌ Message sending failed: ${messageResult.error}`);
+            
+            // Try one more time after another delay
+            console.log(`🔄 Retrying message send for ${customer.phoneNumber}...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            
+            const retryResult = await interaktService.sendWelcomeMessage(
+              customer.phoneNumber,
+              customer.name,
+              referralCode,
+              referralCode
+            );
+            
+            if (retryResult.success) {
+              await storage.createWhatsappMessage({
+                customerId: customer.id,
+                phoneNumber: customer.phoneNumber,
+                message: `✅ AUTOMATION SUCCESS (retry): Contact created & welcome e-coupon sent - Shop: ${shopName}, Customer: ${customer.name}, Code: ${referralCode}`,
+                type: "welcome_ecoupon",
+                status: "sent"
+              });
+              console.log(`🎉 AUTOMATION COMPLETED ON RETRY for ${customer.name} - Message sent!`);
+            } else {
+              await storage.createWhatsappMessage({
+                customerId: customer.id,
+                phoneNumber: customer.phoneNumber,
+                message: `❌ AUTOMATION PARTIAL: Contact created but message failed after retry - Error: ${retryResult.error}`,
+                type: "welcome_ecoupon",
+                status: "failed"
+              });
+              console.error(`❌ Message still failed after retry: ${retryResult.error}`);
+            }
           }
         } else {
           console.error(`❌ Failed to create contact in Interakt: ${contactResult.error}`);
           await storage.createWhatsappMessage({
             customerId: customer.id,
             phoneNumber: customer.phoneNumber,
-            message: `Automation failed: Could not create contact in Interakt - Error: ${contactResult.error}`,
+            message: `❌ AUTOMATION FAILED: Could not create contact in Interakt - Error: ${contactResult.error}`,
             type: "welcome_ecoupon",
             status: "failed"
           });
         }
       } catch (error) {
-        console.error("❌ Automation flow failed:", error);
+        console.error("❌ Complete automation flow failed:", error);
         await storage.createWhatsappMessage({
           customerId: customer.id,
           phoneNumber: customer.phoneNumber,
-          message: `Automation flow error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          message: `❌ AUTOMATION ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`,
           type: "welcome_ecoupon",
           status: "failed"
         });

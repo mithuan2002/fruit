@@ -81,46 +81,68 @@ class InteraktService {
       throw new Error('Interakt service not configured properly');
     }
 
+    // Enhanced phone number cleaning and formatting
+    const cleanPhone = message.to.replace(/[^\d]/g, '');
+    const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+    
+    console.log(`💬 Sending message to ${formattedPhone}: ${message.text?.body?.substring(0, 50)}...`);
+
     try {
+      const messageData = {
+        event: 'text_message',
+        phoneNumber: formattedPhone,
+        countryCode: "91",
+        callbackData: 'fruitbox_message',
+        type: 'Text',
+        message: message.text?.body || 'Hello from Fruitbox!'
+      };
+
+      console.log(`📤 Sending message data to Interakt:`, {
+        ...messageData,
+        message: messageData.message.substring(0, 100) + '...'
+      });
+
       const response = await axios.post(
         `${this.apiUrl}/track/events/`,
-        {
-          event: 'text_message',
-          phoneNumber: message.to.replace('+', ''),
-          countryCode: message.to.substring(0, 3),
-          callbackData: 'fruitbox_message',
-          type: 'Text',
-          message: message.text?.body || 'Hello from Fruitbox!'
-        },
+        messageData,
         {
           headers: {
             'Authorization': `Basic ${this.apiKey}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 15000 // 15 second timeout
         }
       );
 
-      console.log('✅ Interakt message sent successfully:', response.data);
+      console.log('✅ Interakt message sent successfully:', {
+        messageId: response.data.id || response.data.messageId,
+        status: response.status
+      });
+      
       return {
         success: true,
-        messageId: response.data.id || response.data.messageId || 'unknown'
+        messageId: response.data.id || response.data.messageId || 'message_sent'
       };
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
       
+      console.error(`❌ Failed to send message to ${formattedPhone}:`, {
+        error: errorMessage,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
       // Check for specific error about phone number not existing
       if (errorMessage && errorMessage.includes("phoneNumber doesn't exists")) {
-        console.error(`❌ Phone number ${message.to} not registered in Interakt. Please add this contact to your Interakt dashboard first.`);
         return {
           success: false,
-          error: `Phone number ${message.to} needs to be added to your Interakt contact list first. Please log into your Interakt dashboard and add this contact.`
+          error: `Phone number ${formattedPhone} not found in Interakt contacts. Contact creation may have failed.`
         };
       }
       
-      console.error('❌ Failed to send Interakt message:', error.response?.data || error.message);
       return {
         success: false,
-        error: errorMessage
+        error: errorMessage || 'Unknown error occurred'
       };
     }
   }
@@ -188,49 +210,70 @@ class InteraktService {
     return { total: phoneNumbers.length, sent, failed };
   }
 
-  // Create contact in Interakt
+  // Create contact in Interakt with enhanced reliability
   async createContact(phoneNumber: string, customerName: string, email?: string): Promise<InteraktResponse> {
     if (!this.isReady()) {
       throw new Error('Interakt service not configured properly');
     }
 
+    // Clean phone number format
+    const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
+    const formattedPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`;
+    
+    console.log(`📞 Creating Interakt contact for ${customerName} at ${formattedPhone}`);
+
     try {
+      const contactData = {
+        phoneNumber: formattedPhone,
+        countryCode: "91",
+        firstName: customerName.split(' ')[0] || customerName,
+        lastName: customerName.split(' ').slice(1).join(' ') || '',
+        source: 'Fruitbox_Automation',
+        ...(email && { email })
+      };
+
+      console.log(`📤 Sending contact data to Interakt:`, contactData);
+
       const response = await axios.post(
         `${this.apiUrl}/contacts`,
-        {
-          phoneNumber: phoneNumber.replace('+', ''),
-          countryCode: phoneNumber.substring(0, 3),
-          firstName: customerName.split(' ')[0] || customerName,
-          lastName: customerName.split(' ').slice(1).join(' ') || '',
-          email: email || undefined,
-          source: 'Fruitbox_Automation'
-        },
+        contactData,
         {
           headers: {
             'Authorization': `Basic ${this.apiKey}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 10000 // 10 second timeout
         }
       );
 
       console.log('✅ Interakt contact created successfully:', response.data);
       return {
         success: true,
-        messageId: response.data.id || response.data.contactId || 'unknown'
+        messageId: response.data.id || response.data.contactId || 'contact_created'
       };
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message;
       
-      // Check if contact already exists
-      if (errorMessage && (errorMessage.includes("already exists") || errorMessage.includes("duplicate"))) {
-        console.log(`ℹ️ Contact ${phoneNumber} already exists in Interakt`);
+      // Check if contact already exists (this is actually good!)
+      if (errorMessage && (
+        errorMessage.includes("already exists") || 
+        errorMessage.includes("duplicate") ||
+        errorMessage.includes("exists") ||
+        error.response?.status === 409
+      )) {
+        console.log(`✅ Contact ${formattedPhone} already exists in Interakt - continuing with messaging`);
         return {
           success: true,
           messageId: 'existing_contact'
         };
       }
       
-      console.error('❌ Failed to create Interakt contact:', error.response?.data || error.message);
+      console.error(`❌ Failed to create Interakt contact for ${formattedPhone}:`, {
+        error: errorMessage,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      
       return {
         success: false,
         error: errorMessage
