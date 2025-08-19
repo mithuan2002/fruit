@@ -10,9 +10,9 @@ import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
 import PointsSetup from "@/pages/points-setup";
 import Reports from "@/pages/reports";
-import WhatsAppCenter from "@/pages/whatsapp-center";
 import POSIntegration from "@/pages/pos-integration";
-import WhatsAppSetupGuide from "@/pages/whatsapp-setup-guide";
+import CustomerRegistration from "@/pages/customer-registration";
+import QRGenerator from "@/pages/qr-generator";
 import DashboardSetupGuide from "@/pages/dashboard-setup-guide";
 import CampaignsSetupGuide from "@/pages/campaigns-setup-guide";
 import CustomersSetupGuide from "@/pages/customers-setup-guide";
@@ -56,10 +56,9 @@ function Router() {
             <Route path="/customers" component={Customers} />
             <Route path="/points-setup" component={PointsSetup} />
             <Route path="/reports" component={Reports} />
-            <Route path="/whatsapp-center" component={WhatsAppCenter} />
             <Route path="/pos-integration" component={POSIntegration} />
+            <Route path="/qr-generator" component={QRGenerator} />
             <Route path="/settings" component={Settings} />
-            <Route path="/whatsapp-setup-guide" component={WhatsAppSetupGuide} />
             <Route path="/dashboard-setup-guide" component={DashboardSetupGuide} />
             <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />
             <Route path="/customers-setup-guide" component={CustomersSetupGuide} />
@@ -73,10 +72,11 @@ function Router() {
     );
   }
 
-  // If not authenticated, show public routes (landing page and auth)
+  // If not authenticated, show public routes (landing page, auth, and customer registration)
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/register" component={CustomerRegistration} />
       <Route path="/auth" component={Auth} />
       <Route component={Landing} />
     </Switch>

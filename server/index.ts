@@ -1,5 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import { setupRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 // Enhanced logging utility
@@ -108,7 +108,7 @@ app.use((req: any, res, next) => {
     });
 
     logger.info("Registering routes...");
-    const server = await registerRoutes(app);
+    const server = setupRoutes(app);
     logger.info("Routes registered successfully");
 
     app.use((err: any, req: any, res: Response, _next: NextFunction) => {
