@@ -137,9 +137,9 @@ export function useAuth() {
   });
 
   return {
-    user: user?.user || null,
+    user: user || null,
     isLoading,
-    isAuthenticated: !!user?.user,
+    isAuthenticated: !!user,
     login: loginMutation.mutateAsync,
     register: registerMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,
