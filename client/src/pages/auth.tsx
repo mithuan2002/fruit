@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +12,20 @@ import { Loader2, Gift, Shield, TrendingUp, Users } from "lucide-react";
 export default function Auth() {
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [registerForm, setRegisterForm] = useState({ username: "", password: "", confirmPassword: "" });
-  const { login, register, isLoggingIn, isRegistering } = useAuth();
+  const { login, register, isLoggingIn, isRegistering, isAuthenticated, user } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (!user.isOnboarded) {
+        setLocation('/onboarding');
+      } else {
+        setLocation('/dashboard');
+      }
+    }
+  }, [isAuthenticated, user, setLocation]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

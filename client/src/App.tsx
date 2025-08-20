@@ -72,12 +72,13 @@ function Router() {
     );
   }
 
-  // If not authenticated, show public routes (landing page, auth, and customer registration)
+  // If not authenticated, show public routes (landing page, auth, customer registration, and onboarding)
   return (
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/register" component={CustomerRegistration} />
       <Route path="/auth" component={Auth} />
+      <Route path="/onboarding" component={Onboarding} />
       <Route component={Landing} />
     </Switch>
   );
