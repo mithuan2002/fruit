@@ -834,6 +834,6 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Temporarily using memory storage due to database connection issues
+// Temporarily using memory storage due to disabled Neon database endpoint
 import { MemoryStorage } from "./memory-storage";
 export const storage = new MemoryStorage() as any;

@@ -26,11 +26,12 @@ Preferred communication style: Simple, everyday language.
 - **Data Validation**: Zod schemas for runtime type checking and validation
 
 ## Data Storage & Database Schema
-- **Database**: PostgreSQL with comprehensive schema for referral marketing system
-- **ORM**: Drizzle ORM for type-safe database operations and migrations
+- **Database**: Currently using in-memory storage (MemoryStorage) due to disabled Neon endpoint
+- **ORM**: Drizzle ORM for type-safe database operations and migrations (ready for PostgreSQL)
 - **Schema Management**: Centralized schema definitions with automatic validation
-- **Core Tables**: Users, customers, products, campaigns, coupons (referral codes), referrals, WhatsApp messages, and points transactions.
-- **Database Features**: UUID primary keys, performance-optimized indexes (phone numbers, referral codes), UNIQUE constraints, audit fields, and foreign key constraints for data integrity.
+- **Core Tables**: Users, customers, products, campaigns, coupons (referral codes), referrals, and points transactions
+- **Database Features**: UUID primary keys, performance-optimized indexes (phone numbers, referral codes), UNIQUE constraints, audit fields, and foreign key constraints for data integrity
+- **Current Status**: Application fully functional with memory storage; database migration pending resolution of PostgreSQL connection issues
 
 ## Authentication & Authorization
 - **System**: Username/password authentication with bcryptjs hashing.
