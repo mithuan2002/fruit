@@ -395,7 +395,7 @@ export function setupRoutes(app: Express): Server {
   });
 
   // Onboarding route
-  app.post("/api/auth/onboarding", requireAuth, async (req: any, res) => {
+  app.post("/api/auth/onboard", requireAuth, async (req: any, res) => {
     try {
       const validatedData = onboardingSchema.parse(req.body);
       
@@ -657,12 +657,12 @@ export function setupRoutes(app: Express): Server {
 
       const stats = {
         totalCustomers: customers.length,
-        activeCustomers: customers.filter(c => c.isActive).length,
+        activeCustomers: customers.filter((c: any) => c.isActive).length,
         totalCampaigns: campaigns.length,
-        activeCampaigns: campaigns.filter(c => c.isActive).length,
+        activeCampaigns: campaigns.filter((c: any) => c.isActive).length,
         totalReferrals: referrals.length,
-        totalPointsDistributed: customers.reduce((sum, c) => sum + c.pointsEarned, 0),
-        totalPointsRedeemed: customers.reduce((sum, c) => sum + c.pointsRedeemed, 0)
+        totalPointsDistributed: customers.reduce((sum: number, c: any) => sum + c.pointsEarned, 0),
+        totalPointsRedeemed: customers.reduce((sum: number, c: any) => sum + c.pointsRedeemed, 0)
       };
 
       res.json(stats);
