@@ -492,6 +492,29 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  // Get customer by phone number (for bill scanner)
+  app.get("/api/customers/phone/:phoneNumber", async (req, res) => {
+    try {
+      const { phoneNumber } = req.params;
+      const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
+      
+      const customer = await storage.getCustomerByPhone(cleanPhone);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      res.json({
+        id: customer.id,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        points: customer.points,
+        referralCode: customer.referralCode
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to find customer" });
+    }
+  });
+
   app.post("/api/customers", requireAuth, async (req, res) => {
     try {
       const validatedData = insertCustomerSchema.parse(req.body);
@@ -668,6 +691,367 @@ export function setupRoutes(app: Express): Server {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // OCR Bill Processing endpoints
+  
+  // Upload bill image for OCR processing
+  app.post("/api/bills/upload", async (req, res) => {
+    try {
+      const { customerId, referralCode, imageData } = req.body;
+
+      if (!customerId || !imageData) {
+        return res.status(400).json({ message: "Customer ID and image data are required" });
+      }
+
+      // Verify customer exists
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Process OCR data
+      const ocrResult = await (storage as any).processOCRData(imageData);
+
+      // Check for duplicate bills using hash
+      const billHash = Buffer.from(`${ocrResult.invoiceNumber}-${ocrResult.storeName}-${ocrResult.billDate.split('T')[0]}`).toString('base64').replace(/[+/=]/g, '');
+      const existingBill = await (storage as any).getBillByHash(billHash);
+      
+      if (existingBill) {
+        return res.status(409).json({ 
+          message: "This bill has already been processed",
+          existingBill: {
+            id: existingBill.id,
+            processedAt: existingBill.processedAt
+          }
+        });
+      }
+
+      // Calculate points based on bill amount (₹100 = 10 points)
+      const pointsEarned = Math.floor(ocrResult.totalAmount / 10);
+      
+      // Handle referral if provided
+      let referrer = null;
+      let referrerPointsEarned = 0;
+      if (referralCode) {
+        referrer = await storage.getCustomerByCouponCode(referralCode);
+        if (referrer) {
+          referrerPointsEarned = Math.floor(pointsEarned * 0.1); // 10% bonus for referrer
+        }
+      }
+
+      // Create bill record
+      const billData = {
+        customerId,
+        invoiceNumber: ocrResult.invoiceNumber,
+        storeId: ocrResult.storeId,
+        storeName: ocrResult.storeName,
+        billDate: new Date(ocrResult.billDate),
+        billTime: ocrResult.billTime,
+        totalAmount: ocrResult.totalAmount.toString(),
+        originalImageUrl: null, // Would store in cloud storage in production
+        ocrRawData: ocrResult.rawData,
+        pointsEarned,
+        referralCode: referralCode || null,
+        referrerId: referrer?.id || null,
+        referrerPointsEarned,
+        status: "processed",
+        isValid: true
+      };
+
+      const bill = await (storage as any).createBill(billData);
+
+      // Create bill items if available
+      if (ocrResult.items && ocrResult.items.length > 0) {
+        for (const item of ocrResult.items) {
+          await (storage as any).createBillItem({
+            billId: bill.id,
+            itemName: item.itemName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice?.toString(),
+            totalPrice: item.totalPrice.toString()
+          });
+        }
+      }
+
+      // Update customer points
+      await storage.updateCustomer(customerId, {
+        points: customer.points + pointsEarned,
+        pointsEarned: customer.pointsEarned + pointsEarned
+      });
+
+      // Update referrer points if applicable
+      if (referrer && referrerPointsEarned > 0) {
+        await storage.updateCustomer(referrer.id, {
+          points: referrer.points + referrerPointsEarned,
+          pointsEarned: referrer.pointsEarned + referrerPointsEarned
+        });
+      }
+
+      res.json({
+        success: true,
+        bill: {
+          id: bill.id,
+          invoiceNumber: bill.invoiceNumber,
+          storeName: bill.storeName,
+          totalAmount: bill.totalAmount,
+          pointsEarned: bill.pointsEarned,
+          processedAt: bill.processedAt
+        },
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          newPointsBalance: customer.points + pointsEarned
+        },
+        referrer: referrer ? {
+          id: referrer.id,
+          name: referrer.name,
+          bonusPointsEarned: referrerPointsEarned
+        } : null
+      });
+    } catch (error) {
+      console.error("OCR processing error:", error);
+      res.status(500).json({ message: "Failed to process bill" });
+    }
+  });
+
+  // Get customer's bill history
+  app.get("/api/bills/customer/:customerId", async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      const bills = await (storage as any).getBillsByCustomer(customerId);
+      
+      res.json({
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          totalPoints: customer.points
+        },
+        bills: bills.map((bill: any) => ({
+          id: bill.id,
+          invoiceNumber: bill.invoiceNumber,
+          storeName: bill.storeName,
+          totalAmount: bill.totalAmount,
+          pointsEarned: bill.pointsEarned,
+          billDate: bill.billDate,
+          processedAt: bill.processedAt,
+          status: bill.status
+        }))
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch bill history" });
+    }
+  });
+
+  // Cashier endpoints
+  
+  // Get customer points balance (for cashier)
+  app.get("/api/cashier/customer/:customerId/points", async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      res.json({
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          phoneNumber: customer.phoneNumber,
+          points: customer.points,
+          pointsEarned: customer.pointsEarned,
+          pointsRedeemed: customer.pointsRedeemed
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch customer points" });
+    }
+  });
+
+  // Apply discount (for cashier)
+  app.post("/api/cashier/apply-discount", async (req, res) => {
+    try {
+      const { customerId, cashierId, pointsToUse, discountPercent, originalAmount, notes } = req.body;
+
+      if (!customerId || !cashierId || !pointsToUse) {
+        return res.status(400).json({ message: "Customer ID, cashier ID, and points to use are required" });
+      }
+
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      if (customer.points < pointsToUse) {
+        return res.status(400).json({ message: "Insufficient points" });
+      }
+
+      const cashier = await (storage as any).getCashier(cashierId);
+      if (!cashier) {
+        return res.status(404).json({ message: "Cashier not found" });
+      }
+
+      // Calculate discount amount (example: 1 point = ₹1 discount)
+      const discountAmount = pointsToUse;
+      const finalAmount = originalAmount ? Math.max(0, originalAmount - discountAmount) : null;
+
+      // Create discount transaction
+      const discountTransaction = await (storage as any).createDiscountTransaction({
+        customerId,
+        cashierId,
+        pointsUsed: pointsToUse,
+        discountPercent: discountPercent ? discountPercent.toString() : null,
+        discountAmount: discountAmount.toString(),
+        originalAmount: originalAmount ? originalAmount.toString() : null,
+        finalAmount: finalAmount ? finalAmount.toString() : null,
+        notes: notes || null,
+        transactionType: "discount",
+        status: "completed"
+      });
+
+      // Update customer points
+      await storage.updateCustomer(customerId, {
+        points: customer.points - pointsToUse,
+        pointsRedeemed: customer.pointsRedeemed + pointsToUse
+      });
+
+      res.json({
+        success: true,
+        transaction: {
+          id: discountTransaction.id,
+          pointsUsed: discountTransaction.pointsUsed,
+          discountAmount: discountTransaction.discountAmount,
+          finalAmount: discountTransaction.finalAmount,
+          appliedAt: discountTransaction.appliedAt
+        },
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          newPointsBalance: customer.points - pointsToUse
+        },
+        cashier: {
+          id: cashier.id,
+          name: cashier.name
+        }
+      });
+    } catch (error) {
+      console.error("Apply discount error:", error);
+      res.status(500).json({ message: "Failed to apply discount" });
+    }
+  });
+
+  // Get all cashiers
+  app.get("/api/cashiers", async (req, res) => {
+    try {
+      const cashiers = await (storage as any).getActiveCashiers();
+      res.json(cashiers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch cashiers" });
+    }
+  });
+
+  // Create cashier
+  app.post("/api/cashiers", async (req, res) => {
+    try {
+      const { name, employeeId, phoneNumber } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ message: "Cashier name is required" });
+      }
+
+      const cashier = await (storage as any).createCashier({
+        name,
+        employeeId: employeeId || null,
+        phoneNumber: phoneNumber || null,
+        isActive: true
+      });
+
+      res.json({
+        success: true,
+        cashier
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create cashier" });
+    }
+  });
+
+  // Admin audit endpoints
+  
+  // Get audit report - all bills and transactions
+  app.get("/api/admin/audit-report", requireAuth, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      const bills = await (storage as any).getAllBills();
+      const discountTransactions = await (storage as any).getAllDiscountTransactions();
+      
+      // Filter by date range if provided
+      let filteredBills = bills;
+      let filteredTransactions = discountTransactions;
+      
+      if (startDate && endDate) {
+        const start = new Date(startDate as string);
+        const end = new Date(endDate as string);
+        
+        filteredBills = bills.filter((bill: any) => {
+          const billDate = new Date(bill.processedAt);
+          return billDate >= start && billDate <= end;
+        });
+        
+        filteredTransactions = discountTransactions.filter((transaction: any) => {
+          const transactionDate = new Date(transaction.appliedAt);
+          return transactionDate >= start && transactionDate <= end;
+        });
+      }
+
+      // Calculate summary statistics
+      const totalBillsScanned = filteredBills.length;
+      const totalPointsDistributed = filteredBills.reduce((sum: number, bill: any) => sum + (bill.pointsEarned || 0), 0);
+      const totalDiscountsGiven = filteredTransactions.length;
+      const totalDiscountAmount = filteredTransactions.reduce((sum: number, transaction: any) => sum + parseFloat(transaction.discountAmount || 0), 0);
+      const totalPointsRedeemed = filteredTransactions.reduce((sum: number, transaction: any) => sum + (transaction.pointsUsed || 0), 0);
+
+      res.json({
+        summary: {
+          totalBillsScanned,
+          totalPointsDistributed,
+          totalDiscountsGiven,
+          totalDiscountAmount,
+          totalPointsRedeemed,
+          dateRange: { startDate, endDate }
+        },
+        bills: filteredBills.map((bill: any) => ({
+          id: bill.id,
+          customerId: bill.customerId,
+          invoiceNumber: bill.invoiceNumber,
+          storeName: bill.storeName,
+          totalAmount: bill.totalAmount,
+          pointsEarned: bill.pointsEarned,
+          processedAt: bill.processedAt,
+          status: bill.status
+        })),
+        discountTransactions: filteredTransactions.map((transaction: any) => ({
+          id: transaction.id,
+          customerId: transaction.customerId,
+          cashierId: transaction.cashierId,
+          pointsUsed: transaction.pointsUsed,
+          discountAmount: transaction.discountAmount,
+          appliedAt: transaction.appliedAt,
+          status: transaction.status
+        }))
+      });
+    } catch (error) {
+      console.error("Audit report error:", error);
+      res.status(500).json({ message: "Failed to generate audit report" });
     }
   });
 

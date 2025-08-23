@@ -8,7 +8,15 @@ import {
   type Product,
   type InsertProduct,
   type Referral,
-  type InsertReferral
+  type InsertReferral,
+  type Bill,
+  type InsertBill,
+  type BillItem,
+  type InsertBillItem,
+  type Cashier,
+  type InsertCashier,
+  type DiscountTransaction,
+  type InsertDiscountTransaction
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -18,6 +26,10 @@ export class MemoryStorage {
   private users: Map<string, User> = new Map();
   private products: Map<string, Product> = new Map();
   private referrals: Map<string, Referral> = new Map();
+  private bills: Map<string, Bill> = new Map();
+  private billItems: Map<string, BillItem> = new Map();
+  private cashiers: Map<string, Cashier> = new Map();
+  private discountTransactions: Map<string, DiscountTransaction> = new Map();
 
   // Helper to generate sequential numbers for customer referral codes
   private codeCounter = 1000;
@@ -231,6 +243,239 @@ export class MemoryStorage {
 
     this.referrals.set(id, referral);
     return referral;
+  }
+
+  // Bill operations
+  async getBill(id: string): Promise<Bill | undefined> {
+    return this.bills.get(id);
+  }
+
+  async getBillByHash(billHash: string): Promise<Bill | undefined> {
+    return Array.from(this.bills.values()).find(b => b.billHash === billHash);
+  }
+
+  async getAllBills(): Promise<Bill[]> {
+    return Array.from(this.bills.values());
+  }
+
+  async getBillsByCustomer(customerId: string): Promise<Bill[]> {
+    return Array.from(this.bills.values()).filter(b => b.customerId === customerId);
+  }
+
+  async createBill(data: InsertBill): Promise<Bill> {
+    const id = randomUUID();
+    const now = new Date();
+    
+    // Generate bill hash for duplicate prevention
+    const billHash = this.generateBillHash(data.invoiceNumber, data.storeName, data.billDate);
+    
+    const bill: Bill = {
+      id,
+      customerId: data.customerId,
+      invoiceNumber: data.invoiceNumber,
+      storeId: data.storeId || null,
+      storeName: data.storeName,
+      billDate: new Date(data.billDate),
+      billTime: data.billTime || null,
+      totalAmount: data.totalAmount,
+      billHash,
+      originalImageUrl: data.originalImageUrl || null,
+      ocrRawData: data.ocrRawData || null,
+      pointsEarned: data.pointsEarned || 0,
+      referralCode: data.referralCode || null,
+      referrerId: data.referrerId || null,
+      referrerPointsEarned: data.referrerPointsEarned || 0,
+      status: data.status || "processed",
+      isValid: data.isValid ?? true,
+      validationNotes: data.validationNotes || null,
+      processedAt: now,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    this.bills.set(id, bill);
+    return bill;
+  }
+
+  async updateBill(id: string, updates: Partial<Bill>): Promise<Bill | undefined> {
+    const bill = this.bills.get(id);
+    if (!bill) return undefined;
+
+    const updatedBill = { ...bill, ...updates, updatedAt: new Date() };
+    this.bills.set(id, updatedBill);
+    return updatedBill;
+  }
+
+  // Bill item operations
+  async getBillItem(id: string): Promise<BillItem | undefined> {
+    return this.billItems.get(id);
+  }
+
+  async getBillItemsByBill(billId: string): Promise<BillItem[]> {
+    return Array.from(this.billItems.values()).filter(bi => bi.billId === billId);
+  }
+
+  async createBillItem(data: InsertBillItem): Promise<BillItem> {
+    const id = randomUUID();
+    const now = new Date();
+    
+    const billItem: BillItem = {
+      id,
+      billId: data.billId,
+      itemName: data.itemName,
+      itemCode: data.itemCode || null,
+      quantity: data.quantity || 1,
+      unitPrice: data.unitPrice || null,
+      totalPrice: data.totalPrice,
+      category: data.category || null,
+      notes: data.notes || null,
+      createdAt: now
+    };
+
+    this.billItems.set(id, billItem);
+    return billItem;
+  }
+
+  // Cashier operations
+  async getCashier(id: string): Promise<Cashier | undefined> {
+    return this.cashiers.get(id);
+  }
+
+  async getCashierByEmployeeId(employeeId: string): Promise<Cashier | undefined> {
+    return Array.from(this.cashiers.values()).find(c => c.employeeId === employeeId);
+  }
+
+  async getAllCashiers(): Promise<Cashier[]> {
+    return Array.from(this.cashiers.values());
+  }
+
+  async getActiveCashiers(): Promise<Cashier[]> {
+    return Array.from(this.cashiers.values()).filter(c => c.isActive);
+  }
+
+  async createCashier(data: InsertCashier): Promise<Cashier> {
+    const id = randomUUID();
+    const now = new Date();
+    
+    const cashier: Cashier = {
+      id,
+      name: data.name,
+      employeeId: data.employeeId || null,
+      phoneNumber: data.phoneNumber || null,
+      isActive: data.isActive ?? true,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    this.cashiers.set(id, cashier);
+    return cashier;
+  }
+
+  async updateCashier(id: string, updates: Partial<Cashier>): Promise<Cashier | undefined> {
+    const cashier = this.cashiers.get(id);
+    if (!cashier) return undefined;
+
+    const updatedCashier = { ...cashier, ...updates, updatedAt: new Date() };
+    this.cashiers.set(id, updatedCashier);
+    return updatedCashier;
+  }
+
+  // Discount transaction operations
+  async getDiscountTransaction(id: string): Promise<DiscountTransaction | undefined> {
+    return this.discountTransactions.get(id);
+  }
+
+  async getDiscountTransactionsByCustomer(customerId: string): Promise<DiscountTransaction[]> {
+    return Array.from(this.discountTransactions.values()).filter(dt => dt.customerId === customerId);
+  }
+
+  async getDiscountTransactionsByCashier(cashierId: string): Promise<DiscountTransaction[]> {
+    return Array.from(this.discountTransactions.values()).filter(dt => dt.cashierId === cashierId);
+  }
+
+  async getAllDiscountTransactions(): Promise<DiscountTransaction[]> {
+    return Array.from(this.discountTransactions.values());
+  }
+
+  async createDiscountTransaction(data: InsertDiscountTransaction): Promise<DiscountTransaction> {
+    const id = randomUUID();
+    const now = new Date();
+    
+    const discountTransaction: DiscountTransaction = {
+      id,
+      customerId: data.customerId,
+      cashierId: data.cashierId || null,
+      billId: data.billId || null,
+      pointsUsed: data.pointsUsed,
+      discountPercent: data.discountPercent || null,
+      discountAmount: data.discountAmount,
+      originalAmount: data.originalAmount || null,
+      finalAmount: data.finalAmount || null,
+      transactionType: data.transactionType || "discount",
+      notes: data.notes || null,
+      status: data.status || "completed",
+      appliedAt: now,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    this.discountTransactions.set(id, discountTransaction);
+    return discountTransaction;
+  }
+
+  // Helper method to generate bill hash for duplicate prevention
+  private generateBillHash(invoiceNumber: string, storeName: string, billDate: Date | string): string {
+    const dateStr = billDate instanceof Date ? billDate.toISOString().split('T')[0] : billDate.split('T')[0];
+    const hashInput = `${invoiceNumber}-${storeName}-${dateStr}`;
+    // Simple hash function for demo - in production, use crypto
+    return Buffer.from(hashInput).toString('base64').replace(/[+/=]/g, '');
+  }
+
+  // Mock OCR processing method
+  async processOCRData(imageData: string): Promise<{
+    invoiceNumber: string;
+    storeName: string;
+    storeId?: string;
+    billDate: string;
+    billTime?: string;
+    totalAmount: number;
+    items?: Array<{
+      itemName: string;
+      quantity: number;
+      unitPrice?: number;
+      totalPrice: number;
+    }>;
+    rawData: string;
+  }> {
+    // Mock OCR processing - replace with actual OCR service integration
+    const mockData = {
+      invoiceNumber: `INV-${Date.now()}`,
+      storeName: "Demo Store",
+      storeId: "STORE001",
+      billDate: new Date().toISOString(),
+      billTime: new Date().toLocaleTimeString(),
+      totalAmount: Math.floor(Math.random() * 1000) + 100, // Random amount between 100-1100
+      items: [
+        {
+          itemName: "Sample Product 1",
+          quantity: 1,
+          unitPrice: 250,
+          totalPrice: 250
+        },
+        {
+          itemName: "Sample Product 2", 
+          quantity: 2,
+          unitPrice: 150,
+          totalPrice: 300
+        }
+      ],
+      rawData: `Mock OCR extraction from image data: ${imageData.substring(0, 50)}...`
+    };
+
+    // Simulate OCR processing delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return mockData;
   }
 
   // Placeholder methods for interface compatibility

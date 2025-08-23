@@ -287,6 +287,104 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Bills table for OCR-processed bill data
+export const bills = pgTable("bills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  // OCR extracted data
+  invoiceNumber: text("invoice_number").notNull(),
+  storeId: text("store_id"), // Store identifier
+  storeName: text("store_name").notNull(),
+  billDate: timestamp("bill_date").notNull(),
+  billTime: text("bill_time"), // Time as text since OCR might extract various formats
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  // Bill processing data
+  billHash: text("bill_hash").notNull().unique(), // Unique hash for duplicate prevention
+  originalImageUrl: text("original_image_url"), // URL to stored bill image
+  ocrRawData: text("ocr_raw_data"), // Raw OCR output for audit
+  // Points and referral data
+  pointsEarned: integer("points_earned").notNull().default(0),
+  referralCode: text("referral_code"), // If uploaded with referral code
+  referrerId: varchar("referrer_id").references(() => customers.id, { onDelete: "set null" }),
+  referrerPointsEarned: integer("referrer_points_earned").notNull().default(0),
+  // Status and metadata
+  status: text("status").notNull().default("processed"), // processed, disputed, refunded
+  isValid: boolean("is_valid").notNull().default(true),
+  validationNotes: text("validation_notes"),
+  processedAt: timestamp("processed_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  customerIdx: index("bills_customer_idx").on(table.customerId),
+  hashIdx: index("bills_hash_idx").on(table.billHash),
+  dateIdx: index("bills_date_idx").on(table.billDate),
+  storeIdx: index("bills_store_idx").on(table.storeId, table.storeName),
+  statusIdx: index("bills_status_idx").on(table.status),
+  referrerIdx: index("bills_referrer_idx").on(table.referrerId),
+}));
+
+// Bill items table for line-item details (if OCR can extract them)
+export const billItems = pgTable("bill_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  billId: varchar("bill_id").notNull().references(() => bills.id, { onDelete: "cascade" }),
+  // Item details from OCR
+  itemName: text("item_name").notNull(),
+  itemCode: text("item_code"), // Product code if available
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
+  // Additional OCR data
+  category: text("category"), // If OCR can detect item category
+  notes: text("notes"), // Any additional OCR-extracted info
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  billIdx: index("bill_items_bill_idx").on(table.billId),
+  nameIdx: index("bill_items_name_idx").on(table.itemName),
+  codeIdx: index("bill_items_code_idx").on(table.itemCode),
+}));
+
+// Cashier users table for discount redemption tracking
+export const cashiers = pgTable("cashiers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  employeeId: text("employee_id").unique(),
+  phoneNumber: text("phone_number"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  employeeIdx: index("cashiers_employee_idx").on(table.employeeId),
+  activeIdx: index("cashiers_active_idx").on(table.isActive),
+}));
+
+// Discount transactions table for cashier discount redemptions
+export const discountTransactions = pgTable("discount_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  cashierId: varchar("cashier_id").references(() => cashiers.id, { onDelete: "set null" }),
+  billId: varchar("bill_id").references(() => bills.id, { onDelete: "set null" }), // Optional link to bill if discount applied to specific purchase
+  // Discount details
+  pointsUsed: integer("points_used").notNull(),
+  discountPercent: decimal("discount_percent", { precision: 5, scale: 2 }),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull(),
+  originalAmount: decimal("original_amount", { precision: 10, scale: 2 }),
+  finalAmount: decimal("final_amount", { precision: 10, scale: 2 }),
+  // Transaction metadata
+  transactionType: text("transaction_type").notNull().default("discount"), // discount, refund, adjustment
+  notes: text("notes"),
+  status: text("status").notNull().default("completed"), // completed, pending, cancelled, refunded
+  appliedAt: timestamp("applied_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  customerIdx: index("discount_transactions_customer_idx").on(table.customerId),
+  cashierIdx: index("discount_transactions_cashier_idx").on(table.cashierId),
+  billIdx: index("discount_transactions_bill_idx").on(table.billId),
+  dateIdx: index("discount_transactions_date_idx").on(table.appliedAt),
+  statusIdx: index("discount_transactions_status_idx").on(table.status),
+  typeIdx: index("discount_transactions_type_idx").on(table.transactionType),
+}));
+
 // Define relationships using Drizzle relations
 export const customersRelations = relations(customers, ({ many }) => ({
   coupons: many(coupons),
@@ -296,6 +394,8 @@ export const customersRelations = relations(customers, ({ many }) => ({
   pointsTransactions: many(pointsTransactions),
   rewardRedemptions: many(rewardRedemptions),
   sales: many(sales),
+  bills: many(bills),
+  discountTransactions: many(discountTransactions),
 }));
 
 export const campaignsRelations = relations(campaigns, ({ many }) => ({
@@ -406,6 +506,45 @@ export const rewardRedemptionsRelations = relations(rewardRedemptions, ({ one })
   reward: one(rewards, {
     fields: [rewardRedemptions.rewardId],
     references: [rewards.id],
+  }),
+}));
+
+export const billsRelations = relations(bills, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [bills.customerId],
+    references: [customers.id],
+  }),
+  referrer: one(customers, {
+    fields: [bills.referrerId],
+    references: [customers.id],
+  }),
+  items: many(billItems),
+  discountTransactions: many(discountTransactions),
+}));
+
+export const billItemsRelations = relations(billItems, ({ one }) => ({
+  bill: one(bills, {
+    fields: [billItems.billId],
+    references: [bills.id],
+  }),
+}));
+
+export const cashiersRelations = relations(cashiers, ({ many }) => ({
+  discountTransactions: many(discountTransactions),
+}));
+
+export const discountTransactionsRelations = relations(discountTransactions, ({ one }) => ({
+  customer: one(customers, {
+    fields: [discountTransactions.customerId],
+    references: [customers.id],
+  }),
+  cashier: one(cashiers, {
+    fields: [discountTransactions.cashierId],
+    references: [cashiers.id],
+  }),
+  bill: one(bills, {
+    fields: [discountTransactions.billId],
+    references: [bills.id],
   }),
 }));
 
@@ -525,6 +664,56 @@ export const onboardingSchema = z.object({
   }),
 });
 
+// OCR Bill Processing schemas
+export const insertBillSchema = createInsertSchema(bills).omit({
+  id: true,
+  billHash: true, // Generated automatically
+  processedAt: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  billDate: z.union([z.date(), z.string().transform(str => new Date(str))]),
+  status: z.enum(["processed", "disputed", "refunded"]).default("processed"),
+});
+
+export const insertBillItemSchema = createInsertSchema(billItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCashierSchema = createInsertSchema(cashiers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertDiscountTransactionSchema = createInsertSchema(discountTransactions).omit({
+  id: true,
+  appliedAt: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  transactionType: z.enum(["discount", "refund", "adjustment"]).default("discount"),
+  status: z.enum(["completed", "pending", "cancelled", "refunded"]).default("completed"),
+});
+
+// OCR processing schema for bill upload
+export const ocrBillUploadSchema = z.object({
+  customerId: z.string().min(1, "Customer ID is required"),
+  referralCode: z.string().optional(), // If uploaded with referral code
+  imageData: z.string().min(1, "Bill image is required"), // Base64 encoded image
+});
+
+// Cashier discount application schema
+export const applyDiscountSchema = z.object({
+  customerId: z.string().min(1, "Customer ID is required"),
+  cashierId: z.string().min(1, "Cashier ID is required"),
+  pointsToUse: z.number().min(1, "Points to use must be positive"),
+  discountPercent: z.number().min(0).max(100).optional(),
+  originalAmount: z.number().min(0).optional(),
+  notes: z.string().optional(),
+});
+
 // Types
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
@@ -570,6 +759,22 @@ export type InsertSale = z.infer<typeof insertSaleSchema>;
 
 export type SaleItem = typeof saleItems.$inferSelect;
 export type InsertSaleItem = z.infer<typeof insertSaleItemSchema>;
+
+// OCR Bill Processing types
+export type Bill = typeof bills.$inferSelect;
+export type InsertBill = z.infer<typeof insertBillSchema>;
+
+export type BillItem = typeof billItems.$inferSelect;
+export type InsertBillItem = z.infer<typeof insertBillItemSchema>;
+
+export type Cashier = typeof cashiers.$inferSelect;
+export type InsertCashier = z.infer<typeof insertCashierSchema>;
+
+export type DiscountTransaction = typeof discountTransactions.$inferSelect;
+export type InsertDiscountTransaction = z.infer<typeof insertDiscountTransactionSchema>;
+
+export type OCRBillUpload = z.infer<typeof ocrBillUploadSchema>;
+export type ApplyDiscount = z.infer<typeof applyDiscountSchema>;
 
 // Updated business logic schemas
 export const redeemPointsSchema = z.object({

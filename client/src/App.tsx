@@ -21,6 +21,8 @@ import Auth from "@/pages/auth";
 import Onboarding from "@/pages/onboarding";
 import Landing from "@/pages/landing";
 import Settings from "@/pages/settings";
+import BillScanner from "@/pages/bill-scanner";
+import CashierDashboard from "@/pages/cashier-dashboard";
 
 import Sidebar from "@/components/layout/sidebar";
 
@@ -79,6 +81,8 @@ function Router() {
       <Route path="/register" component={CustomerRegistration} />
       <Route path="/auth" component={Auth} />
       <Route path="/onboarding" component={Onboarding} />
+      <Route path="/bill-scanner" component={BillScanner} />
+      <Route path="/cashier" component={CashierDashboard} />
       <Route component={Landing} />
     </Switch>
   );
