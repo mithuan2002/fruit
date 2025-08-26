@@ -29,6 +29,11 @@ import Sidebar from "@/components/layout/sidebar";
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+  // Always allow access to customer registration regardless of auth status
+  if (window.location.pathname === '/register') {
+    return <CustomerRegistration />;
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -83,7 +88,7 @@ function Router() {
       <Route path="/onboarding" component={Onboarding} />
       <Route path="/bill-scanner" component={BillScanner} />
       <Route path="/cashier" component={CashierDashboard} />
-      <Route component={Landing} />
+      <Route path="*" component={Landing} />
     </Switch>
   );
 }

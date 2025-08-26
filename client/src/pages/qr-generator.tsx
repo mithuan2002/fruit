@@ -32,7 +32,7 @@ export default function QRGenerator() {
       const response = await fetch(qrUrl);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      
+
       const link = document.createElement('a');
       link.href = url;
       link.download = 'fruitbox-registration-qr.png';
@@ -214,7 +214,7 @@ export default function QRGenerator() {
                       data-testid="qr-code-image"
                     />
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-3">
                     <Button 
                       variant="outline" 
@@ -235,7 +235,7 @@ export default function QRGenerator() {
                       <span>Print</span>
                     </Button>
                   </div>
-                  
+
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                     <h4 className="font-semibold text-blue-800 mb-2">Usage Instructions:</h4>
                     <ul className="text-sm text-blue-700 space-y-1">
