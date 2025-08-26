@@ -1113,16 +1113,22 @@ export function setupRoutes(app: Express): Server {
       display: "standalone",
       background_color: "#ffffff",
       theme_color: "#4f46e5",
+      scope: "/",
+      orientation: "portrait-primary",
+      categories: ["shopping", "business"],
+      lang: "en",
       icons: [
         {
           src: "/pwa-icon-192.png",
           sizes: "192x192",
-          type: "image/png"
+          type: "image/png",
+          purpose: "any maskable"
         },
         {
           src: "/pwa-icon-512.png",
           sizes: "512x512",
-          type: "image/png"
+          type: "image/png",
+          purpose: "any maskable"
         }
       ]
     };

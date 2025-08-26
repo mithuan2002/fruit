@@ -112,6 +112,57 @@ export default function CustomerRegistration() {
     }
   };
 
+  const requestNotificationPermission = async () => {
+    if ('Notification' in window) {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        toast({
+          title: "Notifications enabled!",
+          description: "You'll receive updates about your rewards and offers",
+        });
+      } else {
+        toast({
+          title: "Notifications disabled",
+          description: "You can enable them later in your browser settings",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const installPWA = async () => {
+    if ('serviceWorker' in navigator) {
+      try {
+        await navigator.serviceWorker.register('/sw.js');
+        toast({
+          title: "App installed!",
+          description: "Fruitbox is now available on your home screen",
+        });
+      } catch (error) {
+        console.log('Service worker registration failed:', error);
+      }
+    }
+    
+    // Show install banner for PWA
+    if ((window as any).deferredPrompt) {
+      const deferredPrompt = (window as any).deferredPrompt;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        toast({
+          title: "App installed!",
+          description: "Fruitbox is now available on your home screen",
+        });
+      }
+      (window as any).deferredPrompt = null;
+    } else {
+      toast({
+        title: "Add to Home Screen",
+        description: "Use your browser's 'Add to Home Screen' option to install Fruitbox",
+      });
+    }
+  };
+
   const handleNewRegistration = () => {
     setIsSuccess(false);
     setRegistrationData(null);
@@ -178,7 +229,46 @@ export default function CustomerRegistration() {
               </div>
             </div>
 
-            <div className="space-y-3">
+            {/* PWA Installation and Notification Prompts */}
+            <div className="space-y-3 pt-4 border-t border-gray-200">
+              <h4 className="font-semibold text-gray-800 text-center">Stay Connected</h4>
+              
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-center space-x-2 mb-3">
+                  <Gift className="text-blue-600" size={20} />
+                  <span className="font-semibold text-blue-800">Install Fruitbox App</span>
+                </div>
+                <p className="text-sm text-blue-700 mb-3 text-center">
+                  Get quick access to your rewards and never miss special offers!
+                </p>
+                <Button 
+                  onClick={installPWA}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  📱 Add to Home Screen
+                </Button>
+              </div>
+
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <div className="flex items-center justify-center space-x-2 mb-3">
+                  <CheckCircle className="text-green-600" size={20} />
+                  <span className="font-semibold text-green-800">Get Notifications</span>
+                </div>
+                <p className="text-sm text-green-700 mb-3 text-center">
+                  Receive instant updates when you earn points or get special offers!
+                </p>
+                <Button 
+                  onClick={requestNotificationPermission}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  size="sm"
+                >
+                  🔔 Enable Notifications
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-4">
               <Button 
                 onClick={handleNewRegistration} 
                 variant="outline" 
