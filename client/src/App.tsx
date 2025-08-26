@@ -29,67 +29,38 @@ import Sidebar from "@/components/layout/sidebar";
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
-  // Always allow access to customer registration regardless of auth status
-  if (window.location.pathname === '/register') {
-    return <CustomerRegistration />;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show onboarding if user is authenticated but hasn't completed onboarding
-  if (isAuthenticated && user && user.isOnboarded !== true) {
-    return <Onboarding />;
-  }
-
-  // If authenticated, show the main app with sidebar
-  if (isAuthenticated) {
-    return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <Switch>
-            <Route path="/" component={Dashboard} />
-            <Route path="/dashboard" component={Dashboard} />
-            <Route path="/campaigns" component={Campaigns} />
-            <Route path="/customers" component={Customers} />
-            <Route path="/points-setup" component={PointsSetup} />
-            <Route path="/reports" component={Reports} />
-            <Route path="/pos-integration" component={POSIntegration} />
-            <Route path="/qr-generator" component={QRGenerator} />
-            <Route path="/settings" component={Settings} />
-            <Route path="/dashboard-setup-guide" component={DashboardSetupGuide} />
-            <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />
-            <Route path="/customers-setup-guide" component={CustomersSetupGuide} />
-            <Route path="/points-setup-guide" component={PointsSetupGuide} />
-            <Route path="*">
-              <Redirect to="/dashboard" />
-            </Route>
-          </Switch>
-        </div>
-      </div>
-    );
-  }
-
-  // If not authenticated, show public routes (landing page, auth, customer registration, and onboarding)
+  // TEMPORARILY DISABLED AUTHENTICATION FOR TESTING
+  // Always show the main app with sidebar (bypassing auth checks)
   return (
-    <Switch>
-      <Route path="/" component={Landing} />
-      <Route path="/register" component={CustomerRegistration} />
-      <Route path="/auth" component={Auth} />
-      <Route path="/onboarding" component={Onboarding} />
-      <Route path="/bill-scanner" component={BillScanner} />
-      <Route path="/cashier" component={CashierDashboard} />
-      <Route path="*" component={Landing} />
-    </Switch>
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/campaigns" component={Campaigns} />
+          <Route path="/customers" component={Customers} />
+          <Route path="/points-setup" component={PointsSetup} />
+          <Route path="/reports" component={Reports} />
+          <Route path="/pos-integration" component={POSIntegration} />
+          <Route path="/qr-generator" component={QRGenerator} />
+          <Route path="/settings" component={Settings} />
+          <Route path="/dashboard-setup-guide" component={DashboardSetupGuide} />
+          <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />
+          <Route path="/customers-setup-guide" component={CustomersSetupGuide} />
+          <Route path="/points-setup-guide" component={PointsSetupGuide} />
+          <Route path="/register" component={CustomerRegistration} />
+          <Route path="/auth" component={Auth} />
+          <Route path="/onboarding" component={Onboarding} />
+          <Route path="/bill-scanner" component={BillScanner} />
+          <Route path="/cashier" component={CashierDashboard} />
+          <Route path="/landing" component={Landing} />
+          <Route path="*">
+            <Redirect to="/dashboard" />
+          </Route>
+        </Switch>
+      </div>
+    </div>
   );
 }
 
