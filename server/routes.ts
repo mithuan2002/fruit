@@ -1106,17 +1106,20 @@ export function setupRoutes(app: Express): Server {
   // PWA manifest endpoint
   app.get("/api/pwa/manifest", (req, res) => {
     const manifest = {
-      name: "Fruitbox Customer Registration",
+      name: "Fruitbox Rewards",
       short_name: "Fruitbox",
-      description: "Register and get your unique coupon code",
-      start_url: "/register",
+      description: "Your loyalty rewards in your pocket - scan, earn, redeem!",
+      start_url: "/register?utm_source=pwa",
       display: "standalone",
       background_color: "#ffffff",
-      theme_color: "#4f46e5",
+      theme_color: "#6366f1",
       scope: "/",
       orientation: "portrait-primary",
-      categories: ["shopping", "business"],
+      categories: ["shopping", "business", "lifestyle"],
       lang: "en",
+      dir: "ltr",
+      prefer_related_applications: false,
+      display_override: ["standalone", "minimal-ui"],
       icons: [
         {
           src: "/pwa-icon-192.png",
@@ -1126,13 +1129,25 @@ export function setupRoutes(app: Express): Server {
         },
         {
           src: "/pwa-icon-512.png",
-          sizes: "512x512",
+          sizes: "512x512", 
           type: "image/png",
           purpose: "any maskable"
         }
-      ]
+      ],
+      shortcuts: [
+        {
+          name: "Register",
+          short_name: "Register",
+          description: "Quick customer registration",
+          url: "/register",
+          icons: [{ src: "/pwa-icon-192.png", sizes: "192x192" }]
+        }
+      ],
+      related_applications: [],
+      screenshots: []
     };
 
+    res.setHeader('Content-Type', 'application/manifest+json');
     res.json(manifest);
   });
 

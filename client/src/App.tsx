@@ -75,23 +75,45 @@ function App() {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       (window as any).deferredPrompt = e;
+      console.log('PWA install prompt available');
+    };
+
+    // Handle PWA app installation
+    const handleAppInstalled = () => {
+      console.log('PWA installed successfully');
+      (window as any).deferredPrompt = null;
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
     
     // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
-          console.log('SW registered: ', registration);
+          console.log('Service Worker registered successfully:', registration.scope);
+          
+          // Check for updates
+          registration.addEventListener('updatefound', () => {
+            console.log('New service worker version available');
+          });
         })
         .catch((registrationError) => {
-          console.log('SW registration failed: ', registrationError);
+          console.error('Service Worker registration failed:', registrationError);
         });
+    }
+
+    // Add manifest link to head if not present
+    if (!document.querySelector('link[rel="manifest"]')) {
+      const manifestLink = document.createElement('link');
+      manifestLink.rel = 'manifest';
+      manifestLink.href = '/api/pwa/manifest';
+      document.head.appendChild(manifestLink);
     }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
 

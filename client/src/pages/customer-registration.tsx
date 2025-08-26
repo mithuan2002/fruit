@@ -131,36 +131,52 @@ export default function CustomerRegistration() {
   };
 
   const installPWA = async () => {
-    if ('serviceWorker' in navigator) {
-      try {
-        await navigator.serviceWorker.register('/sw.js');
-        toast({
-          title: "App installed!",
-          description: "Fruitbox is now available on your home screen",
-        });
-      } catch (error) {
-        console.log('Service worker registration failed:', error);
-      }
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      toast({
+        title: "Already installed!",
+        description: "Fruitbox is already on your home screen",
+      });
+      return;
     }
-    
-    // Show install banner for PWA
+
+    // Try native install prompt first
     if ((window as any).deferredPrompt) {
       const deferredPrompt = (window as any).deferredPrompt;
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         toast({
-          title: "App installed!",
-          description: "Fruitbox is now available on your home screen",
+          title: "Perfect! 🎉",
+          description: "Fruitbox is now pinned to your home screen for quick access",
         });
+      } else {
+        showManualInstallInstructions();
       }
       (window as any).deferredPrompt = null;
     } else {
-      toast({
-        title: "Add to Home Screen",
-        description: "Use your browser's 'Add to Home Screen' option to install Fruitbox",
-      });
+      showManualInstallInstructions();
     }
+  };
+
+  const showManualInstallInstructions = () => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    
+    let instructions = "";
+    if (isIOS) {
+      instructions = "Tap the Share button → Add to Home Screen";
+    } else if (isAndroid) {
+      instructions = "Tap the menu (⋮) → Add to Home screen";
+    } else {
+      instructions = "Use your browser's 'Add to Home Screen' option";
+    }
+
+    toast({
+      title: "📱 Pin to Home Screen",
+      description: instructions,
+      duration: 5000,
+    });
   };
 
   const handleNewRegistration = () => {
@@ -231,32 +247,35 @@ export default function CustomerRegistration() {
 
             {/* PWA Installation and Notification Prompts */}
             <div className="space-y-3 pt-4 border-t border-gray-200">
-              <h4 className="font-semibold text-gray-800 text-center">Stay Connected</h4>
+              <h4 className="font-semibold text-gray-800 text-center">Quick Access</h4>
               
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
                 <div className="flex items-center justify-center space-x-2 mb-3">
-                  <Gift className="text-blue-600" size={20} />
-                  <span className="font-semibold text-blue-800">Install Fruitbox App</span>
+                  <Sparkles className="text-purple-600" size={20} />
+                  <span className="font-semibold text-purple-800">Pin Fruitbox</span>
                 </div>
-                <p className="text-sm text-blue-700 mb-3 text-center">
-                  Get quick access to your rewards and never miss special offers!
+                <p className="text-sm text-purple-700 mb-3 text-center">
+                  Add to your home screen for instant access to your rewards - no app store needed!
                 </p>
                 <Button 
                   onClick={installPWA}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
                   size="sm"
                 >
-                  📱 Add to Home Screen
+                  📌 Pin to Home Screen
                 </Button>
+                <p className="text-xs text-purple-600 mt-2 text-center">
+                  Works like an app, but lighter and faster!
+                </p>
               </div>
 
               <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                 <div className="flex items-center justify-center space-x-2 mb-3">
                   <CheckCircle className="text-green-600" size={20} />
-                  <span className="font-semibold text-green-800">Get Notifications</span>
+                  <span className="font-semibold text-green-800">Stay Updated</span>
                 </div>
                 <p className="text-sm text-green-700 mb-3 text-center">
-                  Receive instant updates when you earn points or get special offers!
+                  Get notified about new rewards, bonus points, and exclusive offers!
                 </p>
                 <Button 
                   onClick={requestNotificationPermission}
