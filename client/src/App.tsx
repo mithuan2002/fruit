@@ -29,6 +29,11 @@ import Sidebar from "@/components/layout/sidebar";
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+  // Check if current path is registration - show without sidebar
+  if (window.location.pathname === '/register') {
+    return <CustomerRegistration />;
+  }
+
   // TEMPORARILY DISABLED AUTHENTICATION FOR TESTING
   // Always show the main app with sidebar (bypassing auth checks)
   return (
@@ -49,7 +54,6 @@ function Router() {
           <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />
           <Route path="/customers-setup-guide" component={CustomersSetupGuide} />
           <Route path="/points-setup-guide" component={PointsSetupGuide} />
-          <Route path="/register" component={CustomerRegistration} />
           <Route path="/auth" component={Auth} />
           <Route path="/onboarding" component={Onboarding} />
           <Route path="/bill-scanner" component={BillScanner} />
