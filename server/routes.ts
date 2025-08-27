@@ -128,6 +128,68 @@ export function setupRoutes(app: Express): Server {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
+  // Seed some sample products for testing (run once)
+  app.post("/api/seed-products", async (req, res) => {
+    try {
+      const sampleProducts = [
+        {
+          name: "Premium Coffee",
+          productCode: "COFFEE001",
+          price: "15.99",
+          description: "High-quality premium coffee beans",
+          category: "Beverages",
+          pointCalculationType: "fixed",
+          fixedPoints: 5,
+          isActive: true
+        },
+        {
+          name: "Chocolate Cake",
+          productCode: "CAKE001",
+          price: "25.50",
+          description: "Delicious chocolate cake",
+          category: "Desserts",
+          pointCalculationType: "percentage",
+          percentageRate: "10",
+          isActive: true
+        },
+        {
+          name: "Sandwich Combo",
+          productCode: "COMBO001",
+          price: "12.99",
+          description: "Sandwich with fries and drink",
+          category: "Meals",
+          pointCalculationType: "fixed",
+          fixedPoints: 3,
+          isActive: true
+        }
+      ];
+
+      const createdProducts = [];
+      for (const productData of sampleProducts) {
+        try {
+          // Check if product already exists
+          const existing = await storage.getProductByCode(productData.productCode);
+          if (!existing) {
+            const product = await storage.createProduct(productData);
+            createdProducts.push(product);
+            console.log(`✅ Sample product created: ${product.name} (${product.productCode})`);
+          }
+        } catch (error) {
+          console.warn(`Could not create product ${productData.name}:`, error.message);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Created ${createdProducts.length} sample products`,
+        products: createdProducts
+      });
+    } catch (error) {
+      console.error("Failed to seed products:", error);
+      res.status(500).json({ message: "Failed to seed products" });
+    }
+  });
+
   // Authentication routes
   app.get("/api/auth/user", async (req: any, res) => {
     routeLogger.debug("GET /api/auth/user", "Session info", {
@@ -624,13 +686,44 @@ export function setupRoutes(app: Express): Server {
   app.post("/api/products", requireAuth, async (req, res) => {
     try {
       const validatedData = insertProductSchema.parse(req.body);
+      
+      // Ensure product code is uppercase for consistency
+      if (validatedData.productCode) {
+        validatedData.productCode = validatedData.productCode.toUpperCase();
+      }
+      
       const product = await storage.createProduct(validatedData);
+      console.log(`✅ Product created: ${product.name} with code: ${product.productCode}`);
       res.status(201).json(product);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
+      console.error("Failed to create product:", error);
       res.status(500).json({ message: "Failed to create product" });
+    }
+  });
+
+  app.put("/api/products/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      
+      // Ensure product code is uppercase for consistency
+      if (updateData.productCode) {
+        updateData.productCode = updateData.productCode.toUpperCase();
+      }
+      
+      const updatedProduct = await storage.updateProduct(id, updateData);
+      if (!updatedProduct) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+      
+      console.log(`✅ Product updated: ${updatedProduct.name} with code: ${updatedProduct.productCode}`);
+      res.json(updatedProduct);
+    } catch (error) {
+      console.error("Failed to update product:", error);
+      res.status(500).json({ message: "Failed to update product" });
     }
   });
 
@@ -1236,8 +1329,40 @@ export function setupRoutes(app: Express): Server {
         return res.status(400).json({ message: "Total amount and items are required" });
       }
 
-      // Calculate total points
-      const totalPoints = items.reduce((sum: number, item: any) => sum + (item.quantity * 1), 0); // 1 point per item for now
+      // Calculate total points based on actual product settings
+      let totalPoints = 0;
+      for (const item of items) {
+        let itemPoints = 0;
+        
+        // Try to find the product to get its point calculation settings
+        if (item.productId) {
+          try {
+            const product = await storage.getProduct(item.productId);
+            if (product) {
+              if (product.pointCalculationType === 'fixed' && product.fixedPoints) {
+                itemPoints = product.fixedPoints * item.quantity;
+              } else if (product.pointCalculationType === 'percentage' && product.percentageRate) {
+                const percentageRate = parseFloat(product.percentageRate);
+                itemPoints = Math.floor((item.unitPrice * item.quantity * percentageRate) / 100);
+              } else {
+                // Default: 1 point per $10 spent
+                itemPoints = Math.floor((item.unitPrice * item.quantity) / 10);
+              }
+            } else {
+              // Fallback if product not found
+              itemPoints = item.quantity * 1;
+            }
+          } catch (error) {
+            console.warn(`Could not fetch product ${item.productId}, using default points`);
+            itemPoints = item.quantity * 1;
+          }
+        } else {
+          // No product ID, use default calculation
+          itemPoints = Math.floor((item.unitPrice * item.quantity) / 10) || item.quantity;
+        }
+        
+        totalPoints += itemPoints;
+      }
 
       let customer = null;
       if (customerId) {
@@ -1293,18 +1418,14 @@ export function setupRoutes(app: Express): Server {
         return res.status(400).json({ message: "Product code is required" });
       }
 
-      // For now, return mock product data based on code
-      // In a real system, this would lookup from the products database
-      const mockProduct = {
-        id: Math.random().toString(36).substring(2, 8),
-        code: code.toUpperCase(),
-        name: `Product ${code.toUpperCase()}`,
-        price: "10.00", // Default price
-        pointCalculationType: "fixed",
-        fixedPoints: 1
-      };
+      // Look up actual product from database
+      const product = await storage.getProductByCode(code.trim().toUpperCase());
+      
+      if (!product) {
+        return res.status(404).json({ message: `Product not found with code: ${code}` });
+      }
 
-      res.json(mockProduct);
+      res.json(product);
     } catch (error) {
       console.error("Failed to lookup product by code:", error);
       res.status(500).json({ message: "Product not found" });
