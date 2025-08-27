@@ -1103,6 +1103,150 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  // Coupon verification endpoint (for dashboard lookup)
+  app.get("/api/coupons/verify/:code", async (req, res) => {
+    try {
+      const { code } = req.params;
+      
+      if (!code || code.trim() === '') {
+        return res.status(400).json({ message: "Coupon code is required" });
+      }
+
+      // Look up customer by coupon/referral code
+      const customer = await storage.getCustomerByCouponCode(code.trim().toUpperCase());
+      
+      if (!customer) {
+        return res.status(404).json({ message: "Invalid coupon code" });
+      }
+
+      // Return customer reference for further lookup
+      res.json({
+        valid: true,
+        referrerId: customer.id,
+        customerName: customer.name,
+        points: customer.points,
+        message: "Coupon code verified successfully"
+      });
+    } catch (error) {
+      console.error("Failed to verify coupon code:", error);
+      res.status(500).json({ message: "Failed to verify coupon code" });
+    }
+  });
+
+  // Sales processing endpoint
+  app.post("/api/sales/process", async (req, res) => {
+    try {
+      const { customerId, referralCode, totalAmount, items, paymentMethod } = req.body;
+
+      if (!totalAmount || !items || items.length === 0) {
+        return res.status(400).json({ message: "Total amount and items are required" });
+      }
+
+      // Calculate total points
+      const totalPoints = items.reduce((sum: number, item: any) => sum + (item.quantity * 1), 0); // 1 point per item for now
+
+      let customer = null;
+      if (customerId) {
+        customer = await storage.getCustomer(customerId);
+      } else if (referralCode) {
+        customer = await storage.getCustomerByCouponCode(referralCode.toUpperCase());
+      }
+
+      // Create sale record (simplified)
+      const saleData = {
+        customerId: customer?.id || null,
+        totalAmount: totalAmount.toString(),
+        pointsEarned: totalPoints,
+        items: JSON.stringify(items),
+        paymentMethod: paymentMethod || 'cash',
+        status: 'completed'
+      };
+
+      // Award points to customer if found
+      if (customer) {
+        await storage.updateCustomer(customer.id, {
+          points: customer.points + totalPoints,
+          totalPurchases: (customer.totalPurchases || 0) + 1
+        });
+      }
+
+      console.log(`✅ Sale processed: $${totalAmount} - ${totalPoints} points awarded to ${customer?.name || 'Guest'}`);
+
+      res.json({
+        success: true,
+        saleId: Math.random().toString(36).substring(2, 8).toUpperCase(),
+        pointsEarned: totalPoints,
+        customer: customer ? {
+          id: customer.id,
+          name: customer.name,
+          newPointsBalance: customer.points + totalPoints
+        } : null,
+        totalAmount,
+        message: customer ? `Sale completed! ${totalPoints} points awarded to ${customer.name}` : "Sale completed!"
+      });
+    } catch (error) {
+      console.error("Failed to process sale:", error);
+      res.status(500).json({ message: "Failed to process sale" });
+    }
+  });
+
+  // Product lookup by code endpoint
+  app.get("/api/products/code/:code", async (req, res) => {
+    try {
+      const { code } = req.params;
+      
+      if (!code || code.trim() === '') {
+        return res.status(400).json({ message: "Product code is required" });
+      }
+
+      // For now, return mock product data based on code
+      // In a real system, this would lookup from the products database
+      const mockProduct = {
+        id: Math.random().toString(36).substring(2, 8),
+        code: code.toUpperCase(),
+        name: `Product ${code.toUpperCase()}`,
+        price: "10.00", // Default price
+        pointCalculationType: "fixed",
+        fixedPoints: 1
+      };
+
+      res.json(mockProduct);
+    } catch (error) {
+      console.error("Failed to lookup product by code:", error);
+      res.status(500).json({ message: "Product not found" });
+    }
+  });
+
+  // Customer lookup by coupon code (simplified endpoint)
+  app.get("/api/customers/by-coupon/:code", async (req, res) => {
+    try {
+      const { code } = req.params;
+      
+      if (!code || code.trim() === '') {
+        return res.status(400).json({ message: "Coupon code is required" });
+      }
+
+      const customer = await storage.getCustomerByCouponCode(code.trim().toUpperCase());
+      
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found with this coupon code" });
+      }
+
+      res.json({
+        id: customer.id,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        points: customer.points,
+        pointsRedeemed: customer.pointsRedeemed,
+        referralCode: customer.referralCode,
+        totalPurchases: customer.totalPurchases || 0
+      });
+    } catch (error) {
+      console.error("Failed to lookup customer by coupon code:", error);
+      res.status(500).json({ message: "Failed to lookup customer" });
+    }
+  });
+
   // Customer PWA dashboard endpoint
   app.get("/api/customer/dashboard/:customerId", async (req, res) => {
     try {

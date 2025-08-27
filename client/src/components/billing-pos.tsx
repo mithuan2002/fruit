@@ -38,11 +38,8 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
   // Process sale mutation
   const processSaleMutation = useMutation({
     mutationFn: async (saleData: any) => {
-      return await apiRequest('/api/sales/process', {
-        method: 'POST',
-        body: JSON.stringify(saleData),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await apiRequest('POST', '/api/sales/process', saleData);
+      return await response.json();
     },
     onSuccess: (data) => {
       toast({
@@ -66,8 +63,12 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
     if (!code.trim()) return;
     
     try {
-      const result = await apiRequest(`/api/coupons/verify/${code}`);
-      const customerData = await apiRequest(`/api/customers/${result.referrerId}`);
+      const verifyResponse = await apiRequest('GET', `/api/coupons/verify/${code}`);
+      const result = await verifyResponse.json();
+      
+      const customerResponse = await apiRequest('GET', `/api/customers/${result.referrerId}`);
+      const customerData = await customerResponse.json();
+      
       setCustomer(customerData);
       toast({
         title: "Customer Found",
@@ -104,7 +105,8 @@ export default function BillingPOS({ onSaleComplete }: BillingPOSProps) {
     
     setLoading(true);
     try {
-      const product = await apiRequest(`/api/products/code/${productCode}`);
+      const productResponse = await apiRequest('GET', `/api/products/code/${productCode}`);
+      const product = await productResponse.json();
       
       // Calculate points per item for this product
       let pointsPerItem = 0;
