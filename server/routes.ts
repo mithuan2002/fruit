@@ -140,6 +140,7 @@ export function setupRoutes(app: Express): Server {
           category: "Beverages",
           pointCalculationType: "fixed",
           fixedPoints: 5,
+          minimumQuantity: 1,
           isActive: true
         },
         {
@@ -150,6 +151,7 @@ export function setupRoutes(app: Express): Server {
           category: "Desserts",
           pointCalculationType: "percentage",
           percentageRate: "10",
+          minimumQuantity: 1,
           isActive: true
         },
         {
@@ -160,6 +162,7 @@ export function setupRoutes(app: Express): Server {
           category: "Meals",
           pointCalculationType: "fixed",
           fixedPoints: 3,
+          minimumQuantity: 1,
           isActive: true
         }
       ];
@@ -787,9 +790,50 @@ export function setupRoutes(app: Express): Server {
   // Point Rules endpoints
   app.get("/api/point-rules", requireAuth, async (req, res) => {
     try {
-      // For now, return empty array since we don't have point rules table yet
-      // In future, this would fetch from storage.getAllPointRules()
+      // Get all products and campaigns with their point settings
+      const products = await storage.getAllProducts();
+      const campaigns = await storage.getAllCampaigns();
+      
       const pointRules: any[] = [];
+      
+      // Convert products to point rules format
+      products.forEach(product => {
+        if (product.pointCalculationType !== 'inherit') {
+          pointRules.push({
+            id: product.id,
+            type: 'product',
+            targetId: product.id,
+            targetName: product.name,
+            productCode: product.productCode,
+            pointsType: product.pointCalculationType,
+            pointsValue: product.pointCalculationType === 'fixed' ? product.fixedPoints : 
+                        product.pointCalculationType === 'percentage' ? parseFloat(product.percentageRate || '0') : 0,
+            minQuantity: product.minimumQuantity || 1,
+            description: product.description || '',
+            isActive: product.isActive,
+            createdAt: product.createdAt,
+            updatedAt: product.updatedAt
+          });
+        }
+      });
+      
+      // Convert campaigns to point rules format
+      campaigns.forEach(campaign => {
+        pointRules.push({
+          id: campaign.id,
+          type: 'campaign',
+          targetId: campaign.id,
+          targetName: campaign.name,
+          pointsType: campaign.pointCalculationType,
+          pointsValue: campaign.pointCalculationType === 'fixed' ? campaign.rewardPerReferral : 
+                      campaign.pointCalculationType === 'percentage' ? parseFloat(campaign.percentageRate || '0') : 0,
+          description: campaign.description || '',
+          isActive: campaign.isActive,
+          createdAt: campaign.createdAt,
+          updatedAt: campaign.updatedAt
+        });
+      });
+      
       res.json(pointRules);
     } catch (error) {
       console.error("Failed to fetch point rules:", error);
@@ -806,20 +850,74 @@ export function setupRoutes(app: Express): Server {
         return res.status(400).json({ message: "Target name and points value are required" });
       }
 
-      // For now, simulate saving the rule and return success
-      // In future, this would call storage.createPointRule(ruleData)
-      const savedRule = {
-        id: Math.random().toString(36).substring(2, 8),
-        ...ruleData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+      let savedRule;
+      
+      if (ruleData.type === 'product') {
+        // Create or update product with point calculation settings
+        if (ruleData.targetId && ruleData.targetId !== 'manual-product') {
+          // Update existing product
+          const updatedProduct = await storage.updateProduct(ruleData.targetId, {
+            pointCalculationType: ruleData.pointsType,
+            fixedPoints: ruleData.pointsType === 'fixed' ? ruleData.pointsValue : null,
+            percentageRate: ruleData.pointsType === 'percentage' ? ruleData.pointsValue.toString() : null,
+            minimumQuantity: ruleData.minQuantity || 1
+          });
+          savedRule = updatedProduct;
+        } else {
+          // Create new product for manual entry
+          const newProduct = await storage.createProduct({
+            name: ruleData.targetName,
+            productCode: ruleData.productCode || ruleData.targetName.toUpperCase().replace(/\s+/g, ''),
+            description: ruleData.description || `Product for ${ruleData.targetName}`,
+            price: "0.00", // Default price, can be updated later
+            category: "General",
+            pointCalculationType: ruleData.pointsType,
+            fixedPoints: ruleData.pointsType === 'fixed' ? ruleData.pointsValue : null,
+            percentageRate: ruleData.pointsType === 'percentage' ? ruleData.pointsValue.toString() : null,
+            minimumQuantity: ruleData.minQuantity || 1,
+            isActive: true
+          });
+          savedRule = newProduct;
+        }
+      } else {
+        // Create or update campaign
+        if (ruleData.targetId) {
+          // Update existing campaign
+          const updatedCampaign = await storage.updateCampaign(ruleData.targetId, {
+            pointCalculationType: ruleData.pointsType,
+            rewardPerReferral: ruleData.pointsType === 'fixed' ? ruleData.pointsValue : 0,
+            percentageRate: ruleData.pointsType === 'percentage' ? ruleData.pointsValue.toString() : null
+          });
+          savedRule = updatedCampaign;
+        } else {
+          // Create new campaign
+          const newCampaign = await storage.createCampaign({
+            name: ruleData.targetName,
+            description: ruleData.description || `Campaign for ${ruleData.targetName}`,
+            pointCalculationType: ruleData.pointsType,
+            rewardPerReferral: ruleData.pointsType === 'fixed' ? ruleData.pointsValue : 0,
+            percentageRate: ruleData.pointsType === 'percentage' ? ruleData.pointsValue.toString() : null,
+            startDate: new Date(),
+            endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+            isActive: true
+          });
+          savedRule = newCampaign;
+        }
+      }
 
       console.log(`✅ Points rule created: ${ruleData.targetName} - ${ruleData.pointsValue} points (${ruleData.pointsType})`);
       
       res.status(201).json({
         success: true,
-        rule: savedRule,
+        rule: {
+          id: savedRule.id,
+          type: ruleData.type,
+          targetId: savedRule.id,
+          targetName: savedRule.name,
+          ...ruleData,
+          createdAt: savedRule.createdAt,
+          updatedAt: savedRule.updatedAt
+        },
         message: `Points rule created successfully for ${ruleData.targetName}`
       });
     } catch (error) {
@@ -838,19 +936,32 @@ export function setupRoutes(app: Express): Server {
         return res.status(400).json({ message: "Target name and points value are required" });
       }
 
-      // For now, simulate updating the rule
-      // In future, this would call storage.updatePointRule(id, ruleData)
-      const updatedRule = {
-        id,
-        ...ruleData,
-        updatedAt: new Date().toISOString()
-      };
+      let updatedRule;
+      
+      if (ruleData.type === 'product') {
+        updatedRule = await storage.updateProduct(id, {
+          pointCalculationType: ruleData.pointsType,
+          fixedPoints: ruleData.pointsType === 'fixed' ? ruleData.pointsValue : null,
+          percentageRate: ruleData.pointsType === 'percentage' ? ruleData.pointsValue.toString() : null,
+          minimumQuantity: ruleData.minQuantity || 1
+        });
+      } else {
+        updatedRule = await storage.updateCampaign(id, {
+          pointCalculationType: ruleData.pointsType,
+          rewardPerReferral: ruleData.pointsType === 'fixed' ? ruleData.pointsValue : 0,
+          percentageRate: ruleData.pointsType === 'percentage' ? ruleData.pointsValue.toString() : null
+        });
+      }
 
       console.log(`✅ Points rule updated: ${ruleData.targetName} - ${ruleData.pointsValue} points (${ruleData.pointsType})`);
       
       res.json({
         success: true,
-        rule: updatedRule,
+        rule: {
+          id: updatedRule.id,
+          ...ruleData,
+          updatedAt: updatedRule.updatedAt
+        },
         message: `Points rule updated successfully for ${ruleData.targetName}`
       });
     } catch (error) {
@@ -863,8 +974,23 @@ export function setupRoutes(app: Express): Server {
     try {
       const { id } = req.params;
       
-      // For now, simulate deleting the rule
-      // In future, this would call storage.deletePointRule(id)
+      // Check if it's a product or campaign first
+      const product = await storage.getProduct(id);
+      if (product) {
+        // Reset product point calculation to inherit
+        await storage.updateProduct(id, {
+          pointCalculationType: 'inherit',
+          fixedPoints: null,
+          percentageRate: null
+        });
+      } else {
+        // Try to find campaign and deactivate it
+        const campaigns = await storage.getAllCampaigns();
+        const campaign = campaigns.find(c => c.id === id);
+        if (campaign) {
+          await storage.updateCampaign(id, { isActive: false });
+        }
+      }
       
       console.log(`✅ Points rule deleted: ${id}`);
       
@@ -1545,13 +1671,22 @@ export function setupRoutes(app: Express): Server {
       const product = await storage.getProductByCode(code.trim().toUpperCase());
       
       if (!product) {
-        return res.status(404).json({ message: `Product not found with code: ${code}` });
+        // If no product found, check if there are any sample products
+        const allProducts = await storage.getAllProducts();
+        console.log(`❌ Product not found with code: ${code}. Available products:`, 
+          allProducts.map(p => ({ name: p.name, code: p.productCode })));
+        
+        return res.status(404).json({ 
+          message: `Product not found with code: ${code}`,
+          suggestion: "Make sure the product code exists or create the product first"
+        });
       }
 
+      console.log(`✅ Product found: ${product.name} (${product.productCode})`);
       res.json(product);
     } catch (error) {
       console.error("Failed to lookup product by code:", error);
-      res.status(500).json({ message: "Product not found" });
+      res.status(500).json({ message: "Product lookup failed" });
     }
   });
 
