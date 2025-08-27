@@ -834,6 +834,5 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Temporarily using memory storage due to disabled Neon database endpoint
-import { MemoryStorage } from "./memory-storage";
-export const storage = new MemoryStorage() as any;
+// Use database storage with PostgreSQL
+export const storage = new DatabaseStorage();

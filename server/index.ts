@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { setupRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 // Enhanced logging utility
 const logger = {
@@ -29,7 +31,7 @@ const app = express();
 // Request ID middleware for tracking
 app.use((req: any, res, next) => {
   req.requestId = Math.random().toString(36).substring(7);
-  logger.debug(`Incoming request: ${req.method} ${req.path}`, { 
+  logger.debug(`Incoming request: ${req.method} ${req.path}`, {
     requestId: req.requestId,
     headers: req.headers,
     query: req.query,
@@ -56,7 +58,7 @@ app.use((req: any, res, next) => {
     const duration = Date.now() - start;
     const statusCode = res.statusCode;
     const method = req.method;
-    
+
     // Log all requests with detailed information
     const logData = {
       requestId: req.requestId,
@@ -96,10 +98,22 @@ app.use((req: any, res, next) => {
   next();
 });
 
+// Verify database connection on startup
+async function verifyDatabaseConnection() {
+  try {
+    const result = await db.execute(sql`SELECT 1 as test`);
+    console.log("✅ Database connection verified");
+  } catch (error) {
+    console.error("❌ Database connection failed:", error);
+    console.log("Please ensure DATABASE_URL is set and the database is accessible");
+  }
+}
+
+
 (async () => {
   try {
     logger.info("Starting server initialization...");
-    
+
     logger.debug("Environment variables check", {
       NODE_ENV: process.env.NODE_ENV,
       PORT: process.env.PORT,
@@ -153,16 +167,17 @@ app.use((req: any, res, next) => {
     // this serves both the API and the client.
     // It is the only port that is not firewalled.
     const port = parseInt(process.env.PORT || '5000', 10);
-    
+
     logger.info(`Starting server on port ${port}...`);
     server.listen({
       port,
       host: "0.0.0.0",
       reusePort: true,
-    }, () => {
+    }, async () => {
       logger.info(`Server successfully started and listening on port ${port}`);
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
       log(`serving on port ${port}`);
+      await verifyDatabaseConnection();
     });
 
     server.on('error', (error: any) => {
