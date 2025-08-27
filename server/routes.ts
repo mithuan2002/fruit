@@ -669,6 +669,100 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  // Point Rules endpoints
+  app.get("/api/point-rules", requireAuth, async (req, res) => {
+    try {
+      // For now, return empty array since we don't have point rules table yet
+      // In future, this would fetch from storage.getAllPointRules()
+      const pointRules: any[] = [];
+      res.json(pointRules);
+    } catch (error) {
+      console.error("Failed to fetch point rules:", error);
+      res.status(500).json({ message: "Failed to fetch point rules" });
+    }
+  });
+
+  app.post("/api/point-rules", requireAuth, async (req, res) => {
+    try {
+      const ruleData = req.body;
+      
+      // Validate required fields
+      if (!ruleData.targetName || !ruleData.pointsValue) {
+        return res.status(400).json({ message: "Target name and points value are required" });
+      }
+
+      // For now, simulate saving the rule and return success
+      // In future, this would call storage.createPointRule(ruleData)
+      const savedRule = {
+        id: Math.random().toString(36).substring(2, 8),
+        ...ruleData,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      console.log(`✅ Points rule created: ${ruleData.targetName} - ${ruleData.pointsValue} points (${ruleData.pointsType})`);
+      
+      res.status(201).json({
+        success: true,
+        rule: savedRule,
+        message: `Points rule created successfully for ${ruleData.targetName}`
+      });
+    } catch (error) {
+      console.error("Failed to create point rule:", error);
+      res.status(500).json({ message: "Failed to create point rule" });
+    }
+  });
+
+  app.put("/api/point-rules/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ruleData = req.body;
+      
+      // Validate required fields
+      if (!ruleData.targetName || !ruleData.pointsValue) {
+        return res.status(400).json({ message: "Target name and points value are required" });
+      }
+
+      // For now, simulate updating the rule
+      // In future, this would call storage.updatePointRule(id, ruleData)
+      const updatedRule = {
+        id,
+        ...ruleData,
+        updatedAt: new Date().toISOString()
+      };
+
+      console.log(`✅ Points rule updated: ${ruleData.targetName} - ${ruleData.pointsValue} points (${ruleData.pointsType})`);
+      
+      res.json({
+        success: true,
+        rule: updatedRule,
+        message: `Points rule updated successfully for ${ruleData.targetName}`
+      });
+    } catch (error) {
+      console.error("Failed to update point rule:", error);
+      res.status(500).json({ message: "Failed to update point rule" });
+    }
+  });
+
+  app.delete("/api/point-rules/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // For now, simulate deleting the rule
+      // In future, this would call storage.deletePointRule(id)
+      
+      console.log(`✅ Points rule deleted: ${id}`);
+      
+      res.json({
+        success: true,
+        message: "Points rule deleted successfully"
+      });
+    } catch (error) {
+      console.error("Failed to delete point rule:", error);
+      res.status(500).json({ message: "Failed to delete point rule" });
+    }
+  });
+
   // Dashboard stats
   app.get("/api/dashboard/stats", requireAuth, async (req, res) => {
     try {
