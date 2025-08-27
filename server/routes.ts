@@ -1496,6 +1496,97 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  // Coupon redemption endpoint (process referral sale)
+  app.post("/api/coupons/:code/redeem", async (req, res) => {
+    try {
+      const { code } = req.params;
+      const { customerId, referredCustomerName, referredCustomerPhone, saleAmount, pointsToAssign } = req.body;
+
+      if (!code || code.trim() === '') {
+        return res.status(400).json({ message: "Coupon code is required" });
+      }
+
+      if (!saleAmount || saleAmount <= 0) {
+        return res.status(400).json({ message: "Valid sale amount is required" });
+      }
+
+      // Look up referrer by coupon code
+      const referrer = await storage.getCustomerByCouponCode(code.trim().toUpperCase());
+      if (!referrer) {
+        return res.status(404).json({ message: "Invalid coupon code" });
+      }
+
+      // Calculate points earned (example: $10 = 1 point, so $34 = 3 points)
+      const basePoints = Math.floor(saleAmount / 10);
+      const pointsEarned = pointsToAssign || basePoints;
+
+      // Create or update referred customer if provided
+      let referredCustomer = null;
+      if (referredCustomerName && referredCustomerPhone) {
+        const cleanPhone = referredCustomerPhone.replace(/[^\d]/g, '');
+        
+        // Check if customer already exists
+        const existingCustomer = await storage.getCustomerByPhone(cleanPhone);
+        if (existingCustomer) {
+          referredCustomer = existingCustomer;
+        } else {
+          // Generate unique referral code for new customer
+          const newReferralCode = await storage.generateUniqueCode();
+          referredCustomer = await storage.createCustomer({
+            name: referredCustomerName,
+            phoneNumber: cleanPhone,
+            referralCode: newReferralCode
+          });
+        }
+      }
+
+      // Update referrer points
+      await storage.updateCustomer(referrer.id, {
+        points: referrer.points + pointsEarned,
+        pointsEarned: referrer.pointsEarned + pointsEarned,
+        totalReferrals: referrer.totalReferrals + 1
+      });
+
+      // Create referral record (simplified)
+      try {
+        await storage.createReferral({
+          referrerId: referrer.id,
+          referredId: referredCustomer?.id || null,
+          referredCustomerName: referredCustomerName || 'Guest',
+          referredCustomerPhone: referredCustomerPhone || null,
+          saleAmount: saleAmount.toString(),
+          pointsEarned,
+          status: 'completed'
+        });
+      } catch (error) {
+        console.warn("Could not create referral record:", error.message);
+      }
+
+      console.log(`✅ Referral processed: ${referrer.name} earned ${pointsEarned} points from $${saleAmount} sale`);
+
+      res.json({
+        success: true,
+        referrer: {
+          id: referrer.id,
+          name: referrer.name,
+          newPointsBalance: referrer.points + pointsEarned
+        },
+        referredCustomer: referredCustomer ? {
+          id: referredCustomer.id,
+          name: referredCustomer.name,
+          referralCode: referredCustomer.referralCode
+        } : null,
+        pointsEarned,
+        totalPoints: referrer.points + pointsEarned,
+        saleAmount,
+        message: `${pointsEarned} points awarded to ${referrer.name}`
+      });
+    } catch (error) {
+      console.error("Failed to process coupon redemption:", error);
+      res.status(500).json({ message: "Failed to process referral sale" });
+    }
+  });
+
   // Sales preview points endpoint
   app.post("/api/sales/preview-points", async (req, res) => {
     try {
