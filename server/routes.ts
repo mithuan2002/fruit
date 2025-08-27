@@ -660,6 +660,17 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  // Get active campaigns only
+  app.get("/api/campaigns/active", async (req, res) => {
+    try {
+      const campaigns = await storage.getAllCampaigns();
+      const activeCampaigns = campaigns.filter(c => c.isActive);
+      res.json(activeCampaigns);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch active campaigns" });
+    }
+  });
+
   app.post("/api/campaigns", requireAuth, async (req, res) => {
     try {
       const validatedData = insertCampaignSchema.parse(req.body);
@@ -680,6 +691,17 @@ export function setupRoutes(app: Express): Server {
       res.json(products);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch products" });
+    }
+  });
+
+  // Get active products only
+  app.get("/api/products/active", async (req, res) => {
+    try {
+      const products = await storage.getAllProducts();
+      const activeProducts = products.filter(p => p.isActive);
+      res.json(activeProducts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch active products" });
     }
   });
 
@@ -1320,19 +1342,103 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
-  // Sales processing endpoint
-  app.post("/api/sales/process", async (req, res) => {
+  // Sales preview points endpoint
+  app.post("/api/sales/preview-points", async (req, res) => {
     try {
-      const { customerId, referralCode, totalAmount, items, paymentMethod } = req.body;
+      const { customerId, referralCode, totalAmount, items, campaignId } = req.body;
 
       if (!totalAmount || !items || items.length === 0) {
         return res.status(400).json({ message: "Total amount and items are required" });
       }
 
-      // Calculate total points based on actual product settings
+      // Calculate points for each item
+      const itemPoints = [];
       let totalPoints = 0;
+      const appliedRules = [];
+
+      for (const item of items) {
+        let itemPointsCalculation = 0;
+        let calculationDescription = "";
+        
+        // Try to find the product to get its point calculation settings
+        if (item.productId) {
+          try {
+            const product = await storage.getProduct(item.productId);
+            if (product) {
+              if (product.pointCalculationType === 'fixed' && product.fixedPoints) {
+                itemPointsCalculation = product.fixedPoints * item.quantity;
+                calculationDescription = `${product.fixedPoints} points × ${item.quantity} quantity`;
+                appliedRules.push(`Fixed points rule: ${product.fixedPoints} points per ${product.name}`);
+              } else if (product.pointCalculationType === 'percentage' && product.percentageRate) {
+                const percentageRate = parseFloat(product.percentageRate);
+                itemPointsCalculation = Math.floor((item.totalPrice * percentageRate) / 100);
+                calculationDescription = `${percentageRate}% of $${item.totalPrice}`;
+                appliedRules.push(`Percentage rule: ${percentageRate}% of purchase amount for ${product.name}`);
+              } else {
+                // Default: 1 point per $10 spent
+                itemPointsCalculation = Math.floor(item.totalPrice / 10);
+                calculationDescription = `$${item.totalPrice} ÷ 10 (default rule)`;
+                appliedRules.push("Default rule: 1 point per $10 spent");
+              }
+            } else {
+              // Fallback if product not found
+              itemPointsCalculation = item.quantity * 1;
+              calculationDescription = `${item.quantity} quantity × 1 point (fallback)`;
+              appliedRules.push("Fallback rule: 1 point per item");
+            }
+          } catch (error) {
+            console.warn(`Could not fetch product ${item.productId}, using default points`);
+            itemPointsCalculation = item.quantity * 1;
+            calculationDescription = `${item.quantity} quantity × 1 point (error fallback)`;
+            appliedRules.push("Error fallback: 1 point per item");
+          }
+        } else {
+          // No product ID, use default calculation based on price
+          itemPointsCalculation = Math.floor(item.totalPrice / 10) || 1;
+          calculationDescription = item.totalPrice >= 10 ? `$${item.totalPrice} ÷ 10` : "Minimum 1 point";
+          appliedRules.push("Manual item rule: 1 point per $10 or minimum 1 point");
+        }
+        
+        itemPoints.push({
+          productId: item.productId,
+          productName: item.productName,
+          points: itemPointsCalculation,
+          calculation: calculationDescription
+        });
+        
+        totalPoints += itemPointsCalculation;
+      }
+
+      // Remove duplicate rules
+      const uniqueRules = [...new Set(appliedRules)];
+
+      res.json({
+        totalPoints,
+        itemPoints,
+        appliedRules: uniqueRules
+      });
+    } catch (error) {
+      console.error("Failed to preview points:", error);
+      res.status(500).json({ message: "Failed to preview points calculation" });
+    }
+  });
+
+  // Sales processing endpoint
+  app.post("/api/sales/process", async (req, res) => {
+    try {
+      const { customerId, referralCode, totalAmount, items, paymentMethod, campaignId } = req.body;
+
+      if (!totalAmount || !items || items.length === 0) {
+        return res.status(400).json({ message: "Total amount and items are required" });
+      }
+
+      // Calculate total points based on actual product settings (same logic as preview)
+      let totalPoints = 0;
+      const itemPointsDetails = [];
+
       for (const item of items) {
         let itemPoints = 0;
+        let calculationDescription = "";
         
         // Try to find the product to get its point calculation settings
         if (item.productId) {
@@ -1341,27 +1447,38 @@ export function setupRoutes(app: Express): Server {
             if (product) {
               if (product.pointCalculationType === 'fixed' && product.fixedPoints) {
                 itemPoints = product.fixedPoints * item.quantity;
+                calculationDescription = `${product.fixedPoints} points × ${item.quantity}`;
               } else if (product.pointCalculationType === 'percentage' && product.percentageRate) {
                 const percentageRate = parseFloat(product.percentageRate);
-                itemPoints = Math.floor((item.unitPrice * item.quantity * percentageRate) / 100);
+                itemPoints = Math.floor((item.totalPrice * percentageRate) / 100);
+                calculationDescription = `${percentageRate}% of $${item.totalPrice}`;
               } else {
                 // Default: 1 point per $10 spent
-                itemPoints = Math.floor((item.unitPrice * item.quantity) / 10);
+                itemPoints = Math.floor(item.totalPrice / 10);
+                calculationDescription = `$${item.totalPrice} ÷ 10`;
               }
             } else {
               // Fallback if product not found
               itemPoints = item.quantity * 1;
+              calculationDescription = `${item.quantity} × 1 point`;
             }
           } catch (error) {
             console.warn(`Could not fetch product ${item.productId}, using default points`);
             itemPoints = item.quantity * 1;
+            calculationDescription = `${item.quantity} × 1 point (fallback)`;
           }
         } else {
           // No product ID, use default calculation
-          itemPoints = Math.floor((item.unitPrice * item.quantity) / 10) || item.quantity;
+          itemPoints = Math.floor(item.totalPrice / 10) || 1;
+          calculationDescription = item.totalPrice >= 10 ? `$${item.totalPrice} ÷ 10` : "Minimum 1 point";
         }
         
         totalPoints += itemPoints;
+        itemPointsDetails.push({
+          productName: item.productName,
+          points: itemPoints,
+          calculation: calculationDescription
+        });
       }
 
       let customer = null;
@@ -1378,6 +1495,7 @@ export function setupRoutes(app: Express): Server {
         pointsEarned: totalPoints,
         items: JSON.stringify(items),
         paymentMethod: paymentMethod || 'cash',
+        campaignId: campaignId || null,
         status: 'completed'
       };
 
@@ -1385,6 +1503,7 @@ export function setupRoutes(app: Express): Server {
       if (customer) {
         await storage.updateCustomer(customer.id, {
           points: customer.points + totalPoints,
+          pointsEarned: customer.pointsEarned + totalPoints,
           totalPurchases: (customer.totalPurchases || 0) + 1
         });
       }
@@ -1394,11 +1513,15 @@ export function setupRoutes(app: Express): Server {
       res.json({
         success: true,
         saleId: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        pointsEarned: totalPoints,
+        pointCalculation: {
+          totalPoints,
+          itemBreakdown: itemPointsDetails
+        },
         customer: customer ? {
           id: customer.id,
           name: customer.name,
-          newPointsBalance: customer.points + totalPoints
+          newPointsBalance: customer.points + totalPoints,
+          pointsEarned: totalPoints
         } : null,
         totalAmount,
         message: customer ? `Sale completed! ${totalPoints} points awarded to ${customer.name}` : "Sale completed!"
