@@ -131,6 +131,16 @@ export default function CustomerRegistration() {
   };
 
   const installPWA = async () => {
+    // Register service worker first
+    if ('serviceWorker' in navigator) {
+      try {
+        await navigator.serviceWorker.register('/sw.js');
+        console.log('Service Worker registered successfully');
+      } catch (error) {
+        console.log('Service Worker registration failed:', error);
+      }
+    }
+
     // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       toast({
