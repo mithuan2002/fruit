@@ -81,26 +81,12 @@ export default function CustomerRegistration() {
     },
   });
 
-  const onSubmit = async (data: RegistrationForm) => {
+  const onSubmit = (data: RegistrationForm) => {
     // Clean phone number - remove any non-digits
     const cleanedData = {
       ...data,
       phoneNumber: data.phoneNumber.replace(/[^\d]/g, "")
     };
-
-    // Try to install PWA immediately when form is submitted
-    try {
-      await installPWA();
-      toast({
-        title: "📱 App Installing...",
-        description: "Fruitbox is being added to your home screen",
-        duration: 2000,
-      });
-    } catch (error) {
-      console.log('PWA installation not available or cancelled');
-    }
-
-    // Register the customer
     registerMutation.mutate(cleanedData);
   };
 
@@ -145,34 +131,31 @@ export default function CustomerRegistration() {
   };
 
   const installPWA = async () => {
-    // Register service worker first
-    if ('serviceWorker' in navigator) {
-      try {
-        await navigator.serviceWorker.register('/sw.js');
-        console.log('Service Worker registered successfully');
-      } catch (error) {
-        console.log('Service Worker registration failed:', error);
-      }
-    }
-
     // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
-      console.log('PWA already installed');
+      toast({
+        title: "Already installed!",
+        description: "Fruitbox is already on your home screen",
+      });
       return;
     }
 
-    // Try automatic install prompt
+    // Try native install prompt first
     if ((window as any).deferredPrompt) {
       const deferredPrompt = (window as any).deferredPrompt;
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
-        console.log('PWA installed successfully');
+        toast({
+          title: "Perfect! 🎉",
+          description: "Fruitbox is now pinned to your home screen for quick access",
+        });
+      } else {
+        showManualInstallInstructions();
       }
       (window as any).deferredPrompt = null;
     } else {
-      // PWA install prompt not available
-      console.log('PWA install prompt not available');
+      showManualInstallInstructions();
     }
   };
 
@@ -194,27 +177,6 @@ export default function CustomerRegistration() {
       description: instructions,
       duration: 5000,
     });
-  };
-
-  const handleViewCouponStatus = () => {
-    if (!registrationData?.customer?.phoneNumber) {
-      toast({
-        title: "Error",
-        description: "Phone number not found. Please try registering again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const phoneNumber = registrationData.customer.phoneNumber;
-    
-    // Request notification permission for future updates
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      Notification.requestPermission();
-    }
-
-    // Redirect to tracking page
-    window.location.href = `/track?phone=${encodeURIComponent(phoneNumber)}&auto=true`;
   };
 
   const handleNewRegistration = () => {
@@ -283,39 +245,49 @@ export default function CustomerRegistration() {
               </div>
             </div>
 
-            {/* Coupon Status and Actions */}
-            <div className="space-y-4 pt-4 border-t border-gray-200">
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-lg border border-green-200">
-                <div className="flex items-center justify-center space-x-2 mb-4">
-                  <CheckCircle className="text-green-600" size={24} />
-                  <span className="font-bold text-green-800 text-lg">Your Coupon is Ready!</span>
+            {/* PWA Installation and Notification Prompts */}
+            <div className="space-y-3 pt-4 border-t border-gray-200">
+              <h4 className="font-semibold text-gray-800 text-center">Quick Access</h4>
+              
+              <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
+                <div className="flex items-center justify-center space-x-2 mb-3">
+                  <Sparkles className="text-purple-600" size={20} />
+                  <span className="font-semibold text-purple-800">Pin Fruitbox</span>
                 </div>
-                <div className="text-center space-y-3">
-                  <div className="bg-white p-4 rounded-lg border border-green-200">
-                    <p className="text-sm text-green-700 mb-2">Current Status:</p>
-                    <div className="flex items-center justify-center space-x-2">
-                      <Badge variant="secondary" className="bg-green-100 text-green-800 border border-green-300">
-                        Active
-                      </Badge>
-                      <span className="text-sm text-gray-600">• 0 points earned</span>
-                    </div>
-                  </div>
-                  <p className="text-sm text-green-700">
-                    Your coupon is active and ready to use! Track your points, view rewards, and see your usage history.
-                  </p>
-                </div>
+                <p className="text-sm text-purple-700 mb-3 text-center">
+                  Add to your home screen for instant access to your rewards - no app store needed!
+                </p>
                 <Button 
-                  onClick={handleViewCouponStatus}
-                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-lg py-3 mt-4"
-                  disabled={registerMutation.isPending}
+                  onClick={installPWA}
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                  size="sm"
                 >
-                  📊 View My Coupon Status & Points
+                  📌 Pin to Home Screen
                 </Button>
-                <p className="text-xs text-green-600 mt-3 text-center">
-                  ✨ Real-time updates • Track rewards • View history
+                <p className="text-xs text-purple-600 mt-2 text-center">
+                  Works like an app, but lighter and faster!
                 </p>
               </div>
 
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <div className="flex items-center justify-center space-x-2 mb-3">
+                  <CheckCircle className="text-green-600" size={20} />
+                  <span className="font-semibold text-green-800">Stay Updated</span>
+                </div>
+                <p className="text-sm text-green-700 mb-3 text-center">
+                  Get notified about new rewards, bonus points, and exclusive offers!
+                </p>
+                <Button 
+                  onClick={requestNotificationPermission}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  size="sm"
+                >
+                  🔔 Enable Notifications
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-4">
               <Button 
                 onClick={handleNewRegistration} 
                 variant="outline" 

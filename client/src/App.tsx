@@ -60,7 +60,6 @@ function Router() {
           <Route path="/bill-scanner" component={BillScanner} />
           <Route path="/cashier" component={CashierDashboard} />
           <Route path="/landing" component={Landing} />
-          <Route path="/track" component={() => import("./pages/customer-tracking")} />
           <Route path="*">
             <Redirect to="/dashboard" />
           </Route>
@@ -87,13 +86,13 @@ function App() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
-
+    
     // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
           console.log('Service Worker registered successfully:', registration.scope);
-
+          
           // Check for updates
           registration.addEventListener('updatefound', () => {
             console.log('New service worker version available');
