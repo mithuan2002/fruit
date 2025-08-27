@@ -1215,17 +1215,17 @@ export function setupRoutes(app: Express): Server {
       ],
       shortcuts: [
         {
-          name: "Register",
-          short_name: "Register",
-          description: "Quick customer registration",
-          url: "/register",
+          name: "Track My Points",
+          short_name: "Track",
+          description: "View your points, rewards and coupon history",
+          url: "/track",
           icons: [{ src: "/pwa-icon-192.png", sizes: "192x192" }]
         },
         {
-          name: "Track Activity",
-          short_name: "Track",
-          description: "Track your points and rewards",
-          url: "/track",
+          name: "Register",
+          short_name: "Register", 
+          description: "New customer registration",
+          url: "/register",
           icons: [{ src: "/pwa-icon-192.png", sizes: "192x192" }]
         }
       ],

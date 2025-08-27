@@ -179,6 +179,23 @@ export default function CustomerRegistration() {
     });
   };
 
+  const handleTrackPoints = async () => {
+    // First, try to install PWA for better experience
+    try {
+      await installPWA();
+      // Enable notifications silently in background
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        await Notification.requestPermission();
+      }
+    } catch (error) {
+      // PWA installation failed or was cancelled, continue anyway
+      console.log('PWA installation skipped');
+    }
+    
+    // Always redirect to tracking page regardless of PWA installation
+    window.location.href = `/track?phone=${encodeURIComponent(registrationData?.customer.phoneNumber || '')}`;
+  };
+
   const handleNewRegistration = () => {
     setIsSuccess(false);
     setRegistrationData(null);
@@ -245,55 +262,27 @@ export default function CustomerRegistration() {
               </div>
             </div>
 
-            {/* PWA Installation and Notification Prompts */}
-            <div className="space-y-3 pt-4 border-t border-gray-200">
-              <h4 className="font-semibold text-gray-800 text-center">Quick Access</h4>
-              
-              <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
-                <div className="flex items-center justify-center space-x-2 mb-3">
-                  <Sparkles className="text-purple-600" size={20} />
-                  <span className="font-semibold text-purple-800">Pin Fruitbox</span>
+            {/* Single Track Points Button */}
+            <div className="space-y-4 pt-4 border-t border-gray-200">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-center space-x-2 mb-4">
+                  <Gift className="text-blue-600" size={24} />
+                  <span className="font-bold text-blue-800 text-lg">Ready to Track Your Rewards!</span>
                 </div>
-                <p className="text-sm text-purple-700 mb-3 text-center">
-                  Add to your home screen for instant access to your rewards - no app store needed!
+                <p className="text-sm text-blue-700 mb-4 text-center">
+                  Access your personal rewards dashboard - track points, view coupon usage, and see your earning history anytime, anywhere!
                 </p>
                 <Button 
-                  onClick={installPWA}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                  size="sm"
+                  onClick={handleTrackPoints}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-lg py-3"
                 >
-                  📌 Pin to Home Screen
+                  🎯 Track Your Points & Rewards
                 </Button>
-                <p className="text-xs text-purple-600 mt-2 text-center">
-                  Works like an app, but lighter and faster!
+                <p className="text-xs text-blue-600 mt-3 text-center">
+                  💡 Tip: This will create a quick-access shortcut on your phone for instant tracking!
                 </p>
               </div>
 
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                <div className="flex items-center justify-center space-x-2 mb-3">
-                  <CheckCircle className="text-green-600" size={20} />
-                  <span className="font-semibold text-green-800">Stay Updated</span>
-                </div>
-                <p className="text-sm text-green-700 mb-3 text-center">
-                  Get notified about new rewards, bonus points, and exclusive offers!
-                </p>
-                <Button 
-                  onClick={requestNotificationPermission}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  size="sm"
-                >
-                  🔔 Enable Notifications
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-4">
-              <Button 
-                onClick={() => window.location.href = '/track'}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
-              >
-                📊 Track My Activity & Points
-              </Button>
               <Button 
                 onClick={handleNewRegistration} 
                 variant="outline" 

@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Added useEffect import
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -69,30 +68,36 @@ export default function CustomerTracking() {
   const [isTracking, setIsTracking] = useState(false);
   const { toast } = useToast();
 
+  // Get phone number from URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const phoneFromUrl = urlParams.get('phone') || '';
+
   const form = useForm<TrackingForm>({
     resolver: zodResolver(trackingSchema),
     defaultValues: {
-      phoneNumber: ""
+      phoneNumber: phoneFromUrl
     }
   });
 
+  // Function to fetch customer data (moved from mutationFn for reuse)
+  const fetchCustomerData = async (data: TrackingForm) => {
+    const cleanPhone = data.phoneNumber.replace(/[^\d]/g, "");
+    const response = await fetch(`/api/customers/phone/${cleanPhone}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Customer not found");
+    }
+    return response.json() as Promise<CustomerData>;
+  };
+
   const trackMutation = useMutation({
-    mutationFn: async (data: TrackingForm) => {
-      const cleanPhone = data.phoneNumber.replace(/[^\d]/g, "");
-      const response = await fetch(`/api/customers/phone/${cleanPhone}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Customer not found");
-      }
-
-      return response.json() as Promise<CustomerData>;
-    },
+    mutationFn: fetchCustomerData, // Use the extracted function
     onSuccess: (data) => {
       setCustomerData(data);
       setIsTracking(true);
@@ -109,6 +114,14 @@ export default function CustomerTracking() {
       });
     },
   });
+
+  // Auto-fetch data if phone number is provided in URL
+  useEffect(() => {
+    if (phoneFromUrl) {
+      form.setValue('phoneNumber', phoneFromUrl);
+      trackMutation.mutate({ phoneNumber: phoneFromUrl }); // Trigger mutation
+    }
+  }, [phoneFromUrl, form, trackMutation]); // Added dependencies
 
   const { data: pointsHistory } = useQuery({
     queryKey: [`/api/customers/${customerData?.id}/points-history`],
