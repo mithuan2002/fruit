@@ -845,6 +845,11 @@ export function setupRoutes(app: Express): Server {
     try {
       const ruleData = req.body;
       
+      routeLogger.info("POINT-RULES", "Creating point rule", {
+        requestId: req.requestId,
+        ruleData
+      });
+      
       // Validate required fields
       if (!ruleData.targetName || !ruleData.pointsValue) {
         return res.status(400).json({ message: "Target name and points value are required" });
@@ -856,6 +861,7 @@ export function setupRoutes(app: Express): Server {
         // Create or update product with point calculation settings
         if (ruleData.targetId && ruleData.targetId !== 'manual-product') {
           // Update existing product
+          routeLogger.debug("POINT-RULES", "Updating existing product", { productId: ruleData.targetId });
           const updatedProduct = await storage.updateProduct(ruleData.targetId, {
             pointCalculationType: ruleData.pointsType,
             fixedPoints: ruleData.pointsType === 'fixed' ? ruleData.pointsValue : null,
@@ -865,10 +871,11 @@ export function setupRoutes(app: Express): Server {
           savedRule = updatedProduct;
         } else {
           // Create new product for manual entry
-          const newProduct = await storage.createProduct({
+          routeLogger.debug("POINT-RULES", "Creating new product for manual entry");
+          const productData = {
             name: ruleData.targetName,
             productCode: ruleData.productCode || ruleData.targetName.toUpperCase().replace(/\s+/g, ''),
-            description: ruleData.description || `Product for ${ruleData.targetName}`,
+            description: ruleData.description || `Points rule for ${ruleData.targetName}`,
             price: "0.00", // Default price, can be updated later
             category: "General",
             pointCalculationType: ruleData.pointsType,
@@ -876,13 +883,17 @@ export function setupRoutes(app: Express): Server {
             percentageRate: ruleData.pointsType === 'percentage' ? ruleData.pointsValue.toString() : null,
             minimumQuantity: ruleData.minQuantity || 1,
             isActive: true
-          });
+          };
+          
+          routeLogger.debug("POINT-RULES", "Product data prepared", { productData });
+          const newProduct = await storage.createProduct(productData);
           savedRule = newProduct;
         }
       } else {
         // Create or update campaign
         if (ruleData.targetId) {
           // Update existing campaign
+          routeLogger.debug("POINT-RULES", "Updating existing campaign", { campaignId: ruleData.targetId });
           const updatedCampaign = await storage.updateCampaign(ruleData.targetId, {
             pointCalculationType: ruleData.pointsType,
             rewardPerReferral: ruleData.pointsType === 'fixed' ? ruleData.pointsValue : 0,
@@ -891,6 +902,7 @@ export function setupRoutes(app: Express): Server {
           savedRule = updatedCampaign;
         } else {
           // Create new campaign
+          routeLogger.debug("POINT-RULES", "Creating new campaign");
           const newCampaign = await storage.createCampaign({
             name: ruleData.targetName,
             description: ruleData.description || `Campaign for ${ruleData.targetName}`,
@@ -905,7 +917,15 @@ export function setupRoutes(app: Express): Server {
         }
       }
 
-      console.log(`✅ Points rule created: ${ruleData.targetName} - ${ruleData.pointsValue} points (${ruleData.pointsType})`);
+      if (!savedRule) {
+        throw new Error("Failed to create or update rule - no result returned");
+      }
+
+      routeLogger.info("POINT-RULES", "Points rule created successfully", {
+        requestId: req.requestId,
+        ruleId: savedRule.id,
+        ruleName: ruleData.targetName
+      });
       
       res.status(201).json({
         success: true,
@@ -921,8 +941,16 @@ export function setupRoutes(app: Express): Server {
         message: `Points rule created successfully for ${ruleData.targetName}`
       });
     } catch (error) {
-      console.error("Failed to create point rule:", error);
-      res.status(500).json({ message: "Failed to create point rule" });
+      routeLogger.error("POINT-RULES", "Failed to create point rule", {
+        requestId: req.requestId,
+        error: error.message,
+        stack: error.stack,
+        ruleData: req.body
+      });
+      res.status(500).json({ 
+        message: "Failed to create point rule",
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   });
 
