@@ -101,11 +101,26 @@ app.use((req: any, res, next) => {
 // Verify database connection on startup
 async function verifyDatabaseConnection() {
   try {
-    const result = await db.execute(sql`SELECT 1 as test`);
+    // Test basic connection
+    await sql`SELECT 1 as test`;
     console.log("✅ Database connection verified");
+    
+    // Test table existence
+    const tables = await sql`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_type = 'BASE TABLE'
+    `;
+    console.log(`✅ Found ${tables.length} tables in database`);
+    
+    if (tables.length === 0) {
+      console.log("⚠️  No tables found. You may need to run database migrations.");
+    }
   } catch (error) {
     console.error("❌ Database connection failed:", error);
     console.log("Please ensure DATABASE_URL is set and the database is accessible");
+    console.log("If using Replit Database, make sure it's properly provisioned");
   }
 }
 
