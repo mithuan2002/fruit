@@ -1,4 +1,3 @@
-
 const CACHE_NAME = 'fruitbox-pwa-v2';
 const STATIC_CACHE = 'fruitbox-static-v2';
 const DYNAMIC_CACHE = 'fruitbox-dynamic-v2';
@@ -7,6 +6,7 @@ const DYNAMIC_CACHE = 'fruitbox-dynamic-v2';
 const staticAssets = [
   '/',
   '/register',
+  '/track', // Added for the new tracking page
   '/pwa-icon-192.png',
   '/pwa-icon-512.png',
   '/api/pwa/manifest'
@@ -76,7 +76,7 @@ self.addEventListener('fetch', (event) => {
           // Return cached version
           return cachedResponse;
         }
-        
+
         // Fetch from network and cache
         return fetch(request).then(response => {
           // Only cache successful responses
@@ -93,6 +93,10 @@ self.addEventListener('fetch', (event) => {
         // Fallback for offline registration page
         if (request.destination === 'document' && url.pathname === '/register') {
           return caches.match('/register') || caches.match('/');
+        }
+        // Fallback for offline tracking page
+        if (request.destination === 'document' && url.pathname === '/track') {
+          return caches.match('/track') || caches.match('/');
         }
       })
   );

@@ -289,6 +289,12 @@ export default function CustomerRegistration() {
 
             <div className="space-y-3 pt-4">
               <Button 
+                onClick={() => window.location.href = '/track'}
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+              >
+                📊 Track My Activity & Points
+              </Button>
+              <Button 
                 onClick={handleNewRegistration} 
                 variant="outline" 
                 className="w-full"

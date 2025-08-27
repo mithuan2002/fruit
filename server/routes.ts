@@ -506,10 +506,89 @@ export function setupRoutes(app: Express): Server {
         name: customer.name,
         phoneNumber: customer.phoneNumber,
         points: customer.points,
-        referralCode: customer.referralCode
+        pointsEarned: customer.pointsEarned,
+        pointsRedeemed: customer.pointsRedeemed,
+        totalReferrals: customer.totalReferrals,
+        referralCode: customer.referralCode,
+        isActive: customer.isActive,
+        createdAt: customer.createdAt
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to find customer" });
+    }
+  });
+
+  // Get customer points history
+  app.get("/api/customers/:id/points-history", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Mock points history - in a real implementation, you'd query a points_transactions table
+      const pointsHistory = [
+        {
+          id: "1",
+          type: "earned",
+          points: customer.pointsEarned > 0 ? Math.floor(customer.pointsEarned * 0.7) : 0,
+          description: "Bill scan points earned",
+          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          id: "2",
+          type: "earned",
+          points: customer.pointsEarned > 0 ? Math.floor(customer.pointsEarned * 0.3) : 0,
+          description: "Referral bonus points",
+          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+        }
+      ];
+
+      if (customer.pointsRedeemed > 0) {
+        pointsHistory.push({
+          id: "3",
+          type: "redeemed",
+          points: -customer.pointsRedeemed,
+          description: "Coupon redemption",
+          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+        });
+      }
+
+      res.json(pointsHistory.filter(h => h.points !== 0));
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch points history" });
+    }
+  });
+
+  // Get customer coupon usage
+  app.get("/api/customers/:id/coupon-usage", async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Mock coupon usage - in a real implementation, you'd query a coupon_usage table
+      const couponUsage = [];
+      
+      if (customer.pointsRedeemed > 0) {
+        couponUsage.push({
+          id: "1",
+          code: "SAVE20",
+          pointsUsed: customer.pointsRedeemed,
+          discountAmount: (customer.pointsRedeemed * 0.1).toString(), // 1 point = ₹0.1 discount
+          usedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+          status: "used"
+        });
+      }
+
+      res.json(couponUsage);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch coupon usage" });
     }
   });
 
@@ -1140,6 +1219,13 @@ export function setupRoutes(app: Express): Server {
           short_name: "Register",
           description: "Quick customer registration",
           url: "/register",
+          icons: [{ src: "/pwa-icon-192.png", sizes: "192x192" }]
+        },
+        {
+          name: "Track Activity",
+          short_name: "Track",
+          description: "Track your points and rewards",
+          url: "/track",
           icons: [{ src: "/pwa-icon-192.png", sizes: "192x192" }]
         }
       ],
