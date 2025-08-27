@@ -180,11 +180,22 @@ export default function CustomerRegistration() {
   };
 
   const handleTrackPoints = async () => {
+    if (!registrationData?.customer?.phoneNumber) {
+      toast({
+        title: "Error",
+        description: "Phone number not found. Please try registering again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Request notification permission first
     if ('Notification' in window && Notification.permission !== 'granted') {
       await Notification.requestPermission();
     }
 
+    const phoneNumber = registrationData.customer.phoneNumber;
+    
     // Try to install PWA
     try {
       await installPWA();
@@ -197,7 +208,7 @@ export default function CustomerRegistration() {
       
       // Small delay to show the success message, then redirect
       setTimeout(() => {
-        window.location.href = `/track?phone=${encodeURIComponent(registrationData?.customer.phoneNumber || '')}&auto=true`;
+        window.location.href = `/track?phone=${encodeURIComponent(phoneNumber)}&auto=true`;
       }, 1500);
     } catch (error) {
       // If PWA installation fails or is cancelled, still redirect to tracking
@@ -206,7 +217,7 @@ export default function CustomerRegistration() {
         title: "📱 No problem!",
         description: "Opening your rewards dashboard in the browser...",
       });
-      window.location.href = `/track?phone=${encodeURIComponent(registrationData?.customer.phoneNumber || '')}&auto=true`;
+      window.location.href = `/track?phone=${encodeURIComponent(phoneNumber)}&auto=true`;
     }
   };
 

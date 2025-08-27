@@ -193,33 +193,33 @@ export default function CustomerTracking() {
                     <User className="h-6 w-6" />
                   </div>
                   <div>
-                    <CardTitle className="text-2xl">{customerData.name}</CardTitle>
+                    <CardTitle className="text-2xl">{customerData.name || 'Unknown Customer'}</CardTitle>
                     <CardDescription className="text-indigo-100">
-                      Member since {new Date(customerData.createdAt).toLocaleDateString()}
+                      Member since {customerData.createdAt ? new Date(customerData.createdAt).toLocaleDateString() : 'Unknown'}
                     </CardDescription>
                   </div>
                 </div>
                 <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-                  {customerData.referralCode}
+                  {customerData.referralCode || 'N/A'}
                 </Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-3xl font-bold">{customerData.points}</div>
+                  <div className="text-3xl font-bold">{customerData.points || 0}</div>
                   <div className="text-sm text-indigo-100">Available Points</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold">{customerData.pointsEarned}</div>
+                  <div className="text-3xl font-bold">{customerData.pointsEarned || 0}</div>
                   <div className="text-sm text-indigo-100">Total Earned</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold">{customerData.pointsRedeemed}</div>
+                  <div className="text-3xl font-bold">{customerData.pointsRedeemed || 0}</div>
                   <div className="text-sm text-indigo-100">Points Redeemed</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-3xl font-bold">{customerData.totalReferrals}</div>
+                  <div className="text-3xl font-bold">{customerData.totalReferrals || 0}</div>
                   <div className="text-sm text-indigo-100">Referrals Made</div>
                 </div>
               </div>
