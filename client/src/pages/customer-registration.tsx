@@ -180,20 +180,34 @@ export default function CustomerRegistration() {
   };
 
   const handleTrackPoints = async () => {
-    // First, try to install PWA for better experience
+    // Request notification permission first
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      await Notification.requestPermission();
+    }
+
+    // Try to install PWA
     try {
       await installPWA();
-      // Enable notifications silently in background
-      if ('Notification' in window && Notification.permission !== 'granted') {
-        await Notification.requestPermission();
-      }
+      // If PWA installation succeeds, show success message and redirect
+      toast({
+        title: "🎉 Perfect!",
+        description: "Fruitbox tracking app installed! Opening your rewards dashboard...",
+        duration: 3000,
+      });
+      
+      // Small delay to show the success message, then redirect
+      setTimeout(() => {
+        window.location.href = `/track?phone=${encodeURIComponent(registrationData?.customer.phoneNumber || '')}&auto=true`;
+      }, 1500);
     } catch (error) {
-      // PWA installation failed or was cancelled, continue anyway
-      console.log('PWA installation skipped');
+      // If PWA installation fails or is cancelled, still redirect to tracking
+      console.log('PWA installation skipped, redirecting to web version');
+      toast({
+        title: "📱 No problem!",
+        description: "Opening your rewards dashboard in the browser...",
+      });
+      window.location.href = `/track?phone=${encodeURIComponent(registrationData?.customer.phoneNumber || '')}&auto=true`;
     }
-    
-    // Always redirect to tracking page regardless of PWA installation
-    window.location.href = `/track?phone=${encodeURIComponent(registrationData?.customer.phoneNumber || '')}`;
   };
 
   const handleNewRegistration = () => {
@@ -267,19 +281,20 @@ export default function CustomerRegistration() {
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
                 <div className="flex items-center justify-center space-x-2 mb-4">
                   <Gift className="text-blue-600" size={24} />
-                  <span className="font-bold text-blue-800 text-lg">Ready to Track Your Rewards!</span>
+                  <span className="font-bold text-blue-800 text-lg">Install Your Personal Rewards App!</span>
                 </div>
                 <p className="text-sm text-blue-700 mb-4 text-center">
-                  Access your personal rewards dashboard - track points, view coupon usage, and see your earning history anytime, anywhere!
+                  Get instant access to your points, coupon history, and rewards. This lightweight app will be added to your phone's home screen for quick access!
                 </p>
                 <Button 
                   onClick={handleTrackPoints}
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-lg py-3"
+                  disabled={registerMutation.isPending}
                 >
-                  🎯 Track Your Points & Rewards
+                  📱 Install My Rewards Tracker
                 </Button>
                 <p className="text-xs text-blue-600 mt-3 text-center">
-                  💡 Tip: This will create a quick-access shortcut on your phone for instant tracking!
+                  ✨ Lightweight app • Works offline • Push notifications for offers
                 </p>
               </div>
 

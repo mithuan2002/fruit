@@ -71,6 +71,7 @@ export default function CustomerTracking() {
   // Get phone number from URL parameters
   const urlParams = new URLSearchParams(window.location.search);
   const phoneFromUrl = urlParams.get('phone') || '';
+  const autoLoad = urlParams.get('auto') === 'true';
 
   const form = useForm<TrackingForm>({
     resolver: zodResolver(trackingSchema),
@@ -117,11 +118,15 @@ export default function CustomerTracking() {
 
   // Auto-fetch data if phone number is provided in URL
   useEffect(() => {
-    if (phoneFromUrl) {
+    if (phoneFromUrl && (autoLoad || phoneFromUrl.length >= 10)) {
       form.setValue('phoneNumber', phoneFromUrl);
-      trackMutation.mutate({ phoneNumber: phoneFromUrl }); // Trigger mutation
+      // Small delay to ensure form is ready
+      const timer = setTimeout(() => {
+        trackMutation.mutate({ phoneNumber: phoneFromUrl });
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [phoneFromUrl, form, trackMutation]); // Added dependencies
+  }, [phoneFromUrl, autoLoad, form, trackMutation]);
 
   const { data: pointsHistory } = useQuery({
     queryKey: [`/api/customers/${customerData?.id}/points-history`],
