@@ -62,14 +62,21 @@ export default function CustomerRegistration() {
 
       return response.json() as Promise<RegistrationResponse>;
     },
-    onSuccess: (data) => {
-      setRegistrationData(data);
-      setIsSuccess(true);
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    onSuccess: async (data) => {
+      // Store customer ID for PWA access
+      localStorage.setItem('fruitbox_customer_id', data.customer.id);
+      
+      // Auto-install PWA
+      await attemptPWAInstall();
+      
+      // Redirect to customer app after a short delay
+      setTimeout(() => {
+        window.location.href = `/customer-app?customerId=${data.customer.id}`;
+      }, 2000);
       
       toast({
-        title: data.isExistingCustomer ? "Welcome back!" : "Registration successful!",
-        description: data.message,
+        title: data.isExistingCustomer ? "Welcome back!" : "PWA Installing...",
+        description: data.isExistingCustomer ? "Redirecting to your rewards..." : "Setting up your rewards app...",
       });
     },
     onError: (error) => {
@@ -130,33 +137,38 @@ export default function CustomerRegistration() {
     }
   };
 
-  const installPWA = async () => {
+  const attemptPWAInstall = async () => {
     // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
-      toast({
-        title: "Already installed!",
-        description: "Fruitbox is already on your home screen",
-      });
+      console.log("PWA already installed");
       return;
     }
 
-    // Try native install prompt first
+    // Try native install prompt
     if ((window as any).deferredPrompt) {
-      const deferredPrompt = (window as any).deferredPrompt;
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        toast({
-          title: "Perfect! 🎉",
-          description: "Fruitbox is now pinned to your home screen for quick access",
-        });
-      } else {
+      try {
+        const deferredPrompt = (window as any).deferredPrompt;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          toast({
+            title: "Perfect! 🎉",
+            description: "Fruitbox is now on your home screen!",
+          });
+        } else {
+          showManualInstallInstructions();
+        }
+        (window as any).deferredPrompt = null;
+      } catch (error) {
         showManualInstallInstructions();
       }
-      (window as any).deferredPrompt = null;
     } else {
       showManualInstallInstructions();
     }
+  };
+
+  const installPWA = async () => {
+    await attemptPWAInstall();
   };
 
   const showManualInstallInstructions = () => {
@@ -354,7 +366,7 @@ export default function CustomerRegistration() {
               disabled={registerMutation.isPending}
               data-testid="button-register"
             >
-              {registerMutation.isPending ? "Registering..." : "Get My Coupon Code"}
+              {registerMutation.isPending ? "Setting up your rewards app..." : "Submit"}
             </Button>
           </form>
 

@@ -13,6 +13,7 @@ import PointsSetup from "@/pages/points-setup";
 import Reports from "@/pages/reports";
 import POSIntegration from "@/pages/pos-integration";
 import CustomerRegistration from "@/pages/customer-registration";
+import CustomerApp from "@/pages/customer-app";
 import QRGenerator from "@/pages/qr-generator";
 import DashboardSetupGuide from "@/pages/dashboard-setup-guide";
 import CampaignsSetupGuide from "@/pages/campaigns-setup-guide";
@@ -30,9 +31,13 @@ import Sidebar from "@/components/layout/sidebar";
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
-  // Check if current path is registration - show without sidebar
+  // Check if current path is registration or customer app - show without sidebar
   if (window.location.pathname === '/register') {
     return <CustomerRegistration />;
+  }
+  
+  if (window.location.pathname === '/customer-app') {
+    return <CustomerApp />;
   }
 
   // TEMPORARILY DISABLED AUTHENTICATION FOR TESTING

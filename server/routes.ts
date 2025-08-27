@@ -1103,13 +1103,44 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  // Customer PWA dashboard endpoint
+  app.get("/api/customer/dashboard/:customerId", async (req, res) => {
+    try {
+      const customer = await storage.getCustomer(req.params.customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Get customer's transaction history (sales where they used their coupon)
+      const transactions = await storage.getCustomerTransactions?.(customer.id) || [];
+      
+      res.json({
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          phoneNumber: customer.phoneNumber,
+          points: customer.points,
+          pointsRedeemed: customer.pointsRedeemed,
+          totalPurchases: customer.totalPurchases || 0,
+          referralCode: customer.referralCode,
+          createdAt: customer.createdAt
+        },
+        transactions,
+        totalPointsEarned: customer.points + customer.pointsRedeemed
+      });
+    } catch (error) {
+      console.error("Failed to fetch customer dashboard data:", error);
+      res.status(500).json({ message: "Failed to load dashboard" });
+    }
+  });
+
   // PWA manifest endpoint
   app.get("/api/pwa/manifest", (req, res) => {
     const manifest = {
       name: "Fruitbox Rewards",
       short_name: "Fruitbox",
       description: "Your loyalty rewards in your pocket - scan, earn, redeem!",
-      start_url: "/register?utm_source=pwa",
+      start_url: "/customer-app",
       display: "standalone",
       background_color: "#ffffff",
       theme_color: "#6366f1",
@@ -1135,6 +1166,13 @@ export function setupRoutes(app: Express): Server {
         }
       ],
       shortcuts: [
+        {
+          name: "My Rewards",
+          short_name: "Rewards",
+          description: "View your coupon and points",
+          url: "/customer-app",
+          icons: [{ src: "/pwa-icon-192.png", sizes: "192x192" }]
+        },
         {
           name: "Register",
           short_name: "Register",
