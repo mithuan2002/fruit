@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -8,8 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Camera, Upload, FileText, CheckCircle, AlertCircle, Gift, Scan, User, Phone, Receipt } from 'lucide-react';
 import Webcam from 'react-webcam';
@@ -60,7 +57,7 @@ interface ExtractedBillData {
 export default function CustomerApp() {
   const urlParams = new URLSearchParams(window.location.search);
   const customerId = urlParams.get('customerId');
-  
+
   // UI states
   const [showBillScanner, setShowBillScanner] = useState(false);
   const [cameraMode, setCameraMode] = useState(false);
@@ -71,7 +68,7 @@ export default function CustomerApp() {
   const [ocrProgress, setOcrProgress] = useState(0);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [referralCode, setReferralCode] = useState('');
-  
+
   // Manual override fields
   const [manualData, setManualData] = useState({
     totalAmount: '',
@@ -103,12 +100,12 @@ export default function CustomerApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(billData),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Failed to process bill');
       }
-      
+
       return response.json();
     },
     onSuccess: (result: ProcessedBillResult) => {
@@ -116,7 +113,7 @@ export default function CustomerApp() {
         title: 'Bill Processed Successfully! 🎉',
         description: `You earned ${result.bill.pointsEarned} points! New balance: ${result.customer.newPointsBalance} points`,
       });
-      
+
       resetForm();
       queryClient.invalidateQueries({ queryKey: [`/api/customer/dashboard/${customerId}`] });
     },
@@ -145,7 +142,7 @@ export default function CustomerApp() {
     if (imageSrc) {
       setImagePreview(imageSrc);
       setCameraMode(false);
-      
+
       fetch(imageSrc)
         .then(res => res.blob())
         .then(blob => {
@@ -183,7 +180,7 @@ export default function CustomerApp() {
       });
 
       const extractedInfo = extractBillInfo(text);
-      
+
       setExtractedData({
         ...extractedInfo,
         extractedText: text,
@@ -216,14 +213,14 @@ export default function CustomerApp() {
 
   const extractBillInfo = (text: string): Partial<ExtractedBillData> => {
     const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-    
+
     const totalPatterns = [
       /total[:\s]*[₹$€£¥]*\s*(\d+\.?\d*)/i,
       /amount[:\s]*[₹$€£¥]*\s*(\d+\.?\d*)/i,
       /grand\s*total[:\s]*[₹$€£¥]*\s*(\d+\.?\d*)/i,
       /(\d+\.\d{2})\s*$/,
     ];
-    
+
     const invoicePatterns = [
       /invoice[:\s#]*(\w+\d+)/i,
       /bill[:\s#]*(\w+\d+)/i,
@@ -280,11 +277,11 @@ export default function CustomerApp() {
       customerName: customerData?.customer.name,
       customerId: customerId,
       referralCode: referralCode || undefined,
-      
+
       totalAmount: manualData.totalAmount,
       invoiceNumber: manualData.invoiceNumber || undefined,
       storeName: manualData.storeName || undefined,
-      
+
       extractedText: extractedData?.extractedText || '',
       ocrConfidence: extractedData?.confidence || 0,
       imageData: imagePreview || undefined,
@@ -398,7 +395,7 @@ export default function CustomerApp() {
                 <Scan className="h-5 w-5 mr-2" />
                 Scan Bill to Earn Points
               </Button>
-              
+
               <Button variant="outline" className="w-full">
                 <Receipt className="h-4 w-4 mr-2" />
                 View Bill History
@@ -456,6 +453,7 @@ export default function CustomerApp() {
                     <Webcam
                       ref={webcamRef}
                       screenshotFormat="image/jpeg"
+                      videoConstraints={{ facingMode: 'environment' }}
                       className="w-full rounded-lg"
                     />
                     <div className="flex gap-2">
@@ -513,10 +511,10 @@ export default function CustomerApp() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Textarea
+                  <textarea
                     value={extractedData.extractedText}
                     readOnly
-                    className="h-20 text-xs"
+                    className="h-20 text-xs w-full p-2 border rounded-md"
                   />
                 </CardContent>
               </Card>
@@ -567,20 +565,14 @@ export default function CustomerApp() {
               </CardContent>
             </Card>
 
-            {/* Submit Button */}
-            <Button
-              onClick={handleProcessBill}
-              disabled={!manualData.totalAmount || processBillMutation.isPending}
-              className="w-full"
-            >
-              <Gift className="h-4 w-4 mr-2" />
-              {processBillMutation.isPending ? 'Processing...' : 'Process Bill & Earn Points'}
-            </Button>
+            {/* Removed Process Bill Button */}
+            {/* The 'Process Bill & Earn Points' button is removed to prevent customers from processing bills */}
+
           </div>
         </div>
       )}
 
-      {/* Confirmation Dialog */}
+      {/* Confirmation Dialog - kept for potential future use or review */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
