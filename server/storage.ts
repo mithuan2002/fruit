@@ -52,7 +52,29 @@ import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, and, count, sum, sql } from "drizzle-orm";
 
-// Pending bill verification methods
+// Define PendingBill type if not already defined in shared/schema
+interface PendingBill {
+  bill: {
+    id: string;
+    totalAmount: string;
+    invoiceNumber: string | null;
+    storeName: string | null;
+    extractedText: string | null;
+    ocrConfidence: number | null;
+    imageData: string | null;
+    referralCode: string | null;
+    submittedAt: string;
+    createdAt: string;
+  };
+  customer: {
+    id: string;
+    name: string;
+    phoneNumber: string | null;
+    points: number;
+  };
+}
+
+
   async createPendingBill(billData: {
     customerId: string;
     totalAmount: string;
@@ -127,7 +149,7 @@ import { eq, desc, and, count, sum, sql } from "drizzle-orm";
       referrer = await this.getCustomerByCouponCode(billData.referralCode);
       if (referrer && referrer.id !== customer.id) {
         referrerPointsEarned = Math.floor(pointsEarned * 0.1); // 10% bonus
-        
+
         // Award referrer points
         await db.update(customers)
           .set({
@@ -217,6 +239,7 @@ interface OCRResult {
 export interface IStorage {
   // Customer operations
   getCustomer(id: string): Promise<Customer | undefined>;
+  getCustomerById(id: string): Promise<Customer | undefined>; // Added for clarity, assuming getCustomer also serves this purpose
   getCustomerByPhone(phoneNumber: string): Promise<Customer | undefined>;
   getCustomerByCouponCode(couponCode: string): Promise<Customer | undefined>;
   getAllCustomers(): Promise<Customer[]>;
@@ -330,6 +353,7 @@ export interface IStorage {
   getBillByHash(billHash: string): Promise<Bill | undefined>;
   createBill(bill: InsertBill): Promise<Bill>;
   updateBill(id: string, updates: Partial<Bill>): Promise<Bill | undefined>;
+  getBillsForVerification(): Promise<PendingBill[]>; // Method for pending bills
 
   // Bill Item operations
   getBillItem(id: string): Promise<BillItem | undefined>;
@@ -371,6 +395,10 @@ export class DatabaseStorage implements IStorage {
       dbLogger.error("Failed to get customer", error, { id });
       throw error;
     }
+  }
+
+  async getCustomerById(id: string): Promise<Customer | undefined> {
+    return this.getCustomer(id);
   }
 
   async getCustomerByPhone(phoneNumber: string): Promise<Customer | undefined> {
@@ -1059,6 +1087,36 @@ export class DatabaseStorage implements IStorage {
     return bill || undefined;
   }
 
+  async getBillsForVerification(): Promise<PendingBill[]> {
+    const result = await db
+      .select({
+        bill: {
+          id: bills.id,
+          totalAmount: bills.totalAmount,
+          invoiceNumber: bills.invoiceNumber,
+          storeName: bills.storeName,
+          extractedText: bills.extractedText,
+          ocrConfidence: bills.ocrConfidence,
+          imageData: bills.imageData,
+          referralCode: bills.referralCode,
+          submittedAt: bills.submittedAt,
+          createdAt: bills.createdAt,
+        },
+        customer: {
+          id: customers.id,
+          name: customers.name,
+          phoneNumber: customers.phoneNumber,
+          points: customers.points,
+        },
+      })
+      .from(bills)
+      .innerJoin(customers, eq(bills.customerId, customers.id))
+      .where(eq(bills.status, 'pending'))
+      .orderBy(desc(bills.submittedAt));
+      
+    return result; // Assuming result is already in the format of PendingBill[]
+  }
+
   // Bill Item operations
   async getBillItem(id: string): Promise<BillItem | undefined> {
     const [item] = await db.select().from(billItems).where(eq(billItems.id, id));
@@ -1115,7 +1173,7 @@ export class DatabaseStorage implements IStorage {
 
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     return mockResult;
   }
 }
