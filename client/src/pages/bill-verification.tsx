@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
@@ -10,6 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { CheckCircle, XCircle, FileText, User, Calendar, Banknote, Receipt, AlertTriangle } from 'lucide-react';
 import Header from '@/components/layout/header';
+import { Label } from '@/components/ui/label';
+
 
 interface PendingBill {
   bill: {
@@ -17,6 +18,8 @@ interface PendingBill {
     totalAmount: string;
     invoiceNumber?: string;
     storeName?: string;
+    billNumber?: string; // Added billNumber
+    products?: { name: string; quantity: number; price?: number }[]; // Added products
     extractedText: string;
     ocrConfidence: number;
     imageData?: string;
@@ -188,7 +191,7 @@ export default function BillVerification() {
                         ₹{item.bill.totalAmount}
                       </Badge>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500">Invoice:</span>
@@ -302,7 +305,7 @@ export default function BillVerification() {
                         <CheckCircle className="h-4 w-4 mr-2" />
                         {approveMutation.isPending ? 'Approving...' : 'Approve & Process'}
                       </Button>
-                      
+
                       <AlertDialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
                         <AlertDialogTrigger asChild>
                           <Button variant="outline" className="flex-1 border-red-200 text-red-600 hover:bg-red-50">

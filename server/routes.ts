@@ -1137,73 +1137,91 @@ export function setupRoutes(app: Express): Server {
 
   // OCR Bill Processing endpoints
 
-  // Submit bill for admin verification
-  app.post("/api/bills/submit-verification", async (req: Request, res: Response) => {
+  // Submit bill for admin approval (simplified)
+  app.post("/api/bills/submit-for-approval", async (req: Request, res: Response) => {
     try {
-      console.log("[ROUTE-DEBUG] Bill verification submission:", req.body);
+      routeLogger.info("BILL-SUBMISSION", "New bill submission for approval", {
+        requestId: req.requestId,
+        customerPhone: req.body.customerPhone
+      });
 
       const { 
         customerPhone, 
         customerName, 
         customerId,
         referralCode,
+        products,
         totalAmount, 
-        invoiceNumber, 
-        storeName,
+        billNumber,
         extractedText,
         ocrConfidence,
         imageData
       } = req.body;
 
-      if (!customerPhone || !totalAmount) {
+      if (!customerPhone || !totalAmount || !products) {
         return res.status(400).json({ 
-          message: "Customer phone and total amount are required" 
+          message: "Customer phone, total amount, and products are required" 
         });
       }
 
       // Create or get customer
       let customer;
       if (customerId) {
-        customer = await storage.getCustomerById(customerId);
+        customer = await storage.getCustomer(customerId);
       } else {
         customer = await storage.getCustomerByPhone(customerPhone);
       }
 
       if (!customer) {
-        // Create new customer
+        // Generate unique referral code for new customer
+        const customerReferralCode = await storage.generateUniqueCode();
+        
         const newCustomer = await storage.createCustomer({
           name: customerName || `Customer ${customerPhone}`,
           phoneNumber: customerPhone,
-          email: null,
+          referralCode: customerReferralCode,
+          points: 0,
+          totalSpent: 0
         });
         customer = newCustomer;
+        
+        routeLogger.info("BILL-SUBMISSION", "New customer created", {
+          customerId: customer.id,
+          name: customer.name,
+          phone: customerPhone
+        });
       }
 
-      // Create pending bill record
+      // Create pending bill record with structured data
       const billData = {
         customerId: customer.id,
-        totalAmount,
-        invoiceNumber: invoiceNumber || null,
-        storeName: storeName || null,
+        totalAmount: parseFloat(totalAmount),
+        billNumber: billNumber || null,
+        products: products || [],
         extractedText: extractedText || '',
         ocrConfidence: ocrConfidence || 0,
         imageData: imageData || null,
         referralCode: referralCode || null,
-        status: 'PENDING_VERIFICATION',
+        status: 'PENDING_APPROVAL',
         submittedAt: new Date().toISOString(),
       };
 
       const pendingBill = await storage.createPendingBill(billData);
 
-      // TODO: Send notification to admin (WhatsApp/Email)
-      console.log(`[NOTIFICATION] New bill submitted for verification: ${pendingBill.id}`);
+      // Send admin notification
+      routeLogger.info("NOTIFICATION", "Bill submitted for admin approval", {
+        billId: pendingBill.id,
+        customerId: customer.id,
+        totalAmount,
+        productsCount: products.length
+      });
 
       res.json({
         success: true,
-        message: "Bill submitted for verification successfully",
+        message: "Bill submitted for approval successfully",
         bill: {
           id: pendingBill.id,
-          status: 'PENDING_VERIFICATION',
+          status: 'PENDING_APPROVAL',
           submittedAt: pendingBill.submittedAt,
         },
         customer: {
@@ -1213,9 +1231,13 @@ export function setupRoutes(app: Express): Server {
       });
 
     } catch (error) {
-      console.error("Bill verification submission error:", error);
+      routeLogger.error("BILL-SUBMISSION", "Failed to submit bill for approval", {
+        requestId: req.requestId,
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+      
       res.status(500).json({ 
-        message: "Failed to submit bill for verification",
+        message: "Failed to submit bill for approval",
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }
@@ -1387,43 +1409,123 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
-  // Admin approve bill
+  // Admin approve bill with automatic points calculation
   app.post("/api/admin/approve-bill/:billId", async (req: Request, res: Response) => {
     try {
       const { billId } = req.params;
-      console.log(`[ADMIN] Approving bill: ${billId}`);
+      
+      routeLogger.info("ADMIN-APPROVAL", "Processing bill approval", {
+        requestId: req.requestId,
+        billId
+      });
 
-      // Fetch pending bill details to process points
+      // Fetch pending bill details
       const pendingBill = await storage.getPendingBill(billId);
       if (!pendingBill) {
         return res.status(404).json({ message: "Pending bill not found" });
       }
 
-      // Process the bill: calculate points, update customer, create bill record
-      const { customerId, referralCode, totalAmount, invoiceNumber, storeName, extractedText, ocrConfidence } = pendingBill;
+      const { customerId, referralCode, totalAmount, billNumber, products, extractedText, ocrConfidence } = pendingBill;
 
-      // Calculate points based on bill amount (₹100 = 10 points)
-      const pointsEarned = Math.floor(parseFloat(totalAmount) / 10);
-
-      // Handle referral if provided
-      let referrer = null;
-      let referrerPointsEarned = 0;
-      if (referralCode) {
-        referrer = await storage.getCustomerByCouponCode(referralCode);
-        if (referrer) {
-          referrerPointsEarned = Math.floor(pointsEarned * 0.1); // 10% bonus for referrer
-        }
-      }
-
-      // Update customer points
+      // Get customer and all relevant data for points calculation
       const customer = await storage.getCustomer(customerId);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
 
+      // Get all products and campaigns for points calculation
+      const allProducts = await storage.getAllProducts();
+      const activeCampaigns = await storage.getAllCampaigns();
+      const activeProductRules = allProducts.filter(p => p.isActive && p.pointCalculationType !== 'inherit');
+
+      // Calculate points for each product based on configured rules
+      let totalPointsEarned = 0;
+      const itemPointsDetails = [];
+
+      for (const billProduct of products || []) {
+        let productPoints = 0;
+        let calculationMethod = "Default";
+
+        // Find matching product rule by name (case-insensitive)
+        const matchingProduct = activeProductRules.find(p => 
+          p.name.toLowerCase().includes(billProduct.name.toLowerCase()) ||
+          billProduct.name.toLowerCase().includes(p.name.toLowerCase())
+        );
+
+        if (matchingProduct) {
+          // Use product-specific points calculation
+          if (matchingProduct.pointCalculationType === 'fixed') {
+            productPoints = (matchingProduct.fixedPoints || 0) * billProduct.quantity;
+            calculationMethod = `Fixed: ${matchingProduct.fixedPoints} points × ${billProduct.quantity}`;
+          } else if (matchingProduct.pointCalculationType === 'percentage') {
+            const rate = parseFloat(matchingProduct.percentageRate || '0');
+            const productTotal = (billProduct.price || 0) * billProduct.quantity;
+            productPoints = Math.floor((productTotal * rate) / 100);
+            calculationMethod = `${rate}% of ₹${productTotal}`;
+          }
+          
+          routeLogger.debug("POINTS-CALC", "Applied product rule", {
+            productName: billProduct.name,
+            rule: matchingProduct.name,
+            points: productPoints,
+            method: calculationMethod
+          });
+        } else {
+          // Use default calculation: ₹10 = 1 point
+          const productTotal = (billProduct.price || 0) * billProduct.quantity;
+          productPoints = Math.floor(productTotal / 10);
+          calculationMethod = `Default: ₹${productTotal} / 10`;
+        }
+
+        totalPointsEarned += productPoints;
+        itemPointsDetails.push({
+          productName: billProduct.name,
+          quantity: billProduct.quantity,
+          points: productPoints,
+          calculation: calculationMethod
+        });
+      }
+
+      // If no product-specific rules matched, use total bill amount
+      if (totalPointsEarned === 0) {
+        totalPointsEarned = Math.floor(parseFloat(totalAmount) / 10);
+        routeLogger.info("POINTS-CALC", "Using fallback calculation", {
+          totalAmount,
+          pointsEarned: totalPointsEarned
+        });
+      }
+
+      // Handle referral bonus
+      let referrer = null;
+      let referrerPointsEarned = 0;
+      if (referralCode) {
+        referrer = await storage.getCustomerByReferralCode(referralCode);
+        if (referrer) {
+          // Get referral campaign or use default 10% bonus
+          const referralCampaign = activeCampaigns.find(c => 
+            c.isActive && c.pointCalculationType === 'percentage'
+          );
+          
+          if (referralCampaign) {
+            const bonusRate = parseFloat(referralCampaign.percentageRate || '10');
+            referrerPointsEarned = Math.floor((totalPointsEarned * bonusRate) / 100);
+          } else {
+            referrerPointsEarned = Math.floor(totalPointsEarned * 0.1); // Default 10%
+          }
+
+          routeLogger.info("REFERRAL-BONUS", "Calculated referral bonus", {
+            referrerId: referrer.id,
+            referrerName: referrer.name,
+            bonusPoints: referrerPointsEarned
+          });
+        }
+      }
+
+      // Update customer points
       await storage.updateCustomer(customerId, {
-        points: customer.points + pointsEarned,
-        pointsEarned: customer.pointsEarned + pointsEarned
+        points: customer.points + totalPointsEarned,
+        pointsEarned: customer.pointsEarned + totalPointsEarned,
+        totalSpent: customer.totalSpent + parseFloat(totalAmount)
       });
 
       // Update referrer points if applicable
@@ -1434,60 +1536,83 @@ export function setupRoutes(app: Express): Server {
         });
       }
 
-      // Create the final bill record and mark pending bill as processed
+      // Create the final bill record
       const billData = {
         customerId,
-        invoiceNumber: invoiceNumber || null,
-        storeName: storeName || null,
-        billDate: new Date(pendingBill.submittedAt), // Use submission date or date from extracted text if available
-        billTime: null, // Time not explicitly captured in pending bill
+        invoiceNumber: billNumber || null,
+        storeName: 'Store', // Default store name
+        billDate: new Date(pendingBill.submittedAt),
+        billTime: null,
         totalAmount: totalAmount,
-        originalImageUrl: null, // URL from cloud storage in production
-        ocrRawData: extractedText, // Store extracted text as raw data
-        pointsEarned,
+        originalImageUrl: null,
+        ocrRawData: extractedText,
+        pointsEarned: totalPointsEarned,
         referralCode: referralCode || null,
         referrerId: referrer?.id || null,
         referrerPointsEarned,
         status: "processed" as const,
         isValid: true,
-        billHash: null // Hash calculation might need invoiceNumber, storeName, billDate from extracted text
+        billHash: billNumber ? 
+          Buffer.from(`${billNumber}-${new Date().toISOString().split('T')[0]}`).toString('base64').replace(/[+/=]/g, '') : 
+          null
       };
-
-      // Calculate hash if possible
-      if (invoiceNumber && storeName && pendingBill.submittedAt) {
-        billData.billHash = Buffer.from(`${invoiceNumber}-${storeName}-${new Date(pendingBill.submittedAt).toISOString().split('T')[0]}`).toString('base64').replace(/[+/=]/g, '');
-      }
 
       const bill = await storage.createBill(billData);
 
-      // Mark pending bill as processed
+      // Create individual bill items
+      if (products && products.length > 0) {
+        for (const product of products) {
+          await storage.createBillItem({
+            billId: bill.id,
+            itemName: product.name,
+            quantity: product.quantity,
+            unitPrice: (product.price || 0).toString(),
+            totalPrice: ((product.price || 0) * product.quantity).toString()
+          });
+        }
+      }
+
+      // Mark pending bill as approved
       await storage.updatePendingBillStatus(billId, 'APPROVED', bill.id);
 
-      console.log(`[ADMIN] Bill ${billId} approved successfully. Points awarded: ${pointsEarned}`);
+      routeLogger.info("ADMIN-APPROVAL", "Bill approved successfully", {
+        billId,
+        customerId,
+        pointsEarned: totalPointsEarned,
+        referrerBonus: referrerPointsEarned,
+        itemsProcessed: itemPointsDetails.length
+      });
+
       res.json({
         success: true,
-        message: "Bill approved and points awarded successfully",
+        message: "Bill approved and points assigned automatically",
         bill: {
           id: bill.id,
           invoiceNumber: bill.invoiceNumber,
-          storeName: bill.storeName,
           totalAmount: bill.totalAmount,
-          pointsEarned: bill.pointsEarned,
+          pointsEarned: totalPointsEarned,
           processedAt: bill.processedAt
         },
         customer: {
           id: customer.id,
           name: customer.name,
-          newPointsBalance: customer.points + pointsEarned
+          newPointsBalance: customer.points + totalPointsEarned
         },
         referrer: referrer ? {
           id: referrer.id,
           name: referrer.name,
           bonusPointsEarned: referrerPointsEarned
-        } : null
+        } : null,
+        pointsBreakdown: itemPointsDetails
       });
+
     } catch (error) {
-      console.error(`Failed to approve bill ${req.params.billId}:`, error);
+      routeLogger.error("ADMIN-APPROVAL", "Failed to approve bill", {
+        requestId: req.requestId,
+        billId: req.params.billId,
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+      
       res.status(500).json({ 
         message: "Failed to approve bill",
         error: error instanceof Error ? error.message : "Unknown error"

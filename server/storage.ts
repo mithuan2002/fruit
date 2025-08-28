@@ -225,9 +225,34 @@ export class StorageService {
     return customers_result[0];
   }
 
-  async getCustomerByCouponCode(couponCode: string): Promise<Customer | undefined> {
-    const customers_result = await db.select().from(customers).where(eq(customers.referralCode, couponCode)).limit(1);
-    return customers_result[0];
+  async getCustomerByCouponCode(couponCode: string): Promise<Customer | null> {
+    try {
+      const result = await this.db
+        .select()
+        .from(customers)
+        .where(eq(customers.referralCode, couponCode))
+        .limit(1);
+
+      return result[0] || null;
+    } catch (error) {
+      console.error("Failed to get customer by coupon code:", error);
+      return null;
+    }
+  }
+
+  async getCustomerByReferralCode(referralCode: string): Promise<Customer | null> {
+    try {
+      const result = await this.db
+        .select()
+        .from(customers)
+        .where(eq(customers.referralCode, referralCode))
+        .limit(1);
+
+      return result[0] || null;
+    } catch (error) {
+      console.error("Failed to get customer by referral code:", error);
+      return null;
+    }
   }
 
   async createPointsTransaction(transaction: {
@@ -267,7 +292,8 @@ export interface IStorage {
   getCustomer(id: string): Promise<Customer | undefined>;
   getCustomerById(id: string): Promise<Customer | undefined>; // Added for clarity, assuming getCustomer also serves this purpose
   getCustomerByPhone(phoneNumber: string): Promise<Customer | undefined>;
-  getCustomerByCouponCode(couponCode: string): Promise<Customer | undefined>;
+  getCustomerByCouponCode(couponCode: string): Promise<Customer | null>;
+  getCustomerByReferralCode(referralCode: string): Promise<Customer | null>;
   getAllCustomers(): Promise<Customer[]>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, updates: Partial<Customer>): Promise<Customer | undefined>;
@@ -437,8 +463,13 @@ export class DatabaseStorage implements IStorage {
     return customer || undefined;
   }
 
-  async getCustomerByCouponCode(couponCode: string): Promise<Customer | undefined> {
+  async getCustomerByCouponCode(couponCode: string): Promise<Customer | null> {
     const [customer] = await db.select().from(customers).where(eq(customers.referralCode, couponCode));
+    return customer || undefined;
+  }
+
+  async getCustomerByReferralCode(referralCode: string): Promise<Customer | null> {
+    const [customer] = await db.select().from(customers).where(eq(customers.referralCode, referralCode));
     return customer || undefined;
   }
 
@@ -1370,7 +1401,7 @@ export class DatabaseStorage implements IStorage {
           total: 50
         },
         {
-          name: "Sample Item 2", 
+          name: "Sample Item 2",
           quantity: 2,
           price: 25,
           total: 50
