@@ -673,6 +673,17 @@ export const insertCashierSchema = createInsertSchema(cashiers).omit({
   updatedAt: true,
 });
 
+export const insertBillSchema = createInsertSchema(bills).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBillItemSchema = createInsertSchema(billItems).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertDiscountTransactionSchema = createInsertSchema(discountTransactions).omit({
   id: true,
   appliedAt: true,

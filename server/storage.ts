@@ -86,7 +86,7 @@ interface PendingBill {
     referralCode?: string | null;
     status: string;
     submittedAt: string;
-  }) {
+  }): Promise<any> {
     const id = randomUUID();
     const pendingBill = {
       id,
@@ -1115,6 +1115,22 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(bills.submittedAt));
       
     return result; // Assuming result is already in the format of PendingBill[]
+  }
+
+  async getPendingBill(billId: string): Promise<any> {
+    const [bill] = await db.select().from(bills).where(eq(bills.id, billId)).limit(1);
+    return bill;
+  }
+
+  async updatePendingBillStatus(billId: string, status: string, processedBillId?: string | null, rejectionReason?: string): Promise<void> {
+    await db.update(bills)
+      .set({
+        status,
+        processedAt: status === 'APPROVED' || status === 'REJECTED' ? new Date().toISOString() : null,
+        rejectionReason: rejectionReason || null,
+        updatedAt: new Date().toISOString()
+      })
+      .where(eq(bills.id, billId));
   }
 
   // Bill Item operations
