@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Progress } from '@/components/ui/progress';
 import { Camera, Upload, FileText, CheckCircle, AlertCircle, Gift, Scan, User, Phone, Receipt } from 'lucide-react';
 import Webcam from 'react-webcam';
 import Tesseract from 'tesseract.js';
@@ -171,15 +172,22 @@ export default function CustomerApp() {
     setOcrProgress(0);
 
     try {
+      console.log('Starting OCR processing for file:', file.name, 'Size:', file.size);
+      
       const { data: { text, confidence } } = await Tesseract.recognize(file, 'eng', {
         logger: (info) => {
+          console.log('OCR Progress:', info);
           if (info.status === 'recognizing text') {
             setOcrProgress(Math.round(info.progress * 100));
           }
         },
       });
 
+      console.log('OCR completed. Text:', text);
+      console.log('Confidence:', confidence);
+
       const extractedInfo = extractBillInfo(text);
+      console.log('Extracted info:', extractedInfo);
 
       setExtractedData({
         ...extractedInfo,
@@ -193,17 +201,27 @@ export default function CustomerApp() {
         storeName: extractedInfo.storeName || '',
       });
 
+      const successMessage = extractedInfo.totalAmount 
+        ? `Found amount: ₹${extractedInfo.totalAmount}` 
+        : 'Text extracted - please verify details';
+
       toast({
-        title: 'OCR Processing Complete',
-        description: `Text extracted with ${Math.round(confidence)}% confidence`,
+        title: 'OCR Processing Complete! ✓',
+        description: successMessage,
       });
 
     } catch (error) {
       console.error('OCR Error:', error);
       toast({
-        title: 'OCR Failed',
-        description: 'Please try again or enter data manually',
+        title: 'OCR Processing Failed',
+        description: 'Please try a clearer image or enter details manually',
         variant: 'destructive',
+      });
+      
+      // Still show some feedback even if OCR fails
+      setExtractedData({
+        extractedText: 'OCR processing failed',
+        confidence: 0,
       });
     } finally {
       setIsProcessingOCR(false);
@@ -453,7 +471,11 @@ export default function CustomerApp() {
                     <Webcam
                       ref={webcamRef}
                       screenshotFormat="image/jpeg"
-                      videoConstraints={{ facingMode: 'environment' }}
+                      videoConstraints={{ 
+                        facingMode: { ideal: 'environment' },
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                      }}
                       className="w-full rounded-lg"
                     />
                     <div className="flex gap-2">
@@ -486,13 +508,13 @@ export default function CustomerApp() {
                 )}
 
                 {isProcessingOCR && (
-                  <div className="space-y-2">
+                  <div className="space-y-3 p-4 bg-blue-50 rounded-lg border">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      <span className="text-sm">Processing with OCR...</span>
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">Processing with OCR...</span>
                     </div>
                     <Progress value={ocrProgress} className="w-full" />
-                    <p className="text-xs text-gray-500">{ocrProgress}% complete</p>
+                    <p className="text-xs text-blue-600">{ocrProgress}% complete</p>
                   </div>
                 )}
               </CardContent>
@@ -500,22 +522,43 @@ export default function CustomerApp() {
 
             {/* Extracted Data */}
             {extractedData && (
-              <Card>
+              <Card className="border-green-200 bg-green-50">
                 <CardHeader>
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    OCR Results
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-green-800">OCR Results</span>
                     <Badge variant={extractedData.confidence > 80 ? "default" : "secondary"}>
                       {extractedData.confidence}% confidence
                     </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <textarea
-                    value={extractedData.extractedText}
-                    readOnly
-                    className="h-20 text-xs w-full p-2 border rounded-md"
-                  />
+                  {/* Show extracted key values */}
+                  {(extractedData.totalAmount || extractedData.invoiceNumber || extractedData.storeName) && (
+                    <div className="space-y-2 p-3 bg-white rounded-md border">
+                      <h4 className="text-sm font-medium text-gray-700">Detected Information:</h4>
+                      {extractedData.totalAmount && (
+                        <p className="text-sm"><span className="font-medium">Amount:</span> ₹{extractedData.totalAmount}</p>
+                      )}
+                      {extractedData.invoiceNumber && (
+                        <p className="text-sm"><span className="font-medium">Invoice:</span> {extractedData.invoiceNumber}</p>
+                      )}
+                      {extractedData.storeName && (
+                        <p className="text-sm"><span className="font-medium">Store:</span> {extractedData.storeName}</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Raw OCR text */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Full OCR Text:</label>
+                    <textarea
+                      value={extractedData.extractedText}
+                      readOnly
+                      className="h-24 text-xs w-full p-2 border rounded-md bg-white resize-none"
+                      placeholder="No text extracted"
+                    />
+                  </div>
                 </CardContent>
               </Card>
             )}
