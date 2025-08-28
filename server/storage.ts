@@ -73,6 +73,9 @@ interface PendingBill {
     points: number;
   };
 }
+
+export class StorageService {
+  async submitPendingBill(billData: {
     customerId: string;
     totalAmount: string;
     invoiceNumber?: string | null;
@@ -88,8 +91,8 @@ interface PendingBill {
     const pendingBill = {
       id,
       ...billData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     // Store in bills table with pending status
@@ -152,7 +155,7 @@ interface PendingBill {
           .set({
             points: referrer.points + referrerPointsEarned,
             pointsEarned: referrer.pointsEarned + referrerPointsEarned,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date()
           })
           .where(eq(customers.id, referrer.id));
 
@@ -172,8 +175,8 @@ interface PendingBill {
       .set({
         points: customer.points + pointsEarned,
         pointsEarned: customer.pointsEarned + pointsEarned,
-        lastActivity: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        lastActivity: new Date(),
+        updatedAt: new Date()
       })
       .where(eq(customers.id, customer.id));
 
@@ -183,7 +186,7 @@ interface PendingBill {
         status: 'PROCESSED',
         pointsEarned,
         processedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(),
       })
       .where(eq(bills.id, billId));
 
@@ -216,7 +219,34 @@ interface PendingBill {
     };
   }
 
-  export interface OCRResult {
+  // Add missing methods for the class
+  async getCustomerById(id: string): Promise<Customer | undefined> {
+    const customers_result = await db.select().from(customers).where(eq(customers.id, id)).limit(1);
+    return customers_result[0];
+  }
+
+  async getCustomerByCouponCode(couponCode: string): Promise<Customer | undefined> {
+    const customers_result = await db.select().from(customers).where(eq(customers.referralCode, couponCode)).limit(1);
+    return customers_result[0];
+  }
+
+  async createPointsTransaction(transaction: {
+    customerId: string;
+    points: number;
+    type: string;
+    description?: string;
+    billId?: string;
+  }) {
+    return await db.insert(pointsTransactions).values({
+      customerId: transaction.customerId,
+      points: transaction.points,
+      type: transaction.type,
+      description: transaction.description || null,
+    }).returning();
+  }
+}
+
+export interface OCRResult {
   invoiceNumber: string;
   storeId: string;
   storeName: string;
@@ -1129,7 +1159,7 @@ export class DatabaseStorage implements IStorage {
         status,
         processedAt: status === 'APPROVED' || status === 'REJECTED' ? new Date().toISOString() : null,
         rejectionReason: rejectionReason || null,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date()
       })
       .where(eq(bills.id, billId));
   }
@@ -1178,8 +1208,8 @@ export class DatabaseStorage implements IStorage {
     const pendingBill = {
       id,
       ...billData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     // Store in bills table with pending status
@@ -1225,7 +1255,7 @@ export class DatabaseStorage implements IStorage {
         status,
         processedAt: status === 'APPROVED' || status === 'REJECTED' ? new Date().toISOString() : null,
         rejectionReason: rejectionReason || null,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date()
       })
       .where(eq(bills.id, billId));
   }
@@ -1258,7 +1288,7 @@ export class DatabaseStorage implements IStorage {
           .set({
             points: referrer.points + referrerPointsEarned,
             pointsEarned: referrer.pointsEarned + referrerPointsEarned,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date()
           })
           .where(eq(customers.id, referrer.id));
 
@@ -1278,8 +1308,8 @@ export class DatabaseStorage implements IStorage {
       .set({
         points: customer.points + pointsEarned,
         pointsEarned: customer.pointsEarned + pointsEarned,
-        lastActivity: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        lastActivity: new Date(),
+        updatedAt: new Date()
       })
       .where(eq(customers.id, customer.id));
 
@@ -1289,7 +1319,7 @@ export class DatabaseStorage implements IStorage {
         status: 'PROCESSED',
         pointsEarned,
         processedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(),
       })
       .where(eq(bills.id, billId));
 
