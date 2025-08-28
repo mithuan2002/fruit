@@ -216,8 +216,7 @@ interface PendingBill {
     };
   }
 
-  // Mock OCR processing function (in production, this would use Tesseract.js or Google Vision API)
-interface OCRResult {
+  export interface OCRResult {
   invoiceNumber: string;
   storeId: string;
   storeName: string;
@@ -1115,7 +1114,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(customers, eq(bills.customerId, customers.id))
       .where(eq(bills.status, 'pending'))
       .orderBy(desc(bills.submittedAt));
-      
+
     return result; // Assuming result is already in the format of PendingBill[]
   }
 
