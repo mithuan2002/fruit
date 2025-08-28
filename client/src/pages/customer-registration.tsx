@@ -20,15 +20,13 @@ const registrationSchema = z.object({
 type RegistrationForm = z.infer<typeof registrationSchema>;
 
 interface RegistrationResponse {
-  customer: {
-    id: string;
-    name: string;
-    phoneNumber: string;
-    referralCode: string;
-  };
+  id: string;
+  name: string;
+  phoneNumber: string;
   referralCode: string;
+  points: number;
   message: string;
-  isExistingCustomer: boolean;
+  isExistingCustomer?: boolean;
 }
 
 export default function CustomerRegistration() {
@@ -64,14 +62,14 @@ export default function CustomerRegistration() {
     },
     onSuccess: async (data) => {
       // Store customer ID for PWA access
-      localStorage.setItem('fruitbox_customer_id', data.customer.id);
+      localStorage.setItem('fruitbox_customer_id', data.id);
       
       // Auto-install PWA
       await attemptPWAInstall();
       
       // Redirect to customer app after a short delay
       setTimeout(() => {
-        window.location.href = `/customer-app?customerId=${data.customer.id}`;
+        window.location.href = `/customer-app?customerId=${data.id}`;
       }, 2000);
       
       toast({
