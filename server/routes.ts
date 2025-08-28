@@ -585,6 +585,79 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  // Public customer registration endpoint (no auth required)
+  app.post("/api/register-customer", async (req: any, res) => {
+    routeLogger.debug("POST /api/register-customer", "Customer registration attempt", {
+      requestId: req.requestId,
+      body: req.body
+    });
+
+    try {
+      const validatedData = insertCustomerSchema.pick({ 
+        name: true, 
+        phoneNumber: true 
+      }).parse(req.body);
+
+      routeLogger.info("POST /api/register-customer", "Data validation successful", {
+        requestId: req.requestId,
+        name: validatedData.name,
+        phone: validatedData.phoneNumber
+      });
+
+      // Check if phone number already exists
+      const existingCustomer = await storage.getCustomerByPhone(validatedData.phoneNumber);
+      if (existingCustomer) {
+        routeLogger.info("POST /api/register-customer", "Customer already exists", {
+          requestId: req.requestId,
+          phone: validatedData.phoneNumber,
+          customerId: existingCustomer.id
+        });
+        return res.status(400).json({ message: "Customer with this phone number already exists" });
+      }
+
+      // Generate unique referral code for the new customer
+      const referralCode = await storage.generateUniqueCode();
+
+      // Create customer with referral code and default values
+      const customer = await storage.createCustomer({
+        name: validatedData.name,
+        phoneNumber: validatedData.phoneNumber,
+        referralCode,
+        points: 0,
+        totalSpent: 0
+      });
+
+      routeLogger.info("POST /api/register-customer", "Customer created successfully", {
+        requestId: req.requestId,
+        customerId: customer.id,
+        name: customer.name,
+        referralCode: customer.referralCode
+      });
+
+      res.status(201).json({
+        id: customer.id,
+        name: customer.name,
+        phoneNumber: customer.phoneNumber,
+        referralCode: customer.referralCode,
+        points: customer.points,
+        message: "Customer registered successfully!"
+      });
+    } catch (error) {
+      routeLogger.error("POST /api/register-customer", "Registration failed", {
+        requestId: req.requestId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        body: req.body
+      });
+
+      if (error instanceof z.ZodError) {
+        res.locals.responseData = { message: "Invalid data", errors: error.errors };
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      res.locals.responseData = { message: "Failed to register customer" };
+      res.status(500).json({ message: "Failed to register customer" });
+    }
+  });
+
   app.post("/api/customers", requireAuth, async (req, res) => {
     try {
       const validatedData = insertCustomerSchema.parse(req.body);
