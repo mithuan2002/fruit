@@ -33,7 +33,7 @@ function Router() {
     if (window.location.pathname === '/register') {
       return <CustomerRegistration />;
     }
-    
+
     if (window.location.pathname === '/customer-app') {
       return <CustomerApp />;
     }
@@ -61,6 +61,7 @@ function Router() {
             <Route path="/auth" component={Auth} />
             <Route path="/onboarding" component={Onboarding} />
             <Route path="/bill-scanner" component={BillScanner} />
+            <Route path="/bill-verification" component={React.lazy(() => import('./pages/bill-verification'))} />
             <Route path="/cashier" component={CashierDashboard} />
             <Route path="/landing" component={Landing} />
             <Route path="*">
@@ -84,7 +85,7 @@ function Router() {
 function App() {
   useEffect(() => {
     console.log('App component mounted');
-    
+
     // Listen for PWA install prompt
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
@@ -100,13 +101,13 @@ function App() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
-    
+
     // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
           console.log('Service Worker registered successfully:', registration.scope);
-          
+
           // Check for updates
           registration.addEventListener('updatefound', () => {
             console.log('New service worker version available');

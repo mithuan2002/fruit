@@ -104,10 +104,10 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
     },
   });
 
-  // Process bill and assign points
-  const processBillMutation = useMutation({
+  // Submit bill for admin verification
+  const submitBillMutation = useMutation({
     mutationFn: async (billData: any) => {
-      const response = await fetch('/api/bills/process', {
+      const response = await fetch('/api/bills/submit-verification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(billData),
@@ -115,15 +115,15 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
       
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to process bill');
+        throw new Error(error.message || 'Failed to submit bill for verification');
       }
       
       return response.json();
     },
-    onSuccess: (result: ProcessedBillResult) => {
+    onSuccess: (result: any) => {
       toast({
-        title: 'Bill Processed Successfully!',
-        description: `${result.customer.name} earned ${result.bill.pointsEarned} points`,
+        title: 'Bill Submitted Successfully!',
+        description: `Bill submitted for admin verification. You'll be notified once approved.`,
       });
       
       // Reset form
@@ -138,7 +138,7 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
     },
     onError: (error: Error) => {
       toast({
-        title: 'Processing Failed',
+        title: 'Submission Failed',
         description: error.message,
         variant: 'destructive',
       });
@@ -193,16 +193,46 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
     setOcrProgress(0);
 
     try {
-      const { data: { text, confidence } } = await Tesseract.recognize(file, 'eng', {
+      // Preprocess image for better OCR results
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      const processedFile = await new Promise<File>((resolve) => {
+        img.onload = () => {
+          // Scale image for better OCR
+          const scale = Math.min(1920 / img.width, 1080 / img.height, 2);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          
+          // Apply image enhancements
+          ctx!.imageSmoothingEnabled = false;
+          ctx!.filter = 'contrast(1.5) brightness(1.2)';
+          ctx!.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          canvas.toBlob((blob) => {
+            resolve(new File([blob!], file.name, { type: 'image/jpeg' }));
+          }, 'image/jpeg', 0.95);
+        };
+        img.src = URL.createObjectURL(file);
+      });
+
+      const { data: { text, confidence } } = await Tesseract.recognize(processedFile, 'eng', {
         logger: (info) => {
           if (info.status === 'recognizing text') {
             setOcrProgress(Math.round(info.progress * 100));
           }
         },
+        tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,:-/₹$#',
       });
 
-      // Extract bill information using regex patterns
+      console.log('OCR Raw Text:', text);
+      console.log('OCR Confidence:', confidence);
+
+      // Extract bill information using improved patterns
       const extractedInfo = extractBillInfo(text);
+      console.log('Extracted Info:', extractedInfo);
       
       setExtractedData({
         ...extractedInfo,
@@ -217,16 +247,20 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
         storeName: extractedInfo.storeName || '',
       });
 
+      const successMessage = extractedInfo.totalAmount 
+        ? `Found amount: ₹${extractedInfo.totalAmount}` 
+        : 'Text extracted - please verify details';
+
       toast({
         title: 'OCR Processing Complete',
-        description: `Text extracted with ${Math.round(confidence)}% confidence`,
+        description: successMessage,
       });
 
     } catch (error) {
       console.error('OCR Error:', error);
       toast({
-        title: 'OCR Failed',
-        description: 'Please try again or enter data manually',
+        title: 'OCR Processing Failed',
+        description: 'Please try a clearer image or enter details manually',
         variant: 'destructive',
       });
     } finally {
@@ -237,36 +271,65 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
 
   const extractBillInfo = (text: string): Partial<ExtractedBillData> => {
     const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+    const cleanText = text.replace(/[^\w\s₹$.,:-]/g, ' ').replace(/\s+/g, ' ');
     
-    // Patterns for common bill information
+    // Enhanced patterns for better detection
     const totalPatterns = [
-      /total[:\s]*[₹$€£¥]*\s*(\d+\.?\d*)/i,
-      /amount[:\s]*[₹$€£¥]*\s*(\d+\.?\d*)/i,
-      /grand\s*total[:\s]*[₹$€£¥]*\s*(\d+\.?\d*)/i,
-      /(\d+\.\d{2})\s*$/, // Number at end of line with 2 decimal places
+      // Indian formats
+      /(?:total|amount|grand\s*total|net\s*amount|bill\s*amount)[:\s]*₹?\s*(\d+(?:\.\d{2})?)/i,
+      /₹\s*(\d+(?:\.\d{2})?)\s*(?:total|amount|grand|net|bill)/i,
+      // Numbers with currency symbols
+      /(?:total|amount|grand|net)[:\s]*[$€£¥]\s*(\d+(?:\.\d{2})?)/i,
+      // Just numbers with currency at end of lines
+      /(\d+\.\d{2})\s*₹?\s*$/m,
+      /₹\s*(\d+(?:\.\d{2})?)\s*$/m,
+      // Large numbers that could be totals
+      /(?:^|\s)(\d{2,5}(?:\.\d{2})?)\s*(?:₹|$|\s*total|\s*amount)/im,
+      // Numbers with decimal points (likely prices)
+      /(?:^|\s)(\d+\.\d{2})(?:\s|$)/m,
     ];
     
     const invoicePatterns = [
-      /invoice[:\s#]*(\w+\d+)/i,
-      /bill[:\s#]*(\w+\d+)/i,
-      /receipt[:\s#]*(\w+\d+)/i,
-      /ref[:\s#]*(\w+\d+)/i,
+      /(?:invoice|bill|receipt|ref|order|txn)[:\s#]*([A-Z0-9]{3,15})/i,
+      /(?:inv|rcpt|ref)[:\s#]*([A-Z0-9]{3,15})/i,
+      /(?:^|\s)([A-Z]{2,4}\d{3,10})(?:\s|$)/m,
+      /#\s*([A-Z0-9]{3,15})/i,
     ];
     
     const storePatterns = [
-      /^([A-Z][A-Za-z\s&]+)$/m, // Capitalized words at start of line
+      // First few lines that look like store names
+      /^([A-Z][A-Za-z\s&.,]{2,30})$/m,
+      // Common store name patterns
+      /^([A-Z\s]{3,25})$/m,
+      // Names with common business suffixes
+      /^([A-Za-z\s&]+(?:store|shop|mart|plaza|center|ltd|pvt))/im,
     ];
 
     let totalAmount: string | undefined;
     let invoiceNumber: string | undefined;
     let storeName: string | undefined;
 
-    // Extract total amount
+    // Extract total amount - try multiple approaches
     for (const pattern of totalPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        totalAmount = match[1];
-        break;
+      const matches = [...text.matchAll(new RegExp(pattern.source, pattern.flags + 'g'))];
+      if (matches.length > 0) {
+        // Get the largest number found (likely the total)
+        const amounts = matches.map(m => parseFloat(m[1])).filter(n => !isNaN(n) && n > 0);
+        if (amounts.length > 0) {
+          totalAmount = Math.max(...amounts).toFixed(2);
+          break;
+        }
+      }
+    }
+
+    // If no total found, look for any reasonable amount
+    if (!totalAmount) {
+      const allNumbers = cleanText.match(/\d+\.\d{2}/g);
+      if (allNumbers) {
+        const amounts = allNumbers.map(n => parseFloat(n)).filter(n => n > 10 && n < 100000);
+        if (amounts.length > 0) {
+          totalAmount = Math.max(...amounts).toFixed(2);
+        }
       }
     }
 
@@ -274,18 +337,35 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
     for (const pattern of invoicePatterns) {
       const match = text.match(pattern);
       if (match) {
-        invoiceNumber = match[1];
+        invoiceNumber = match[1].trim();
         break;
       }
     }
 
-    // Extract store name (usually first few capitalized lines)
-    const firstLines = lines.slice(0, 5);
-    for (const line of firstLines) {
-      if (line.length > 3 && line.length < 50 && /^[A-Z]/.test(line)) {
-        storeName = line;
-        break;
+    // Extract store name from first few meaningful lines
+    const meaningfulLines = lines.filter(line => 
+      line.length > 2 && 
+      line.length < 50 && 
+      !/^\d+$/.test(line) && 
+      !line.match(/^\d+\.\d{2}$/) &&
+      !line.toLowerCase().includes('total') &&
+      !line.toLowerCase().includes('amount')
+    );
+
+    for (const pattern of storePatterns) {
+      for (const line of meaningfulLines.slice(0, 8)) {
+        const match = line.match(pattern);
+        if (match) {
+          storeName = match[1].trim();
+          break;
+        }
       }
+      if (storeName) break;
+    }
+
+    // Fallback - use first meaningful line as store name
+    if (!storeName && meaningfulLines.length > 0) {
+      storeName = meaningfulLines[0];
     }
 
     return { totalAmount, invoiceNumber, storeName };
@@ -328,7 +408,7 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
       imageData: imagePreview || undefined,
     };
 
-    processBillMutation.mutate(billData);
+    submitBillMutation.mutate(billData);
     setShowConfirmDialog(false);
   };
 
@@ -562,12 +642,12 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
           <div className="flex gap-4">
             <Button
               onClick={handleProcessBill}
-              disabled={!customerPhone || !manualData.totalAmount || processBillMutation.isPending}
+              disabled={!customerPhone || !manualData.totalAmount || submitBillMutation.isPending}
               className="flex items-center gap-2"
-              data-testid="button-process-bill"
+              data-testid="button-submit-bill"
             >
-              <Gift className="h-4 w-4" />
-              Process Bill & Assign Points
+              <FileText className="h-4 w-4" />
+              Submit for Verification
             </Button>
 
             <Button
@@ -585,9 +665,9 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent data-testid="dialog-confirm-process">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Bill Processing</AlertDialogTitle>
+            <AlertDialogTitle>Submit Bill for Verification</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              <p>Please verify the bill details before processing:</p>
+              <p>Please verify the bill details before submitting:</p>
               <div className="bg-muted p-3 rounded-md space-y-1 text-sm">
                 <p><strong>Customer:</strong> {customerName || 'New Customer'} ({customerPhone})</p>
                 <p><strong>Total Amount:</strong> ₹{manualData.totalAmount}</p>
@@ -596,18 +676,18 @@ export default function OCRBillScanner({ onBillProcessed }: OCRBillScannerProps)
                 {referralCode && <p><strong>Referral Code:</strong> {referralCode}</p>}
               </div>
               <p className="text-xs text-muted-foreground">
-                Points will be calculated and assigned automatically based on your reward rules.
+                This bill will be sent to admin for verification. Points will be assigned after approval.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-process">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-submit">Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmProcessBill}
-              disabled={processBillMutation.isPending}
-              data-testid="button-confirm-process"
+              disabled={submitBillMutation.isPending}
+              data-testid="button-confirm-submit"
             >
-              {processBillMutation.isPending ? 'Processing...' : 'Process Bill'}
+              {submitBillMutation.isPending ? 'Submitting...' : 'Submit for Verification'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

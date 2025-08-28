@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import {
@@ -24,6 +24,7 @@ import { PointsCalculator } from "./pointsCalculator";
 import bcrypt from "bcryptjs";
 import session from "express-session";
 import MemoryStore from "memorystore";
+import { eq } from "drizzle-orm"; // Assuming drizzle-orm is used for database operations
 
 // Logging setup
 const routeLogger = {
@@ -46,7 +47,7 @@ function setupAuth(app: Express) {
   });
 
   const SessionStore = MemoryStore(session);
-  
+
   app.use(session({
     secret: process.env.SESSION_SECRET || 'fruitbox-dev-secret-key-' + Math.random().toString(36),
     store: new SessionStore({
@@ -75,7 +76,7 @@ function setupAuth(app: Express) {
 function setupLogging(app: Express) {
   app.use((req: any, res, next) => {
     const start = Date.now();
-    
+
     // Log incoming request
     routeLogger.debug("Incoming request", req.method + " " + req.path, {
       requestId: req.requestId,
@@ -274,7 +275,7 @@ export function setupRoutes(app: Express): Server {
 
     try {
       const { username, password } = req.body;
-      
+
       routeLogger.info("POST /api/auth/register", "Registration attempt started", {
         requestId: req.requestId,
         username,
@@ -282,7 +283,7 @@ export function setupRoutes(app: Express): Server {
       });
 
       const validatedData = insertUserSchema.pick({ username: true, password: true }).parse({ username, password });
-      
+
       routeLogger.debug("POST /api/auth/register", "Data validation successful", {
         requestId: req.requestId,
         username: validatedData.username
@@ -301,7 +302,7 @@ export function setupRoutes(app: Express): Server {
 
       // Hash password
       const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      
+
       // Create user
       const user = await storage.createUser({
         username: validatedData.username,
@@ -338,7 +339,7 @@ export function setupRoutes(app: Express): Server {
         error: error instanceof Error ? error.message : 'Unknown error',
         data: { requestId: req.requestId }
       });
-      
+
       if (error instanceof z.ZodError) {
         res.locals.responseData = { message: "Invalid data", errors: error.errors };
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
@@ -359,7 +360,7 @@ export function setupRoutes(app: Express): Server {
 
     try {
       const { username, password } = req.body;
-      
+
       routeLogger.info("POST /api/auth/login", "Login attempt started", {
         requestId: req.requestId,
         username,
@@ -367,7 +368,7 @@ export function setupRoutes(app: Express): Server {
       });
 
       const validatedData = loginUserSchema.parse({ username, password });
-      
+
       routeLogger.debug("POST /api/auth/login", "Data validation successful", {
         requestId: req.requestId,
         username: validatedData.username
@@ -427,7 +428,7 @@ export function setupRoutes(app: Express): Server {
         error: error instanceof Error ? error.message : 'Unknown error',
         data: { requestId: req.requestId }
       });
-      
+
       if (error instanceof z.ZodError) {
         res.locals.responseData = { message: "Invalid data", errors: error.errors };
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
@@ -452,7 +453,7 @@ export function setupRoutes(app: Express): Server {
         });
         return res.status(500).json({ message: "Failed to logout" });
       }
-      
+
       routeLogger.info("POST /api/auth/logout", "Logout successful", {
         requestId: req.requestId
       });
@@ -464,7 +465,7 @@ export function setupRoutes(app: Express): Server {
   app.post("/api/auth/onboard", requireAuth, async (req: any, res) => {
     try {
       const validatedData = onboardingSchema.parse(req.body);
-      
+
       const updatedUser = await storage.updateUser(req.session.user.id, {
         adminName: validatedData.adminName,
         shopName: validatedData.shopName,
@@ -563,7 +564,7 @@ export function setupRoutes(app: Express): Server {
     try {
       const { phoneNumber } = req.params;
       const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
-      
+
       const customer = await storage.getCustomerByPhone(cleanPhone);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
@@ -602,7 +603,7 @@ export function setupRoutes(app: Express): Server {
 
       // Customer created successfully
       console.log(`✅ Customer created successfully: ${customer.name} (${customer.phoneNumber}) with referral code: ${referralCode}`);
-      
+
       res.status(201).json({
         customer,
         referralCode,
@@ -627,7 +628,7 @@ export function setupRoutes(app: Express): Server {
       if (!customer) {
         return res.status(404).json({ message: "Customer not found after update" });
       }
-      
+
       // Check if points were manually updated (no messaging needed)
       if (req.body.points && req.body.points !== existingCustomer.points) {
         const pointsDifference = req.body.points - existingCustomer.points;
@@ -644,7 +645,7 @@ export function setupRoutes(app: Express): Server {
   app.delete("/api/customers/:id", requireAuth, async (req, res) => {
     try {
       const success = await storage.deleteCustomer(req.params.id);
-      
+
       if (!success) {
         return res.status(404).json({ message: "Customer not found" });
       }
@@ -714,12 +715,12 @@ export function setupRoutes(app: Express): Server {
   app.post("/api/products", requireAuth, async (req, res) => {
     try {
       const validatedData = insertProductSchema.parse(req.body);
-      
+
       // Ensure product code is uppercase for consistency
       if (validatedData.productCode) {
         validatedData.productCode = validatedData.productCode.toUpperCase();
       }
-      
+
       const product = await storage.createProduct(validatedData);
       console.log(`✅ Product created: ${product.name} with code: ${product.productCode}`);
       res.status(201).json(product);
@@ -736,17 +737,17 @@ export function setupRoutes(app: Express): Server {
     try {
       const { id } = req.params;
       const updateData = req.body;
-      
+
       // Ensure product code is uppercase for consistency
       if (updateData.productCode) {
         updateData.productCode = updateData.productCode.toUpperCase();
       }
-      
+
       const updatedProduct = await storage.updateProduct(id, updateData);
       if (!updatedProduct) {
         return res.status(404).json({ message: "Product not found" });
       }
-      
+
       console.log(`✅ Product updated: ${updatedProduct.name} with code: ${updatedProduct.productCode}`);
       res.json(updatedProduct);
     } catch (error) {
@@ -796,9 +797,9 @@ export function setupRoutes(app: Express): Server {
       // Get all products and campaigns with their point settings
       const products = await storage.getAllProducts();
       const campaigns = await storage.getAllCampaigns();
-      
+
       const pointRules: any[] = [];
-      
+
       // Convert products to point rules format
       products.forEach(product => {
         if (product.pointCalculationType !== 'inherit') {
@@ -819,7 +820,7 @@ export function setupRoutes(app: Express): Server {
           });
         }
       });
-      
+
       // Convert campaigns to point rules format
       campaigns.forEach(campaign => {
         pointRules.push({
@@ -836,7 +837,7 @@ export function setupRoutes(app: Express): Server {
           updatedAt: campaign.updatedAt
         });
       });
-      
+
       res.json(pointRules);
     } catch (error) {
       console.error("Failed to fetch point rules:", error);
@@ -847,19 +848,19 @@ export function setupRoutes(app: Express): Server {
   app.post("/api/point-rules", requireAuth, async (req, res) => {
     try {
       const ruleData = req.body;
-      
+
       routeLogger.info("POINT-RULES", "Creating point rule", {
         requestId: req.requestId,
         ruleData
       });
-      
+
       // Validate required fields
       if (!ruleData.targetName || !ruleData.pointsValue) {
         return res.status(400).json({ message: "Target name and points value are required" });
       }
 
       let savedRule;
-      
+
       if (ruleData.type === 'product') {
         // Create or update product with point calculation settings
         if (ruleData.targetId && ruleData.targetId !== 'manual-product') {
@@ -887,7 +888,7 @@ export function setupRoutes(app: Express): Server {
             minimumQuantity: ruleData.minQuantity || 1,
             isActive: true
           };
-          
+
           routeLogger.debug("POINT-RULES", "Product data prepared", { productData });
           const newProduct = await storage.createProduct(productData);
           savedRule = newProduct;
@@ -929,7 +930,7 @@ export function setupRoutes(app: Express): Server {
         ruleId: savedRule.id,
         ruleName: ruleData.targetName
       });
-      
+
       res.status(201).json({
         success: true,
         rule: {
@@ -961,14 +962,14 @@ export function setupRoutes(app: Express): Server {
     try {
       const { id } = req.params;
       const ruleData = req.body;
-      
+
       // Validate required fields
       if (!ruleData.targetName || !ruleData.pointsValue) {
         return res.status(400).json({ message: "Target name and points value are required" });
       }
 
       let updatedRule;
-      
+
       if (ruleData.type === 'product') {
         updatedRule = await storage.updateProduct(id, {
           pointCalculationType: ruleData.pointsType,
@@ -985,7 +986,7 @@ export function setupRoutes(app: Express): Server {
       }
 
       console.log(`✅ Points rule updated: ${ruleData.targetName} - ${ruleData.pointsValue} points (${ruleData.pointsType})`);
-      
+
       res.json({
         success: true,
         rule: {
@@ -1004,7 +1005,7 @@ export function setupRoutes(app: Express): Server {
   app.delete("/api/point-rules/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      
+
       // Check if it's a product or campaign first
       const product = await storage.getProduct(id);
       if (product) {
@@ -1022,9 +1023,9 @@ export function setupRoutes(app: Express): Server {
           await storage.updateCampaign(id, { isActive: false });
         }
       }
-      
+
       console.log(`✅ Points rule deleted: ${id}`);
-      
+
       res.json({
         success: true,
         message: "Points rule deleted successfully"
@@ -1059,9 +1060,93 @@ export function setupRoutes(app: Express): Server {
   });
 
   // OCR Bill Processing endpoints
-  
-  // Upload bill image for OCR processing
-  app.post("/api/bills/upload", async (req, res) => {
+
+  // Submit bill for admin verification
+  app.post("/api/bills/submit-verification", async (req: Request, res: Response) => {
+    try {
+      console.log("[ROUTE-DEBUG] Bill verification submission:", req.body);
+
+      const { 
+        customerPhone, 
+        customerName, 
+        customerId,
+        referralCode,
+        totalAmount, 
+        invoiceNumber, 
+        storeName,
+        extractedText,
+        ocrConfidence,
+        imageData
+      } = req.body;
+
+      if (!customerPhone || !totalAmount) {
+        return res.status(400).json({ 
+          message: "Customer phone and total amount are required" 
+        });
+      }
+
+      // Create or get customer
+      let customer;
+      if (customerId) {
+        customer = await storage.getCustomerById(customerId);
+      } else {
+        customer = await storage.getCustomerByPhone(customerPhone);
+      }
+
+      if (!customer) {
+        // Create new customer
+        const newCustomer = await storage.createCustomer({
+          name: customerName || `Customer ${customerPhone}`,
+          phoneNumber: customerPhone,
+          email: null,
+        });
+        customer = newCustomer;
+      }
+
+      // Create pending bill record
+      const billData = {
+        customerId: customer.id,
+        totalAmount,
+        invoiceNumber: invoiceNumber || null,
+        storeName: storeName || null,
+        extractedText: extractedText || '',
+        ocrConfidence: ocrConfidence || 0,
+        imageData: imageData || null,
+        referralCode: referralCode || null,
+        status: 'PENDING_VERIFICATION',
+        submittedAt: new Date().toISOString(),
+      };
+
+      const pendingBill = await storage.createPendingBill(billData);
+
+      // TODO: Send notification to admin (WhatsApp/Email)
+      console.log(`[NOTIFICATION] New bill submitted for verification: ${pendingBill.id}`);
+
+      res.json({
+        success: true,
+        message: "Bill submitted for verification successfully",
+        bill: {
+          id: pendingBill.id,
+          status: 'PENDING_VERIFICATION',
+          submittedAt: pendingBill.submittedAt,
+        },
+        customer: {
+          id: customer.id,
+          name: customer.name,
+        }
+      });
+
+    } catch (error) {
+      console.error("Bill verification submission error:", error);
+      res.status(500).json({ 
+        message: "Failed to submit bill for verification",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Process bill with OCR and assign points (for admin use)
+  app.post("/api/bills/process", async (req: Request, res: Response) => {
     try {
       const { customerId, referralCode, imageData } = req.body;
 
@@ -1081,7 +1166,7 @@ export function setupRoutes(app: Express): Server {
       // Check for duplicate bills using hash
       const billHash = Buffer.from(`${ocrResult.invoiceNumber}-${ocrResult.storeName}-${ocrResult.billDate.split('T')[0]}`).toString('base64').replace(/[+/=]/g, '');
       const existingBill = await storage.getBillByHash(billHash);
-      
+
       if (existingBill) {
         return res.status(409).json({ 
           message: "This bill has already been processed",
@@ -1094,7 +1179,7 @@ export function setupRoutes(app: Express): Server {
 
       // Calculate points based on bill amount (₹100 = 10 points)
       const pointsEarned = Math.floor(ocrResult.totalAmount / 10);
-      
+
       // Handle referral if provided
       let referrer = null;
       let referrerPointsEarned = 0;
@@ -1185,14 +1270,14 @@ export function setupRoutes(app: Express): Server {
   app.get("/api/bills/customer/:customerId", async (req, res) => {
     try {
       const { customerId } = req.params;
-      
+
       const customer = await storage.getCustomer(customerId);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
 
       const bills = await storage.getBillsByCustomer(customerId);
-      
+
       res.json({
         customer: {
           id: customer.id,
@@ -1215,635 +1300,151 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
-  // Cashier endpoints
-  
-  // Get customer points balance (for cashier)
-  app.get("/api/cashier/customer/:customerId/points", async (req, res) => {
+  // Get pending bills for admin verification
+  app.get("/api/admin/pending-bills", async (req: Request, res: Response) => {
     try {
-      const { customerId } = req.params;
-      
-      const customer = await storage.getCustomer(customerId);
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found" });
-      }
-
-      res.json({
-        customer: {
-          id: customer.id,
-          name: customer.name,
-          phoneNumber: customer.phoneNumber,
-          points: customer.points,
-          pointsEarned: customer.pointsEarned,
-          pointsRedeemed: customer.pointsRedeemed
-        }
-      });
+      const pendingBills = await storage.getPendingBills();
+      res.json(pendingBills);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch customer points" });
+      console.error("Failed to fetch pending bills:", error);
+      res.status(500).json({ message: "Failed to fetch pending bills" });
     }
   });
 
-  // Apply discount (for cashier)
-  app.post("/api/cashier/apply-discount", async (req, res) => {
+  // Admin approve bill
+  app.post("/api/admin/approve-bill/:billId", async (req: Request, res: Response) => {
     try {
-      const { customerId, cashierId, pointsToUse, discountPercent, originalAmount, notes } = req.body;
+      const { billId } = req.params;
+      console.log(`[ADMIN] Approving bill: ${billId}`);
 
-      if (!customerId || !cashierId || !pointsToUse) {
-        return res.status(400).json({ message: "Customer ID, cashier ID, and points to use are required" });
+      // Fetch pending bill details to process points
+      const pendingBill = await storage.getPendingBill(billId);
+      if (!pendingBill) {
+        return res.status(404).json({ message: "Pending bill not found" });
       }
 
-      const customer = await storage.getCustomer(customerId);
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found" });
+      // Process the bill: calculate points, update customer, create bill record
+      const { customerId, referralCode, totalAmount, invoiceNumber, storeName, extractedText, ocrConfidence } = pendingBill;
+
+      // Calculate points based on bill amount (₹100 = 10 points)
+      const pointsEarned = Math.floor(parseFloat(totalAmount) / 10);
+
+      // Handle referral if provided
+      let referrer = null;
+      let referrerPointsEarned = 0;
+      if (referralCode) {
+        referrer = await storage.getCustomerByCouponCode(referralCode);
+        if (referrer) {
+          referrerPointsEarned = Math.floor(pointsEarned * 0.1); // 10% bonus for referrer
+        }
       }
-
-      if (customer.points < pointsToUse) {
-        return res.status(400).json({ message: "Insufficient points" });
-      }
-
-      const cashier = await (storage as any).getCashier(cashierId);
-      if (!cashier) {
-        return res.status(404).json({ message: "Cashier not found" });
-      }
-
-      // Calculate discount amount (example: 1 point = ₹1 discount)
-      const discountAmount = pointsToUse;
-      const finalAmount = originalAmount ? Math.max(0, originalAmount - discountAmount) : null;
-
-      // Create discount transaction
-      const discountTransaction = await (storage as any).createDiscountTransaction({
-        customerId,
-        cashierId,
-        pointsUsed: pointsToUse,
-        discountPercent: discountPercent ? discountPercent.toString() : null,
-        discountAmount: discountAmount.toString(),
-        originalAmount: originalAmount ? originalAmount.toString() : null,
-        finalAmount: finalAmount ? finalAmount.toString() : null,
-        notes: notes || null,
-        transactionType: "discount",
-        status: "completed"
-      });
 
       // Update customer points
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
       await storage.updateCustomer(customerId, {
-        points: customer.points - pointsToUse,
-        pointsRedeemed: customer.pointsRedeemed + pointsToUse
+        points: customer.points + pointsEarned,
+        pointsEarned: customer.pointsEarned + pointsEarned
       });
 
-      res.json({
-        success: true,
-        transaction: {
-          id: discountTransaction.id,
-          pointsUsed: discountTransaction.pointsUsed,
-          discountAmount: discountTransaction.discountAmount,
-          finalAmount: discountTransaction.finalAmount,
-          appliedAt: discountTransaction.appliedAt
-        },
-        customer: {
-          id: customer.id,
-          name: customer.name,
-          newPointsBalance: customer.points - pointsToUse
-        },
-        cashier: {
-          id: cashier.id,
-          name: cashier.name
-        }
-      });
-    } catch (error) {
-      console.error("Apply discount error:", error);
-      res.status(500).json({ message: "Failed to apply discount" });
-    }
-  });
-
-  // Get all cashiers
-  app.get("/api/cashiers", async (req, res) => {
-    try {
-      const cashiers = await (storage as any).getActiveCashiers();
-      res.json(cashiers);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch cashiers" });
-    }
-  });
-
-  // Create cashier
-  app.post("/api/cashiers", async (req, res) => {
-    try {
-      const { name, employeeId, phoneNumber } = req.body;
-
-      if (!name) {
-        return res.status(400).json({ message: "Cashier name is required" });
-      }
-
-      const cashier = await (storage as any).createCashier({
-        name,
-        employeeId: employeeId || null,
-        phoneNumber: phoneNumber || null,
-        isActive: true
-      });
-
-      res.json({
-        success: true,
-        cashier
-      });
-    } catch (error) {
-      res.status(500).json({ message: "Failed to create cashier" });
-    }
-  });
-
-  // Admin audit endpoints
-  
-  // Get audit report - all bills and transactions
-  app.get("/api/admin/audit-report", requireAuth, async (req, res) => {
-    try {
-      const { startDate, endDate } = req.query;
-      
-      const bills = await (storage as any).getAllBills();
-      const discountTransactions = await (storage as any).getAllDiscountTransactions();
-      
-      // Filter by date range if provided
-      let filteredBills = bills;
-      let filteredTransactions = discountTransactions;
-      
-      if (startDate && endDate) {
-        const start = new Date(startDate as string);
-        const end = new Date(endDate as string);
-        
-        filteredBills = bills.filter((bill: any) => {
-          const billDate = new Date(bill.processedAt);
-          return billDate >= start && billDate <= end;
-        });
-        
-        filteredTransactions = discountTransactions.filter((transaction: any) => {
-          const transactionDate = new Date(transaction.appliedAt);
-          return transactionDate >= start && transactionDate <= end;
+      // Update referrer points if applicable
+      if (referrer && referrerPointsEarned > 0) {
+        await storage.updateCustomer(referrer.id, {
+          points: referrer.points + referrerPointsEarned,
+          pointsEarned: referrer.pointsEarned + referrerPointsEarned
         });
       }
 
-      // Calculate summary statistics
-      const totalBillsScanned = filteredBills.length;
-      const totalPointsDistributed = filteredBills.reduce((sum: number, bill: any) => sum + (bill.pointsEarned || 0), 0);
-      const totalDiscountsGiven = filteredTransactions.length;
-      const totalDiscountAmount = filteredTransactions.reduce((sum: number, transaction: any) => sum + parseFloat(transaction.discountAmount || 0), 0);
-      const totalPointsRedeemed = filteredTransactions.reduce((sum: number, transaction: any) => sum + (transaction.pointsUsed || 0), 0);
+      // Create the final bill record and mark pending bill as processed
+      const billData = {
+        customerId,
+        invoiceNumber: invoiceNumber || null,
+        storeName: storeName || null,
+        billDate: new Date(pendingBill.submittedAt), // Use submission date or date from extracted text if available
+        billTime: null, // Time not explicitly captured in pending bill
+        totalAmount: totalAmount,
+        originalImageUrl: null, // URL from cloud storage in production
+        ocrRawData: extractedText, // Store extracted text as raw data
+        pointsEarned,
+        referralCode: referralCode || null,
+        referrerId: referrer?.id || null,
+        referrerPointsEarned,
+        status: "processed" as const,
+        isValid: true,
+        billHash: null // Hash calculation might need invoiceNumber, storeName, billDate from extracted text
+      };
 
+      // Calculate hash if possible
+      if (invoiceNumber && storeName && pendingBill.submittedAt) {
+        billData.billHash = Buffer.from(`${invoiceNumber}-${storeName}-${new Date(pendingBill.submittedAt).toISOString().split('T')[0]}`).toString('base64').replace(/[+/=]/g, '');
+      }
+
+      const bill = await storage.createBill(billData);
+
+      // Mark pending bill as processed
+      await storage.updatePendingBillStatus(billId, 'APPROVED', bill.id);
+
+      console.log(`[ADMIN] Bill ${billId} approved successfully. Points awarded: ${pointsEarned}`);
       res.json({
-        summary: {
-          totalBillsScanned,
-          totalPointsDistributed,
-          totalDiscountsGiven,
-          totalDiscountAmount,
-          totalPointsRedeemed,
-          dateRange: { startDate, endDate }
-        },
-        bills: filteredBills.map((bill: any) => ({
+        success: true,
+        message: "Bill approved and points awarded successfully",
+        bill: {
           id: bill.id,
-          customerId: bill.customerId,
           invoiceNumber: bill.invoiceNumber,
           storeName: bill.storeName,
           totalAmount: bill.totalAmount,
           pointsEarned: bill.pointsEarned,
-          processedAt: bill.processedAt,
-          status: bill.status
-        })),
-        discountTransactions: filteredTransactions.map((transaction: any) => ({
-          id: transaction.id,
-          customerId: transaction.customerId,
-          cashierId: transaction.cashierId,
-          pointsUsed: transaction.pointsUsed,
-          discountAmount: transaction.discountAmount,
-          appliedAt: transaction.appliedAt,
-          status: transaction.status
-        }))
-      });
-    } catch (error) {
-      console.error("Audit report error:", error);
-      res.status(500).json({ message: "Failed to generate audit report" });
-    }
-  });
-
-  // QR Code customer registration endpoint (PWA)
-  app.post("/api/register-customer", async (req, res) => {
-    try {
-      const { name, phoneNumber } = req.body;
-
-      if (!name || !phoneNumber) {
-        return res.status(400).json({ message: "Name and phone number are required" });
-      }
-
-      // Clean and validate phone number
-      const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
-      if (cleanPhone.length < 10) {
-        return res.status(400).json({ message: "Invalid phone number" });
-      }
-
-      // Check if customer already exists
-      const existingCustomer = await storage.getCustomerByPhone(cleanPhone);
-      if (existingCustomer) {
-        return res.json({
-          customer: existingCustomer,
-          referralCode: existingCustomer.referralCode,
-          message: "Welcome back! Here's your coupon code.",
-          isExistingCustomer: true
-        });
-      }
-
-      // Generate unique referral code
-      const referralCode = await storage.generateUniqueCode();
-
-      // Create new customer
-      const customer = await storage.createCustomer({
-        name,
-        phoneNumber: cleanPhone,
-        referralCode
-      });
-
-      console.log(`✅ PWA Customer registered: ${customer.name} (${customer.phoneNumber}) with code: ${referralCode}`);
-
-      res.status(201).json({
-        customer,
-        referralCode,
-        message: "Registration successful! Here's your coupon code.",
-        isExistingCustomer: false
-      });
-    } catch (error) {
-      console.error("Failed to register customer via PWA:", error);
-      res.status(500).json({ message: "Registration failed. Please try again." });
-    }
-  });
-
-  // Coupon verification endpoint (for dashboard lookup)
-  app.get("/api/coupons/verify/:code", async (req, res) => {
-    try {
-      const { code } = req.params;
-      
-      if (!code || code.trim() === '') {
-        return res.status(400).json({ message: "Coupon code is required" });
-      }
-
-      // Look up customer by coupon/referral code
-      const customer = await storage.getCustomerByCouponCode(code.trim().toUpperCase());
-      
-      if (!customer) {
-        return res.status(404).json({ message: "Invalid coupon code" });
-      }
-
-      // Return customer reference for further lookup
-      res.json({
-        valid: true,
-        referrerId: customer.id,
-        customerName: customer.name,
-        points: customer.points,
-        message: "Coupon code verified successfully"
-      });
-    } catch (error) {
-      console.error("Failed to verify coupon code:", error);
-      res.status(500).json({ message: "Failed to verify coupon code" });
-    }
-  });
-
-  // Coupon redemption endpoint (process referral sale)
-  app.post("/api/coupons/:code/redeem", async (req, res) => {
-    try {
-      const { code } = req.params;
-      const { customerId, referredCustomerName, referredCustomerPhone, saleAmount, pointsToAssign } = req.body;
-
-      if (!code || code.trim() === '') {
-        return res.status(400).json({ message: "Coupon code is required" });
-      }
-
-      if (!saleAmount || saleAmount <= 0) {
-        return res.status(400).json({ message: "Valid sale amount is required" });
-      }
-
-      // Look up referrer by coupon code
-      const referrer = await storage.getCustomerByCouponCode(code.trim().toUpperCase());
-      if (!referrer) {
-        return res.status(404).json({ message: "Invalid coupon code" });
-      }
-
-      // Calculate points earned (example: $10 = 1 point, so $34 = 3 points)
-      const basePoints = Math.floor(saleAmount / 10);
-      const pointsEarned = pointsToAssign || basePoints;
-
-      // Create or update referred customer if provided
-      let referredCustomer = null;
-      if (referredCustomerName && referredCustomerPhone) {
-        const cleanPhone = referredCustomerPhone.replace(/[^\d]/g, '');
-        
-        // Check if customer already exists
-        const existingCustomer = await storage.getCustomerByPhone(cleanPhone);
-        if (existingCustomer) {
-          referredCustomer = existingCustomer;
-        } else {
-          // Generate unique referral code for new customer
-          const newReferralCode = await storage.generateUniqueCode();
-          referredCustomer = await storage.createCustomer({
-            name: referredCustomerName,
-            phoneNumber: cleanPhone,
-            referralCode: newReferralCode
-          });
-        }
-      }
-
-      // Update referrer points
-      await storage.updateCustomer(referrer.id, {
-        points: referrer.points + pointsEarned,
-        pointsEarned: referrer.pointsEarned + pointsEarned,
-        totalReferrals: referrer.totalReferrals + 1
-      });
-
-      // Create referral record (simplified)
-      try {
-        await storage.createReferral({
-          referrerId: referrer.id,
-          referredId: referredCustomer?.id || null,
-          referredCustomerName: referredCustomerName || 'Guest',
-          referredCustomerPhone: referredCustomerPhone || null,
-          saleAmount: saleAmount.toString(),
-          pointsEarned,
-          status: 'completed'
-        });
-      } catch (error) {
-        console.warn("Could not create referral record:", error.message);
-      }
-
-      console.log(`✅ Referral processed: ${referrer.name} earned ${pointsEarned} points from $${saleAmount} sale`);
-
-      res.json({
-        success: true,
-        referrer: {
-          id: referrer.id,
-          name: referrer.name,
-          newPointsBalance: referrer.points + pointsEarned
+          processedAt: bill.processedAt
         },
-        referredCustomer: referredCustomer ? {
-          id: referredCustomer.id,
-          name: referredCustomer.name,
-          referralCode: referredCustomer.referralCode
-        } : null,
-        pointsEarned,
-        totalPoints: referrer.points + pointsEarned,
-        saleAmount,
-        message: `${pointsEarned} points awarded to ${referrer.name}`
-      });
-    } catch (error) {
-      console.error("Failed to process coupon redemption:", error);
-      res.status(500).json({ message: "Failed to process referral sale" });
-    }
-  });
-
-  // Sales preview points endpoint
-  app.post("/api/sales/preview-points", async (req, res) => {
-    try {
-      const { customerId, referralCode, totalAmount, items, campaignId } = req.body;
-
-      if (!totalAmount || !items || items.length === 0) {
-        return res.status(400).json({ message: "Total amount and items are required" });
-      }
-
-      // Calculate points for each item
-      const itemPoints = [];
-      let totalPoints = 0;
-      const appliedRules = [];
-
-      for (const item of items) {
-        let itemPointsCalculation = 0;
-        let calculationDescription = "";
-        
-        // Try to find the product to get its point calculation settings
-        if (item.productId) {
-          try {
-            const product = await storage.getProduct(item.productId);
-            if (product) {
-              if (product.pointCalculationType === 'fixed' && product.fixedPoints) {
-                itemPointsCalculation = product.fixedPoints * item.quantity;
-                calculationDescription = `${product.fixedPoints} points × ${item.quantity} quantity`;
-                appliedRules.push(`Fixed points rule: ${product.fixedPoints} points per ${product.name}`);
-              } else if (product.pointCalculationType === 'percentage' && product.percentageRate) {
-                const percentageRate = parseFloat(product.percentageRate);
-                itemPointsCalculation = Math.floor((item.totalPrice * percentageRate) / 100);
-                calculationDescription = `${percentageRate}% of $${item.totalPrice}`;
-                appliedRules.push(`Percentage rule: ${percentageRate}% of purchase amount for ${product.name}`);
-              } else {
-                // Default: 1 point per $10 spent
-                itemPointsCalculation = Math.floor(item.totalPrice / 10);
-                calculationDescription = `$${item.totalPrice} ÷ 10 (default rule)`;
-                appliedRules.push("Default rule: 1 point per $10 spent");
-              }
-            } else {
-              // Fallback if product not found
-              itemPointsCalculation = item.quantity * 1;
-              calculationDescription = `${item.quantity} quantity × 1 point (fallback)`;
-              appliedRules.push("Fallback rule: 1 point per item");
-            }
-          } catch (error) {
-            console.warn(`Could not fetch product ${item.productId}, using default points`);
-            itemPointsCalculation = item.quantity * 1;
-            calculationDescription = `${item.quantity} quantity × 1 point (error fallback)`;
-            appliedRules.push("Error fallback: 1 point per item");
-          }
-        } else {
-          // No product ID, use default calculation based on price
-          itemPointsCalculation = Math.floor(item.totalPrice / 10) || 1;
-          calculationDescription = item.totalPrice >= 10 ? `$${item.totalPrice} ÷ 10` : "Minimum 1 point";
-          appliedRules.push("Manual item rule: 1 point per $10 or minimum 1 point");
-        }
-        
-        itemPoints.push({
-          productId: item.productId,
-          productName: item.productName,
-          points: itemPointsCalculation,
-          calculation: calculationDescription
-        });
-        
-        totalPoints += itemPointsCalculation;
-      }
-
-      // Remove duplicate rules
-      const uniqueRules = [...new Set(appliedRules)];
-
-      res.json({
-        totalPoints,
-        itemPoints,
-        appliedRules: uniqueRules
-      });
-    } catch (error) {
-      console.error("Failed to preview points:", error);
-      res.status(500).json({ message: "Failed to preview points calculation" });
-    }
-  });
-
-  // Sales processing endpoint
-  app.post("/api/sales/process", async (req, res) => {
-    try {
-      const { customerId, referralCode, totalAmount, items, paymentMethod, campaignId } = req.body;
-
-      if (!totalAmount || !items || items.length === 0) {
-        return res.status(400).json({ message: "Total amount and items are required" });
-      }
-
-      // Calculate total points based on actual product settings (same logic as preview)
-      let totalPoints = 0;
-      const itemPointsDetails = [];
-
-      for (const item of items) {
-        let itemPoints = 0;
-        let calculationDescription = "";
-        
-        // Try to find the product to get its point calculation settings
-        if (item.productId) {
-          try {
-            const product = await storage.getProduct(item.productId);
-            if (product) {
-              if (product.pointCalculationType === 'fixed' && product.fixedPoints) {
-                itemPoints = product.fixedPoints * item.quantity;
-                calculationDescription = `${product.fixedPoints} points × ${item.quantity}`;
-              } else if (product.pointCalculationType === 'percentage' && product.percentageRate) {
-                const percentageRate = parseFloat(product.percentageRate);
-                itemPoints = Math.floor((item.totalPrice * percentageRate) / 100);
-                calculationDescription = `${percentageRate}% of $${item.totalPrice}`;
-              } else {
-                // Default: 1 point per $10 spent
-                itemPoints = Math.floor(item.totalPrice / 10);
-                calculationDescription = `$${item.totalPrice} ÷ 10`;
-              }
-            } else {
-              // Fallback if product not found
-              itemPoints = item.quantity * 1;
-              calculationDescription = `${item.quantity} × 1 point`;
-            }
-          } catch (error) {
-            console.warn(`Could not fetch product ${item.productId}, using default points`);
-            itemPoints = item.quantity * 1;
-            calculationDescription = `${item.quantity} × 1 point (fallback)`;
-          }
-        } else {
-          // No product ID, use default calculation
-          itemPoints = Math.floor(item.totalPrice / 10) || 1;
-          calculationDescription = item.totalPrice >= 10 ? `$${item.totalPrice} ÷ 10` : "Minimum 1 point";
-        }
-        
-        totalPoints += itemPoints;
-        itemPointsDetails.push({
-          productName: item.productName,
-          points: itemPoints,
-          calculation: calculationDescription
-        });
-      }
-
-      let customer = null;
-      if (customerId) {
-        customer = await storage.getCustomer(customerId);
-      } else if (referralCode) {
-        customer = await storage.getCustomerByCouponCode(referralCode.toUpperCase());
-      }
-
-      // Create sale record (simplified)
-      const saleData = {
-        customerId: customer?.id || null,
-        totalAmount: totalAmount.toString(),
-        pointsEarned: totalPoints,
-        items: JSON.stringify(items),
-        paymentMethod: paymentMethod || 'cash',
-        campaignId: campaignId || null,
-        status: 'completed'
-      };
-
-      // Award points to customer if found
-      if (customer) {
-        await storage.updateCustomer(customer.id, {
-          points: customer.points + totalPoints,
-          pointsEarned: customer.pointsEarned + totalPoints,
-          totalPurchases: (customer.totalPurchases || 0) + 1
-        });
-      }
-
-      console.log(`✅ Sale processed: $${totalAmount} - ${totalPoints} points awarded to ${customer?.name || 'Guest'}`);
-
-      res.json({
-        success: true,
-        saleId: Math.random().toString(36).substring(2, 8).toUpperCase(),
-        pointCalculation: {
-          totalPoints,
-          itemBreakdown: itemPointsDetails
-        },
-        customer: customer ? {
+        customer: {
           id: customer.id,
           name: customer.name,
-          newPointsBalance: customer.points + totalPoints,
-          pointsEarned: totalPoints
-        } : null,
-        totalAmount,
-        message: customer ? `Sale completed! ${totalPoints} points awarded to ${customer.name}` : "Sale completed!"
+          newPointsBalance: customer.points + pointsEarned
+        },
+        referrer: referrer ? {
+          id: referrer.id,
+          name: referrer.name,
+          bonusPointsEarned: referrerPointsEarned
+        } : null
       });
     } catch (error) {
-      console.error("Failed to process sale:", error);
-      res.status(500).json({ message: "Failed to process sale" });
+      console.error(`Failed to approve bill ${req.params.billId}:`, error);
+      res.status(500).json({ 
+        message: "Failed to approve bill",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
-  // Product lookup by code endpoint
-  app.get("/api/products/code/:code", async (req, res) => {
+  // Admin reject bill
+  app.post("/api/admin/reject-bill/:billId", async (req: Request, res: Response) => {
     try {
-      const { code } = req.params;
-      
-      if (!code || code.trim() === '') {
-        return res.status(400).json({ message: "Product code is required" });
-      }
+      const { billId } = req.params;
+      const { reason } = req.body;
 
-      // Look up actual product from database
-      const product = await storage.getProductByCode(code.trim().toUpperCase());
-      
-      if (!product) {
-        // If no product found, check if there are any sample products
-        const allProducts = await storage.getAllProducts();
-        console.log(`❌ Product not found with code: ${code}. Available products:`, 
-          allProducts.map(p => ({ name: p.name, code: p.productCode })));
-        
-        return res.status(404).json({ 
-          message: `Product not found with code: ${code}`,
-          suggestion: "Make sure the product code exists or create the product first"
-        });
-      }
+      console.log(`[ADMIN] Rejecting bill: ${billId}, reason: ${reason}`);
 
-      console.log(`✅ Product found: ${product.name} (${product.productCode})`);
-      res.json(product);
-    } catch (error) {
-      console.error("Failed to lookup product by code:", error);
-      res.status(500).json({ message: "Product lookup failed" });
-    }
-  });
+      // Update pending bill status to rejected
+      await storage.updatePendingBillStatus(billId, 'REJECTED', null, reason);
 
-  // Customer lookup by coupon code (simplified endpoint)
-  app.get("/api/customers/by-coupon/:code", async (req, res) => {
-    try {
-      const { code } = req.params;
-      
-      if (!code || code.trim() === '') {
-        return res.status(400).json({ message: "Coupon code is required" });
-      }
-
-      const customer = await storage.getCustomerByCouponCode(code.trim().toUpperCase());
-      
-      if (!customer) {
-        return res.status(404).json({ message: "Customer not found with this coupon code" });
-      }
-
+      console.log(`[ADMIN] Bill ${billId} rejected successfully`);
       res.json({
-        id: customer.id,
-        name: customer.name,
-        phoneNumber: customer.phoneNumber,
-        points: customer.points,
-        pointsRedeemed: customer.pointsRedeemed,
-        referralCode: customer.referralCode,
-        totalPurchases: customer.totalPurchases || 0
+        success: true,
+        message: "Bill rejected successfully",
       });
     } catch (error) {
-      console.error("Failed to lookup customer by coupon code:", error);
-      res.status(500).json({ message: "Failed to lookup customer" });
+      console.error(`Failed to reject bill ${req.params.billId}:`, error);
+      res.status(500).json({ 
+        message: "Failed to reject bill",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
-  // Customer PWA dashboard endpoint
+  // Get customer dashboard data
   app.get("/api/customer/dashboard/:customerId", async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.customerId);
@@ -1853,7 +1454,7 @@ export function setupRoutes(app: Express): Server {
 
       // Get customer's transaction history (sales where they used their coupon)
       const transactions = await storage.getCustomerTransactions?.(customer.id) || [];
-      
+
       res.json({
         customer: {
           id: customer.id,

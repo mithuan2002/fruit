@@ -52,7 +52,152 @@ import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, and, count, sum, sql } from "drizzle-orm";
 
-// Mock OCR processing function (in production, this would use Tesseract.js or Google Vision API)
+// Pending bill verification methods
+  async createPendingBill(billData: {
+    customerId: string;
+    totalAmount: string;
+    invoiceNumber?: string | null;
+    storeName?: string | null;
+    extractedText?: string;
+    ocrConfidence?: number;
+    imageData?: string | null;
+    referralCode?: string | null;
+    status: string;
+    submittedAt: string;
+  }) {
+    const id = randomUUID();
+    const pendingBill = {
+      id,
+      ...billData,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Store in bills table with pending status
+    const [insertedBill] = await db.insert(bills).values({
+      id,
+      customerId: billData.customerId,
+      totalAmount: billData.totalAmount,
+      invoiceNumber: billData.invoiceNumber,
+      storeName: billData.storeName,
+      extractedText: billData.extractedText || '',
+      ocrConfidence: billData.ocrConfidence || 0,
+      imageData: billData.imageData,
+      referralCode: billData.referralCode,
+      status: 'PENDING',
+      pointsEarned: 0, // Will be calculated upon approval
+      processedAt: null,
+      createdAt: pendingBill.createdAt,
+      updatedAt: pendingBill.updatedAt,
+    }).returning();
+
+    return insertedBill;
+  }
+
+  async getPendingBills() {
+    return await db.select({
+      bill: bills,
+      customer: customers
+    })
+    .from(bills)
+    .leftJoin(customers, eq(bills.customerId, customers.id))
+    .where(eq(bills.status, 'PENDING'))
+    .orderBy(desc(bills.createdAt));
+  }
+
+  async approveBill(billId: string, adminId?: string) {
+    const bill = await db.select().from(bills).where(eq(bills.id, billId)).limit(1);
+    if (!bill.length) {
+      throw new Error('Bill not found');
+    }
+
+    const billData = bill[0];
+    const customer = await this.getCustomerById(billData.customerId);
+    if (!customer) {
+      throw new Error('Customer not found');
+    }
+
+    // Calculate points (₹100 = 10 points)
+    const pointsEarned = Math.floor(parseFloat(billData.totalAmount) / 10);
+
+    // Handle referral bonus if applicable
+    let referrerPointsEarned = 0;
+    let referrer = null;
+    if (billData.referralCode) {
+      referrer = await this.getCustomerByCouponCode(billData.referralCode);
+      if (referrer && referrer.id !== customer.id) {
+        referrerPointsEarned = Math.floor(pointsEarned * 0.1); // 10% bonus
+        
+        // Award referrer points
+        await db.update(customers)
+          .set({
+            points: referrer.points + referrerPointsEarned,
+            pointsEarned: referrer.pointsEarned + referrerPointsEarned,
+            updatedAt: new Date().toISOString()
+          })
+          .where(eq(customers.id, referrer.id));
+
+        // Record referrer transaction
+        await this.createPointsTransaction({
+          customerId: referrer.id,
+          points: referrerPointsEarned,
+          type: 'EARNED',
+          description: `Referral bonus from ${customer.name}'s bill`,
+          billId: billId,
+        });
+      }
+    }
+
+    // Update customer points
+    await db.update(customers)
+      .set({
+        points: customer.points + pointsEarned,
+        pointsEarned: customer.pointsEarned + pointsEarned,
+        lastActivity: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      })
+      .where(eq(customers.id, customer.id));
+
+    // Update bill status
+    await db.update(bills)
+      .set({
+        status: 'PROCESSED',
+        pointsEarned,
+        processedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(bills.id, billId));
+
+    // Record customer transaction
+    await this.createPointsTransaction({
+      customerId: customer.id,
+      points: pointsEarned,
+      type: 'EARNED',
+      description: `Bill processing: ₹${billData.totalAmount}`,
+      billId: billId,
+    });
+
+    return {
+      success: true,
+      bill: {
+        id: billId,
+        pointsEarned,
+        processedAt: new Date().toISOString(),
+      },
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        newPointsBalance: customer.points + pointsEarned,
+      },
+      referrer: referrer ? {
+        id: referrer.id,
+        name: referrer.name,
+        bonusPointsEarned: referrerPointsEarned,
+      } : undefined,
+    };
+  }
+
+  // Mock OCR processing function (in production, this would use Tesseract.js or Google Vision API)
 interface OCRResult {
   invoiceNumber: string;
   storeId: string;

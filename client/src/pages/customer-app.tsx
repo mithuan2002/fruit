@@ -174,13 +174,39 @@ export default function CustomerApp() {
     try {
       console.log('Starting OCR processing for file:', file.name, 'Size:', file.size);
       
-      const { data: { text, confidence } } = await Tesseract.recognize(file, 'eng', {
+      // Preprocess image for better OCR results
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      const processedFile = await new Promise<File>((resolve) => {
+        img.onload = () => {
+          // Scale image for better OCR
+          const scale = Math.min(1920 / img.width, 1080 / img.height, 2);
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          
+          // Apply image enhancements
+          ctx!.imageSmoothingEnabled = false;
+          ctx!.filter = 'contrast(1.5) brightness(1.2)';
+          ctx!.drawImage(img, 0, 0, canvas.width, canvas.height);
+          
+          canvas.toBlob((blob) => {
+            resolve(new File([blob!], file.name, { type: 'image/jpeg' }));
+          }, 'image/jpeg', 0.95);
+        };
+        img.src = URL.createObjectURL(file);
+      });
+
+      const { data: { text, confidence } } = await Tesseract.recognize(processedFile, 'eng', {
         logger: (info) => {
           console.log('OCR Progress:', info);
           if (info.status === 'recognizing text') {
             setOcrProgress(Math.round(info.progress * 100));
           }
         },
+        tessedit_pageseg_mode: Tesseract.PSM.SPARSE_TEXT,
+        tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz .,:-/₹$#',
       });
 
       console.log('OCR completed. Text:', text);
@@ -231,47 +257,101 @@ export default function CustomerApp() {
 
   const extractBillInfo = (text: string): Partial<ExtractedBillData> => {
     const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-
+    const cleanText = text.replace(/[^\w\s₹$.,:-]/g, ' ').replace(/\s+/g, ' ');
+    
+    // Enhanced patterns for better detection
     const totalPatterns = [
-      /total[:\s]*[₹$€£¥]*\s*(\d+\.?\d*)/i,
-      /amount[:\s]*[₹$€£¥]*\s*(\d+\.?\d*)/i,
-      /grand\s*total[:\s]*[₹$€£¥]*\s*(\d+\.?\d*)/i,
-      /(\d+\.\d{2})\s*$/,
+      // Indian formats
+      /(?:total|amount|grand\s*total|net\s*amount|bill\s*amount)[:\s]*₹?\s*(\d+(?:\.\d{2})?)/i,
+      /₹\s*(\d+(?:\.\d{2})?)\s*(?:total|amount|grand|net|bill)/i,
+      // Numbers with currency symbols
+      /(?:total|amount|grand|net)[:\s]*[$€£¥]\s*(\d+(?:\.\d{2})?)/i,
+      // Just numbers with currency at end of lines
+      /(\d+\.\d{2})\s*₹?\s*$/m,
+      /₹\s*(\d+(?:\.\d{2})?)\s*$/m,
+      // Large numbers that could be totals
+      /(?:^|\s)(\d{2,5}(?:\.\d{2})?)\s*(?:₹|$|\s*total|\s*amount)/im,
+      // Numbers with decimal points (likely prices)
+      /(?:^|\s)(\d+\.\d{2})(?:\s|$)/m,
     ];
-
+    
     const invoicePatterns = [
-      /invoice[:\s#]*(\w+\d+)/i,
-      /bill[:\s#]*(\w+\d+)/i,
-      /receipt[:\s#]*(\w+\d+)/i,
-      /ref[:\s#]*(\w+\d+)/i,
+      /(?:invoice|bill|receipt|ref|order|txn)[:\s#]*([A-Z0-9]{3,15})/i,
+      /(?:inv|rcpt|ref)[:\s#]*([A-Z0-9]{3,15})/i,
+      /(?:^|\s)([A-Z]{2,4}\d{3,10})(?:\s|$)/m,
+      /#\s*([A-Z0-9]{3,15})/i,
+    ];
+    
+    const storePatterns = [
+      // First few lines that look like store names
+      /^([A-Z][A-Za-z\s&.,]{2,30})$/m,
+      // Common store name patterns
+      /^([A-Z\s]{3,25})$/m,
+      // Names with common business suffixes
+      /^([A-Za-z\s&]+(?:store|shop|mart|plaza|center|ltd|pvt))/im,
     ];
 
     let totalAmount: string | undefined;
     let invoiceNumber: string | undefined;
     let storeName: string | undefined;
 
+    // Extract total amount - try multiple approaches
     for (const pattern of totalPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        totalAmount = match[1];
-        break;
+      const matches = [...text.matchAll(new RegExp(pattern.source, pattern.flags + 'g'))];
+      if (matches.length > 0) {
+        // Get the largest number found (likely the total)
+        const amounts = matches.map(m => parseFloat(m[1])).filter(n => !isNaN(n) && n > 0);
+        if (amounts.length > 0) {
+          totalAmount = Math.max(...amounts).toFixed(2);
+          break;
+        }
       }
     }
 
+    // If no total found, look for any reasonable amount
+    if (!totalAmount) {
+      const allNumbers = cleanText.match(/\d+\.\d{2}/g);
+      if (allNumbers) {
+        const amounts = allNumbers.map(n => parseFloat(n)).filter(n => n > 10 && n < 100000);
+        if (amounts.length > 0) {
+          totalAmount = Math.max(...amounts).toFixed(2);
+        }
+      }
+    }
+
+    // Extract invoice number
     for (const pattern of invoicePatterns) {
       const match = text.match(pattern);
       if (match) {
-        invoiceNumber = match[1];
+        invoiceNumber = match[1].trim();
         break;
       }
     }
 
-    const firstLines = lines.slice(0, 5);
-    for (const line of firstLines) {
-      if (line.length > 3 && line.length < 50 && /^[A-Z]/.test(line)) {
-        storeName = line;
-        break;
+    // Extract store name from first few meaningful lines
+    const meaningfulLines = lines.filter(line => 
+      line.length > 2 && 
+      line.length < 50 && 
+      !/^\d+$/.test(line) && 
+      !line.match(/^\d+\.\d{2}$/) &&
+      !line.toLowerCase().includes('total') &&
+      !line.toLowerCase().includes('amount')
+    );
+
+    for (const pattern of storePatterns) {
+      for (const line of meaningfulLines.slice(0, 8)) {
+        const match = line.match(pattern);
+        if (match) {
+          storeName = match[1].trim();
+          break;
+        }
       }
+      if (storeName) break;
+    }
+
+    // Fallback - use first meaningful line as store name
+    if (!storeName && meaningfulLines.length > 0) {
+      storeName = meaningfulLines[0];
     }
 
     return { totalAmount, invoiceNumber, storeName };

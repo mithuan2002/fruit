@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, decimal, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, decimal, index, uuid } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -113,23 +113,24 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
 export const bills = pgTable("bills", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
-  referralCode: text("referral_code"), // If this was a referral purchase
+  referralCode: text("referral_code"), // If this was a purchase
   referrerId: varchar("referrer_id").references(() => customers.id, { onDelete: "set null" }),
-  
+
   // OCR extracted data
   invoiceNumber: text("invoice_number"),
   storeName: text("store_name"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   billDate: timestamp("bill_date"),
   extractedText: text("extracted_text"), // Full OCR text for debugging
-  
+
   // Processing data
   pointsEarned: integer("points_earned").notNull().default(0),
   referrerBonusPoints: integer("referrer_bonus_points").notNull().default(0),
   status: text("status").notNull().default("pending"), // pending, processed, rejected
+  rejectionReason: text("rejection_reason"), // Added for rejection reason
   processedBy: varchar("processed_by"), // Cashier/staff who confirmed
   processedAt: timestamp("processed_at"),
-  
+
   // Metadata
   imageUrl: text("image_url"), // Store the scanned image
   ocrConfidence: decimal("ocr_confidence", { precision: 5, scale: 2 }), // OCR accuracy percentage
