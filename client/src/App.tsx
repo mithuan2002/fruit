@@ -28,8 +28,8 @@ import CashierDashboard from "@/pages/cashier-dashboard";
 import Sidebar from "@/components/layout/sidebar";
 
 function Router() {
-  const { isAuthenticated, isLoading, user } = useAuth();
-
+  console.log('Router function called, pathname:', window.location.pathname);
+  
   // Check if current path is registration or customer app - show without sidebar
   if (window.location.pathname === '/register') {
     return <CustomerRegistration />;
@@ -39,33 +39,17 @@ function Router() {
     return <CustomerApp />;
   }
 
-  // TEMPORARILY DISABLED AUTHENTICATION FOR TESTING
-  // Always show the main app with sidebar (bypassing auth checks)
+  // TEMPORARILY SHOW SIMPLE CONTENT FOR DEBUGGING
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex flex-col flex-1 overflow-hidden">
+    <div style={{ padding: '20px', backgroundColor: 'white' }}>
+      <h2 style={{ color: 'blue' }}>DEBUGGING: Router is working</h2>
+      <p>Current path: {window.location.pathname}</p>
+      <div style={{ marginTop: '20px' }}>
         <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/dashboard" component={Dashboard} />
-          <Route path="/campaigns" component={Campaigns} />
-          <Route path="/customers" component={Customers} />
-          <Route path="/points-setup" component={PointsSetup} />
-          <Route path="/reports" component={Reports} />
-          <Route path="/pos-integration" component={POSIntegration} />
-          <Route path="/qr-generator" component={QRGenerator} />
-          <Route path="/settings" component={Settings} />
-          <Route path="/dashboard-setup-guide" component={DashboardSetupGuide} />
-          <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />
-          <Route path="/customers-setup-guide" component={CustomersSetupGuide} />
-          <Route path="/points-setup-guide" component={PointsSetupGuide} />
-          <Route path="/auth" component={Auth} />
-          <Route path="/onboarding" component={Onboarding} />
-          <Route path="/bill-scanner" component={BillScanner} />
-          <Route path="/cashier" component={CashierDashboard} />
-          <Route path="/landing" component={Landing} />
+          <Route path="/" component={() => <div style={{ color: 'green' }}>Dashboard Route Working!</div>} />
+          <Route path="/dashboard" component={() => <div style={{ color: 'green' }}>Dashboard Route Working!</div>} />
           <Route path="*">
-            <Redirect to="/dashboard" />
+            <div style={{ color: 'orange' }}>Fallback route - redirecting to dashboard</div>
           </Route>
         </Switch>
       </div>
@@ -75,6 +59,8 @@ function Router() {
 
 function App() {
   useEffect(() => {
+    console.log('App component mounted');
+    
     // Listen for PWA install prompt
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
@@ -121,10 +107,15 @@ function App() {
     };
   }, []);
 
+  console.log('App render called');
+
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster />
-      <Router />
+      <div style={{ minHeight: '100vh', backgroundColor: '#f0f0f0' }}>
+        <h1 style={{ padding: '20px', color: 'red' }}>DEBUGGING: App is rendering</h1>
+        <Toaster />
+        <Router />
+      </div>
     </QueryClientProvider>
   );
 }
