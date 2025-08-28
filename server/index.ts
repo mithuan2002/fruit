@@ -169,6 +169,18 @@ async function verifyDatabaseConnection() {
     // doesn't interfere with the other routes
     if (app.get("env") === "development") {
       logger.info("Setting up Vite for development...");
+      
+      // CRITICAL FIX: Serve service worker and PWA assets from public folder BEFORE Vite
+      const path = await import('path');
+      const express = await import('express');
+      const publicPath = path.default.resolve(import.meta.dirname, "../public");
+      
+      // Explicitly serve service worker and PWA files
+      app.get('/sw.js', express.default.static(publicPath));
+      app.get('/pwa-icon-*.png', express.default.static(publicPath));
+      app.get('/manifest.json', express.default.static(publicPath));
+      logger.info("Static PWA assets served from public folder");
+      
       await setupVite(app, server);
       logger.info("Vite setup completed");
     } else {
