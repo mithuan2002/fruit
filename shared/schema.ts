@@ -109,6 +109,40 @@ export const whatsappMessages = pgTable("whatsapp_messages", {
   dateIdx: index("whatsapp_messages_date_idx").on(table.sentAt),
 }));
 
+// Bills table for scanned bill tracking
+export const bills = pgTable("bills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  referralCode: text("referral_code"), // If this was a referral purchase
+  referrerId: varchar("referrer_id").references(() => customers.id, { onDelete: "set null" }),
+  
+  // OCR extracted data
+  invoiceNumber: text("invoice_number"),
+  storeName: text("store_name"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  billDate: timestamp("bill_date"),
+  extractedText: text("extracted_text"), // Full OCR text for debugging
+  
+  // Processing data
+  pointsEarned: integer("points_earned").notNull().default(0),
+  referrerBonusPoints: integer("referrer_bonus_points").notNull().default(0),
+  status: text("status").notNull().default("pending"), // pending, processed, rejected
+  processedBy: varchar("processed_by"), // Cashier/staff who confirmed
+  processedAt: timestamp("processed_at"),
+  
+  // Metadata
+  imageUrl: text("image_url"), // Store the scanned image
+  ocrConfidence: decimal("ocr_confidence", { precision: 5, scale: 2 }), // OCR accuracy percentage
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  customerIdx: index("bills_customer_idx").on(table.customerId),
+  referrerIdx: index("bills_referrer_idx").on(table.referrerId),
+  statusIdx: index("bills_status_idx").on(table.status),
+  dateIdx: index("bills_date_idx").on(table.createdAt),
+  invoiceIdx: index("bills_invoice_idx").on(table.invoiceNumber),
+}));
+
 // Products table for product-specific point calculations
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -287,41 +321,7 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// Bills table for OCR-processed bill data
-export const bills = pgTable("bills", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
-  // OCR extracted data
-  invoiceNumber: text("invoice_number").notNull(),
-  storeId: text("store_id"), // Store identifier
-  storeName: text("store_name").notNull(),
-  billDate: timestamp("bill_date").notNull(),
-  billTime: text("bill_time"), // Time as text since OCR might extract various formats
-  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
-  // Bill processing data
-  billHash: text("bill_hash").notNull().unique(), // Unique hash for duplicate prevention
-  originalImageUrl: text("original_image_url"), // URL to stored bill image
-  ocrRawData: text("ocr_raw_data"), // Raw OCR output for audit
-  // Points and referral data
-  pointsEarned: integer("points_earned").notNull().default(0),
-  referralCode: text("referral_code"), // If uploaded with referral code
-  referrerId: varchar("referrer_id").references(() => customers.id, { onDelete: "set null" }),
-  referrerPointsEarned: integer("referrer_points_earned").notNull().default(0),
-  // Status and metadata
-  status: text("status").notNull().default("processed"), // processed, disputed, refunded
-  isValid: boolean("is_valid").notNull().default(true),
-  validationNotes: text("validation_notes"),
-  processedAt: timestamp("processed_at").defaultNow(),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
-  customerIdx: index("bills_customer_idx").on(table.customerId),
-  hashIdx: index("bills_hash_idx").on(table.billHash),
-  dateIdx: index("bills_date_idx").on(table.billDate),
-  storeIdx: index("bills_store_idx").on(table.storeId, table.storeName),
-  statusIdx: index("bills_status_idx").on(table.status),
-  referrerIdx: index("bills_referrer_idx").on(table.referrerId),
-}));
+
 
 // Bill items table for line-item details (if OCR can extract them)
 export const billItems = pgTable("bill_items", {
@@ -664,22 +664,7 @@ export const onboardingSchema = z.object({
   }),
 });
 
-// OCR Bill Processing schemas
-export const insertBillSchema = createInsertSchema(bills).omit({
-  id: true,
-  billHash: true, // Generated automatically
-  processedAt: true,
-  createdAt: true,
-  updatedAt: true,
-}).extend({
-  billDate: z.union([z.date(), z.string().transform(str => new Date(str))]),
-  status: z.enum(["processed", "disputed", "refunded"]).default("processed"),
-});
-
-export const insertBillItemSchema = createInsertSchema(billItems).omit({
-  id: true,
-  createdAt: true,
-});
+// OCR Bill Processing schemas are defined above
 
 export const insertCashierSchema = createInsertSchema(cashiers).omit({
   id: true,
@@ -760,7 +745,6 @@ export type InsertSale = z.infer<typeof insertSaleSchema>;
 export type SaleItem = typeof saleItems.$inferSelect;
 export type InsertSaleItem = z.infer<typeof insertSaleItemSchema>;
 
-// OCR Bill Processing types
 export type Bill = typeof bills.$inferSelect;
 export type InsertBill = z.infer<typeof insertBillSchema>;
 
@@ -773,6 +757,7 @@ export type InsertCashier = z.infer<typeof insertCashierSchema>;
 export type DiscountTransaction = typeof discountTransactions.$inferSelect;
 export type InsertDiscountTransaction = z.infer<typeof insertDiscountTransactionSchema>;
 
+// OCR Bill Processing types
 export type OCRBillUpload = z.infer<typeof ocrBillUploadSchema>;
 export type ApplyDiscount = z.infer<typeof applyDiscountSchema>;
 

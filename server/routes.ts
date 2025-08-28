@@ -12,8 +12,11 @@ import {
   insertProductSchema,
   insertSaleSchema,
   processSaleSchema,
+  insertBillSchema,
   type User,
-  type ProcessSale
+  type ProcessSale,
+  type Customer,
+  type Bill
 } from "@shared/schema";
 import { z } from "zod";
 import { posManager, posWebhookSchema, SquareIntegration, ShopifyIntegration, GenericPOSIntegration } from "./posIntegration";
@@ -1073,11 +1076,11 @@ export function setupRoutes(app: Express): Server {
       }
 
       // Process OCR data
-      const ocrResult = await (storage as any).processOCRData(imageData);
+      const ocrResult = await storage.processOCRData(imageData);
 
       // Check for duplicate bills using hash
       const billHash = Buffer.from(`${ocrResult.invoiceNumber}-${ocrResult.storeName}-${ocrResult.billDate.split('T')[0]}`).toString('base64').replace(/[+/=]/g, '');
-      const existingBill = await (storage as any).getBillByHash(billHash);
+      const existingBill = await storage.getBillByHash(billHash);
       
       if (existingBill) {
         return res.status(409).json({ 
@@ -1117,21 +1120,22 @@ export function setupRoutes(app: Express): Server {
         referralCode: referralCode || null,
         referrerId: referrer?.id || null,
         referrerPointsEarned,
-        status: "processed",
-        isValid: true
+        status: "processed" as const,
+        isValid: true,
+        billHash
       };
 
-      const bill = await (storage as any).createBill(billData);
+      const bill = await storage.createBill(billData);
 
       // Create bill items if available
       if (ocrResult.items && ocrResult.items.length > 0) {
         for (const item of ocrResult.items) {
-          await (storage as any).createBillItem({
+          await storage.createBillItem({
             billId: bill.id,
-            itemName: item.itemName,
+            itemName: item.name,
             quantity: item.quantity,
-            unitPrice: item.unitPrice?.toString(),
-            totalPrice: item.totalPrice.toString()
+            unitPrice: item.price.toString(),
+            totalPrice: item.total.toString()
           });
         }
       }
@@ -1187,7 +1191,7 @@ export function setupRoutes(app: Express): Server {
         return res.status(404).json({ message: "Customer not found" });
       }
 
-      const bills = await (storage as any).getBillsByCustomer(customerId);
+      const bills = await storage.getBillsByCustomer(customerId);
       
       res.json({
         customer: {

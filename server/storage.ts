@@ -27,6 +27,10 @@ import {
   type InsertSale,
   type SaleItem,
   type InsertSaleItem,
+  type Bill,
+  type InsertBill,
+  type BillItem,
+  type InsertBillItem,
   customers,
   campaigns,
   coupons,
@@ -41,10 +45,29 @@ import {
   pointTiers,
   sales,
   saleItems,
+  bills,
+  billItems,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, and, count, sum, sql } from "drizzle-orm";
+
+// Mock OCR processing function (in production, this would use Tesseract.js or Google Vision API)
+interface OCRResult {
+  invoiceNumber: string;
+  storeId: string;
+  storeName: string;
+  billDate: string;
+  billTime: string;
+  totalAmount: number;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+    total: number;
+  }>;
+  rawData: string;
+}
 
 export interface IStorage {
   // Customer operations
@@ -153,6 +176,24 @@ export interface IStorage {
   getSaleItemsBySale(saleId: string): Promise<SaleItem[]>;
   createSaleItem(saleItem: InsertSaleItem): Promise<SaleItem>;
   updateSaleItem(id: string, updates: Partial<SaleItem>): Promise<SaleItem | undefined>;
+
+  // Bill operations (OCR processing)
+  getBill(id: string): Promise<Bill | undefined>;
+  getAllBills(): Promise<Bill[]>;
+  getBillsByCustomer(customerId: string): Promise<Bill[]>;
+  getBillsByReferrer(referrerId: string): Promise<Bill[]>;
+  getBillByHash(billHash: string): Promise<Bill | undefined>;
+  createBill(bill: InsertBill): Promise<Bill>;
+  updateBill(id: string, updates: Partial<Bill>): Promise<Bill | undefined>;
+
+  // Bill Item operations
+  getBillItem(id: string): Promise<BillItem | undefined>;
+  getBillItemsByBill(billId: string): Promise<BillItem[]>;
+  createBillItem(billItem: InsertBillItem): Promise<BillItem>;
+  updateBillItem(id: string, updates: Partial<BillItem>): Promise<BillItem | undefined>;
+
+  // OCR Processing
+  processOCRData(imageData: string): Promise<OCRResult>;
 }
 
 // Database logging utility
@@ -831,6 +872,106 @@ export class DatabaseStorage implements IStorage {
       .where(eq(saleItems.id, id))
       .returning();
     return item || undefined;
+  }
+
+  // Bill operations (OCR processing)
+  async getBill(id: string): Promise<Bill | undefined> {
+    const [bill] = await db.select().from(bills).where(eq(bills.id, id));
+    return bill || undefined;
+  }
+
+  async getAllBills(): Promise<Bill[]> {
+    return await db.select().from(bills).orderBy(desc(bills.createdAt));
+  }
+
+  async getBillsByCustomer(customerId: string): Promise<Bill[]> {
+    return await db.select().from(bills).where(eq(bills.customerId, customerId));
+  }
+
+  async getBillsByReferrer(referrerId: string): Promise<Bill[]> {
+    return await db.select().from(bills).where(eq(bills.referrerId, referrerId));
+  }
+
+  async getBillByHash(billHash: string): Promise<Bill | undefined> {
+    const [bill] = await db.select().from(bills).where(eq(bills.billHash, billHash));
+    return bill || undefined;
+  }
+
+  async createBill(bill: InsertBill): Promise<Bill> {
+    const [newBill] = await db
+      .insert(bills)
+      .values(bill)
+      .returning();
+    return newBill;
+  }
+
+  async updateBill(id: string, updates: Partial<Bill>): Promise<Bill | undefined> {
+    const [bill] = await db
+      .update(bills)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(bills.id, id))
+      .returning();
+    return bill || undefined;
+  }
+
+  // Bill Item operations
+  async getBillItem(id: string): Promise<BillItem | undefined> {
+    const [item] = await db.select().from(billItems).where(eq(billItems.id, id));
+    return item || undefined;
+  }
+
+  async getBillItemsByBill(billId: string): Promise<BillItem[]> {
+    return await db.select().from(billItems).where(eq(billItems.billId, billId));
+  }
+
+  async createBillItem(billItem: InsertBillItem): Promise<BillItem> {
+    const [item] = await db
+      .insert(billItems)
+      .values(billItem)
+      .returning();
+    return item;
+  }
+
+  async updateBillItem(id: string, updates: Partial<BillItem>): Promise<BillItem | undefined> {
+    const [item] = await db
+      .update(billItems)
+      .set(updates)
+      .where(eq(billItems.id, id))
+      .returning();
+    return item || undefined;
+  }
+
+  // OCR Processing function (mock implementation)
+  async processOCRData(imageData: string): Promise<OCRResult> {
+    // Mock OCR result - in production this would use Tesseract.js or cloud OCR
+    const mockResult: OCRResult = {
+      invoiceNumber: `INV-${Date.now()}`,
+      storeId: "STORE-001",
+      storeName: "Demo Store",
+      billDate: new Date().toISOString(),
+      billTime: new Date().toLocaleTimeString(),
+      totalAmount: Math.floor(Math.random() * 500) + 100, // Random amount between 100-600
+      items: [
+        {
+          name: "Sample Item 1",
+          quantity: 1,
+          price: 50,
+          total: 50
+        },
+        {
+          name: "Sample Item 2", 
+          quantity: 2,
+          price: 25,
+          total: 50
+        }
+      ],
+      rawData: "Mock OCR extracted text data..."
+    };
+
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return mockResult;
   }
 }
 
