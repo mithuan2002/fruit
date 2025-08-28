@@ -185,7 +185,7 @@ export class StorageService {
       .set({
         status: 'PROCESSED',
         pointsEarned,
-        processedAt: new Date().toISOString(),
+        processedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(bills.id, billId));
@@ -204,7 +204,7 @@ export class StorageService {
       bill: {
         id: billId,
         pointsEarned,
-        processedAt: new Date().toISOString(),
+        processedAt: new Date(),
       },
       customer: {
         id: customer.id,
@@ -1318,7 +1318,7 @@ export class DatabaseStorage implements IStorage {
       .set({
         status: 'PROCESSED',
         pointsEarned,
-        processedAt: new Date().toISOString(),
+        processedAt: new Date(),
         updatedAt: new Date(),
       })
       .where(eq(bills.id, billId));
@@ -1337,7 +1337,7 @@ export class DatabaseStorage implements IStorage {
       bill: {
         id: billId,
         pointsEarned,
-        processedAt: new Date().toISOString(),
+        processedAt: new Date(),
       },
       customer: {
         id: customer.id,
@@ -1383,6 +1383,11 @@ export class DatabaseStorage implements IStorage {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     return mockResult;
+  }
+
+  // Add missing methods
+  async getCustomerTransactions(customerId: string) {
+    return await db.select().from(pointsTransactions).where(eq(pointsTransactions.customerId, customerId)).orderBy(desc(pointsTransactions.createdAt));
   }
 }
 

@@ -540,10 +540,13 @@ export function setupRoutes(app: Express): Server {
   // Customer routes
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {
+      console.log("Attempting to fetch customers...");
       const customers = await storage.getAllCustomers();
+      console.log("Successfully fetched customers:", customers.length);
       res.json(customers);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch customers" });
+      console.error("Error fetching customers:", error);
+      res.status(500).json({ message: "Failed to fetch customers", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
