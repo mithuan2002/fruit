@@ -516,18 +516,22 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(campaigns).where(eq(campaigns.isActive, true));
   }
 
-  async createCampaign(insertCampaign: InsertCampaign): Promise<Campaign> {
-    const [campaign] = await db.insert(campaigns).values(insertCampaign).returning();
+  async createCampaign(campaignData: InsertCampaign): Promise<Campaign> {
+    const [campaign] = await db.insert(campaigns).values(campaignData).returning();
     return campaign;
   }
 
-  async updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined> {
-    const [campaign] = await db
+  async updateCampaign(id: string, updateData: Partial<Campaign>): Promise<Campaign | null> {
+    const [updatedCampaign] = await db
       .update(campaigns)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({
+        ...updateData,
+        updatedAt: new Date()
+      })
       .where(eq(campaigns.id, id))
       .returning();
-    return campaign || undefined;
+
+    return updatedCampaign || null;
   }
 
   async deleteCampaign(id: string): Promise<boolean> {

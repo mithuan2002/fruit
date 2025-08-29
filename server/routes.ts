@@ -767,6 +767,24 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  app.put("/api/campaigns/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+
+      const updatedCampaign = await storage.updateCampaign(id, updateData);
+      if (!updatedCampaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+
+      console.log(`✅ Campaign updated: ${updatedCampaign.name} - Points: ${updateData.pointCalculationType} ${updateData.rewardPerReferral || updateData.percentageRate}`);
+      res.json(updatedCampaign);
+    } catch (error) {
+      console.error("Failed to update campaign:", error);
+      res.status(500).json({ message: "Failed to update campaign" });
+    }
+  });
+
   // Product routes
   app.get("/api/products", async (req, res) => {
     try {

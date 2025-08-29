@@ -96,52 +96,69 @@ export default function PointsSetupPage() {
   });
 
   const saveRuleMutation = useMutation({
-    mutationFn: async (data: PointRule) => {
-      // For now, we'll update the corresponding product or campaign
-      if (data.type === 'product') {
-        return await fetch(`/api/products/${data.targetId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json"
-          },
+    mutationFn: async (ruleData: PointRule) => {
+      console.log('Saving rule:', ruleData);
+
+      // For campaign rules, use the campaign API endpoint
+      if (ruleData.type === 'campaign' && editingRule) {
+        const response = await fetch(`/api/campaigns/${editingRule.targetId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            pointCalculationType: data.pointsType,
-            fixedPoints: data.pointsType === 'fixed' ? data.pointsValue : null,
-            percentageRate: data.pointsType === 'percentage' ? data.pointsValue.toString() : null,
-            minimumQuantity: data.minQuantity || 1
-          })
-        }).then(r => r.json());
-      } else {
-        return await fetch(`/api/campaigns/${data.targetId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            pointCalculationType: data.pointsType,
-            rewardPerReferral: data.pointsType === 'fixed' ? data.pointsValue : 0,
-            percentageRate: data.pointsType === 'percentage' ? data.pointsValue.toString() : null
-          })
-        }).then(r => r.json());
+            pointCalculationType: ruleData.pointsType,
+            rewardPerReferral: ruleData.pointsType === 'fixed' ? ruleData.pointsValue : 0,
+            percentageRate: ruleData.pointsType === 'percentage' ? ruleData.pointsValue.toString() : null
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to update campaign');
+        }
+
+        return { success: true, message: 'Campaign points updated successfully' };
       }
+
+      // For new rules or product rules, use the point-rules endpoint
+      const url = editingRule && ruleData.type === 'product' ? `/api/point-rules/${editingRule.id}` : '/api/point-rules';
+      const method = editingRule && ruleData.type === 'product' ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ruleData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to ${editingRule ? 'update' : 'create'} point rule`);
+      }
+
+      return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Point rule saved:', data);
       toast({
         title: "Success",
-        description: "Points rule saved successfully"
+        description: data.message || `Point rule ${editingRule ? 'updated' : 'created'} successfully`,
       });
+
+      // Refresh the point rules data
       queryClient.invalidateQueries({ queryKey: ["/api/point-rules"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+
+      // Reset form
       resetForm();
     },
-    onError: () => {
+    onError: (error: Error) => {
+      console.error('Failed to save point rule:', error);
       toast({
         title: "Error",
-        description: "Failed to save points rule",
-        variant: "destructive"
+        description: error.message,
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const createPointRuleMutation = useMutation({
@@ -224,18 +241,23 @@ export default function PointsSetupPage() {
       return;
     }
 
-    createPointRuleMutation.mutate(formData);
+    // Use the saveRuleMutation for both creation and updating
+    saveRuleMutation.mutate(formData);
   };
 
   const editRule = (rule: PointRule) => {
-    setFormData(rule);
     setEditingRule(rule);
+    setFormData({
+      ...rule,
+      targetId: rule.targetId || rule.id || '',
+      type: rule.type
+    });
     setActiveTab(rule.type);
     setIsDialogOpen(true);
   };
 
   const onTargetSelect = (targetId: string) => {
-    const target = formData.type === 'product' 
+    const target = formData.type === 'product'
       ? products.find(p => p.id === targetId)
       : campaigns.find(c => c.id === targetId);
 
@@ -270,7 +292,7 @@ export default function PointsSetupPage() {
             Set up and manage points rewards for products and campaigns in one simple interface
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <Link href="/points-setup-guide">
             <Button variant="outline" size="sm">
@@ -281,8 +303,22 @@ export default function PointsSetupPage() {
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button 
-                onClick={() => setActiveTab('product')} 
+              <Button
+                onClick={() => {
+                  setEditingRule(null); // Clear editing state when opening for new rule
+                  setFormData({ // Reset form for new rule
+                    type: 'product', // Default to product
+                    targetId: '',
+                    targetName: '',
+                    productCode: '',
+                    pointsType: 'fixed',
+                    pointsValue: 10,
+                    minQuantity: 1,
+                    description: '',
+                    isActive: true
+                  });
+                  setActiveTab('product'); // Set default active tab
+                }}
                 className="flex items-center gap-2"
                 data-testid="button-add-points-rule"
               >
@@ -347,8 +383,8 @@ export default function PointsSetupPage() {
                       value={formData.targetName || ''}
                       onChange={(e) => {
                         const name = e.target.value;
-                        setFormData({ 
-                          ...formData, 
+                        setFormData({
+                          ...formData,
                           targetName: name,
                           targetId: name ? 'manual-product' : '',
                           description: `Points rule for ${name}${formData.productCode ? ` (${formData.productCode})` : ''}`
@@ -415,9 +451,9 @@ export default function PointsSetupPage() {
 
               <div>
                 <Label htmlFor="points-type">Points Type</Label>
-                <Select 
-                  value={formData.pointsType} 
-                  onValueChange={(value: 'fixed' | 'percentage') => 
+                <Select
+                  value={formData.pointsType}
+                  onValueChange={(value: 'fixed' | 'percentage') =>
                     setFormData({ ...formData, pointsType: value })
                   }
                 >
@@ -439,9 +475,9 @@ export default function PointsSetupPage() {
                   id="points-value"
                   type="number"
                   value={formData.pointsValue}
-                  onChange={(e) => setFormData({ 
-                    ...formData, 
-                    pointsValue: parseInt(e.target.value) || 0 
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    pointsValue: parseInt(e.target.value) || 0
                   })}
                   placeholder={formData.pointsType === 'fixed' ? "10" : "5"}
                   data-testid="input-points-value"
@@ -455,9 +491,9 @@ export default function PointsSetupPage() {
                     id="min-quantity"
                     type="number"
                     value={formData.minQuantity || 1}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      minQuantity: parseInt(e.target.value) || 1 
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      minQuantity: parseInt(e.target.value) || 1
                     })}
                     min="1"
                     data-testid="input-min-quantity"
@@ -482,8 +518,8 @@ export default function PointsSetupPage() {
                 <Button type="button" variant="outline" onClick={resetForm} data-testid="button-cancel">
                   Cancel
                 </Button>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   disabled={saveRuleMutation.isPending || createPointRuleMutation.isPending}
                   data-testid="button-save-rule"
                 >
@@ -504,7 +540,7 @@ export default function PointsSetupPage() {
               <Target className="w-5 h-5 text-green-600" />
               <h3 className="font-semibold text-green-800 dark:text-green-300">Fixed Points</h3>
             </div>
-            <p className="text-sm text-green-700 dark:text-green-400">
+            <p className="text-sm text-green-700 dark:text-blue-400">
               Give exactly 10 points for each product purchased
             </p>
           </CardContent>
@@ -560,9 +596,9 @@ export default function PointsSetupPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {pointRules.map((rule) => (
-              <Card 
-                key={rule.id} 
-                className={rule.isActive ? '' : 'opacity-60'} 
+              <Card
+                key={rule.id}
+                className={rule.isActive ? '' : 'opacity-60'}
                 data-testid={`card-rule-${rule.id}`}
               >
                 <CardHeader className="pb-3">
@@ -575,7 +611,7 @@ export default function PointsSetupPage() {
                         {rule.type === 'product' ? 'Product Rule' : 'Campaign Rule'}
                       </CardDescription>
                     </div>
-                    <Badge 
+                    <Badge
                       variant={rule.type === 'product' ? 'default' : 'secondary'}
                       data-testid={`badge-type-${rule.id}`}
                     >
@@ -587,8 +623,8 @@ export default function PointsSetupPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Points:</span>
-                      <span 
-                        className="font-semibold text-green-600" 
+                      <span
+                        className="font-semibold text-green-600"
                         data-testid={`text-points-display-${rule.id}`}
                       >
                         {getPointsDisplay(rule)}
@@ -605,8 +641,8 @@ export default function PointsSetupPage() {
                     )}
 
                     {rule.description && (
-                      <p 
-                        className="text-xs text-gray-500 dark:text-gray-400 mt-2" 
+                      <p
+                        className="text-xs text-gray-500 dark:text-gray-400 mt-2"
                         data-testid={`text-description-${rule.id}`}
                       >
                         {rule.description}
@@ -615,18 +651,21 @@ export default function PointsSetupPage() {
                   </div>
 
                   <div className="flex gap-2 mt-4">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => editRule(rule)}
                       data-testid={`button-edit-${rule.id}`}
                     >
                       <Edit className="w-3 h-3" />
                     </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
+                    <Button
+                      size="sm"
+                      variant="outline"
                       className="text-red-600 hover:text-red-700"
+                      onClick={() => {
+                        // Add delete functionality here if needed
+                      }}
                       data-testid={`button-delete-${rule.id}`}
                     >
                       <Trash2 className="w-3 h-3" />
