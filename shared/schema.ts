@@ -597,7 +597,10 @@ export const insertWhatsappMessageSchema = createInsertSchema(whatsappMessages).
 // Product and Sales schemas
 export const insertProductSchema = createInsertSchema(products, {
   productCode: z.string().min(1, "Product code is required"),
-  price: z.string().transform((val) => parseFloat(val)),
+  price: z.union([
+    z.string().transform((val) => parseFloat(val)),
+    z.number()
+  ]).transform((val) => typeof val === 'string' ? parseFloat(val) : val),
   stockQuantity: z.number().optional(),
   fixedPoints: z.number().optional(),
   minimumQuantity: z.number().min(1).optional(),
