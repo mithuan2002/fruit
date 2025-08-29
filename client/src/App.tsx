@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Router, Route } from 'wouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import Landing from '@/pages/landing';
@@ -91,36 +91,34 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Toaster />
-      <Router>
-        <div className="min-h-screen bg-background">
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/campaigns" element={<Campaigns />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/customer-registration" element={<CustomerRegistration />} />
-            <Route path="/customer/:id" element={<CustomerApp />} />
-            <Route path="/cashier" element={<CashierDashboard />} />
-            <Route path="/coupons" element={<Coupons />} />
-            <Route path="/qr-generator" element={<QRGenerator />} />
-            <Route path="/pos-integration" element={<POSIntegration />} />
-            <Route path="/bill-scanner" element={<BillScanner />} />
-            <Route path="/sales-processing" element={<SalesProcessing />} />
-            <Route path="/bill-verification" element={<BillVerification />} />
-            <Route path="/points-setup" element={<PointsSetup />} />
-            <Route path="/dashboard-setup-guide" element={<DashboardSetupGuide />} />
-            <Route path="/points-setup-guide" element={<PointsSetupGuide />} />
-            <Route path="/customers-setup-guide" element={<CustomersSetupGuide />} />
-            <Route path="/campaigns-setup-guide" element={<CampaignsSetupGuide />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </div>
-      </Router>
+      <div className="min-h-screen bg-background">
+        <Router>
+            <Route path="/" component={Landing} />
+            <Route path="/auth" component={Auth} />
+            <Route path="/onboarding" component={Onboarding} />
+            <Route path="/dashboard" component={Dashboard} />
+            <Route path="/customers" component={Customers} />
+            <Route path="/campaigns" component={Campaigns} />
+            <Route path="/products" component={Products} />
+            <Route path="/reports" component={Reports} />
+            <Route path="/settings" component={Settings} />
+            <Route path="/customer-registration" component={CustomerRegistration} />
+            <Route path="/customer/:id" component={CustomerApp} />
+            <Route path="/cashier" component={CashierDashboard} />
+            <Route path="/coupons" component={Coupons} />
+            <Route path="/qr-generator" component={QRGenerator} />
+            <Route path="/pos-integration" component={POSIntegration} />
+            <Route path="/bill-scanner" component={BillScanner} />
+            <Route path="/sales-processing" component={SalesProcessing} />
+            <Route path="/bill-verification" component={BillVerification} />
+            <Route path="/points-setup" component={PointsSetup} />
+            <Route path="/dashboard-setup-guide" component={DashboardSetupGuide} />
+            <Route path="/points-setup-guide" component={PointsSetupGuide} />
+            <Route path="/customers-setup-guide" component={CustomersSetupGuide} />
+            <Route path="/campaigns-setup-guide" component={CampaignsSetupGuide} />
+            <Route component={NotFound} />
+          </Router>
+      </div>
     </QueryClientProvider>
   );
 }
