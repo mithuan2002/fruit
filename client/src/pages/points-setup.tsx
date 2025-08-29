@@ -1,6 +1,7 @@
+
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2, Target, Gift, Calculator } from "lucide-react";
+import { Plus, Edit, Trash2, Target, Gift, Calculator, X } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { type Product, type Campaign } from "@shared/schema";
@@ -26,6 +28,23 @@ interface PointRule {
   minQuantity?: number;
   description?: string;
   isActive: boolean;
+}
+
+interface NewProduct {
+  name: string;
+  productCode: string;
+  price: string;
+  description?: string;
+  category?: string;
+}
+
+interface NewCampaign {
+  name: string;
+  description: string;
+  pointsType: 'fixed' | 'percentage';
+  pointsValue: number;
+  selectedProducts: string[];
+  newProducts: NewProduct[];
 }
 
 export default function PointsSetupPage() {
@@ -47,6 +66,24 @@ export default function PointsSetupPage() {
     isActive: true
   });
 
+  // New campaign form state
+  const [newCampaign, setNewCampaign] = useState<NewCampaign>({
+    name: '',
+    description: '',
+    pointsType: 'fixed',
+    pointsValue: 50,
+    selectedProducts: [],
+    newProducts: []
+  });
+
+  const [newProduct, setNewProduct] = useState<NewProduct>({
+    name: '',
+    productCode: '',
+    price: '',
+    description: '',
+    category: 'General'
+  });
+
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
@@ -59,7 +96,6 @@ export default function PointsSetupPage() {
   const { data: pointRules = [] } = useQuery<PointRule[]>({
     queryKey: ["/api/point-rules"],
     queryFn: () => {
-      // For demo, return mock data based on existing products and campaigns
       const mockRules: PointRule[] = [];
 
       // Add some example product rules
@@ -93,6 +129,81 @@ export default function PointsSetupPage() {
 
       return mockRules;
     }
+  });
+
+  // Create new campaign with products
+  const createCampaignMutation = useMutation({
+    mutationFn: async (campaignData: NewCampaign) => {
+      // First, create any new products
+      const createdProducts = [];
+      for (const product of campaignData.newProducts) {
+        const response = await fetch("/api/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...product,
+            isActive: true,
+            pointCalculationType: 'inherit'
+          }),
+        });
+        if (response.ok) {
+          const createdProduct = await response.json();
+          createdProducts.push(createdProduct.id);
+        }
+      }
+
+      // Create the campaign
+      const campaignResponse = await fetch("/api/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: campaignData.name,
+          description: campaignData.description,
+          pointCalculationType: campaignData.pointsType,
+          rewardPerReferral: campaignData.pointsType === 'fixed' ? campaignData.pointsValue : 0,
+          percentageRate: campaignData.pointsType === 'percentage' ? campaignData.pointsValue.toString() : null,
+          startDate: new Date(),
+          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+          isActive: true
+        }),
+      });
+
+      if (!campaignResponse.ok) {
+        throw new Error("Failed to create campaign");
+      }
+
+      return campaignResponse.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Campaign Created",
+        description: `Successfully created campaign: ${newCampaign.name}`,
+      });
+
+      // Reset form
+      setNewCampaign({
+        name: '',
+        description: '',
+        pointsType: 'fixed',
+        pointsValue: 50,
+        selectedProducts: [],
+        newProducts: []
+      });
+
+      setIsDialogOpen(false);
+      
+      // Refresh queries
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/point-rules"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create campaign",
+        variant: "destructive",
+      });
+    },
   });
 
   const saveRuleMutation = useMutation({
@@ -245,6 +356,21 @@ export default function PointsSetupPage() {
     saveRuleMutation.mutate(formData);
   };
 
+  const handleCampaignSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newCampaign.name || (!newCampaign.selectedProducts.length && !newCampaign.newProducts.length)) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide campaign name and select or add at least one product",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createCampaignMutation.mutate(newCampaign);
+  };
+
   const editRule = (rule: PointRule) => {
     setEditingRule(rule);
     setFormData({
@@ -271,6 +397,46 @@ export default function PointsSetupPage() {
         description: `Points rule for ${target.name}${productCode ? ` (${productCode})` : ''}`
       });
     }
+  };
+
+  const addNewProduct = () => {
+    if (!newProduct.name || !newProduct.productCode || !newProduct.price) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in product name, code, and price",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setNewCampaign({
+      ...newCampaign,
+      newProducts: [...newCampaign.newProducts, { ...newProduct }]
+    });
+
+    setNewProduct({
+      name: '',
+      productCode: '',
+      price: '',
+      description: '',
+      category: 'General'
+    });
+  };
+
+  const removeNewProduct = (index: number) => {
+    setNewCampaign({
+      ...newCampaign,
+      newProducts: newCampaign.newProducts.filter((_, i) => i !== index)
+    });
+  };
+
+  const toggleProductSelection = (productId: string) => {
+    setNewCampaign({
+      ...newCampaign,
+      selectedProducts: newCampaign.selectedProducts.includes(productId)
+        ? newCampaign.selectedProducts.filter(id => id !== productId)
+        : [...newCampaign.selectedProducts, productId]
+    });
   };
 
   const getPointsDisplay = (rule: PointRule) => {
@@ -305,9 +471,9 @@ export default function PointsSetupPage() {
             <DialogTrigger asChild>
               <Button
                 onClick={() => {
-                  setEditingRule(null); // Clear editing state when opening for new rule
-                  setFormData({ // Reset form for new rule
-                    type: 'product', // Default to product
+                  setEditingRule(null);
+                  setFormData({
+                    type: 'product',
                     targetId: '',
                     targetName: '',
                     productCode: '',
@@ -317,29 +483,28 @@ export default function PointsSetupPage() {
                     description: '',
                     isActive: true
                   });
-                  setActiveTab('product'); // Set default active tab
+                  setActiveTab('product');
                 }}
                 className="flex items-center gap-2"
                 data-testid="button-add-points-rule"
               >
-              <Plus className="w-4 h-4" />
-              Add Points Rule
+                <Plus className="w-4 h-4" />
+                Add Points Rule
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle data-testid="dialog-title">
-                {editingRule ? 'Edit Points Rule' : 'Add Points Rule'}
-              </DialogTitle>
-              <DialogDescription data-testid="dialog-description">
-                Configure how customers earn points for products or campaigns
-              </DialogDescription>
-            </DialogHeader>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle data-testid="dialog-title">
+                  {editingRule ? 'Edit Points Rule' : 'Add Points Rule'}
+                </DialogTitle>
+                <DialogDescription data-testid="dialog-description">
+                  Configure how customers earn points for products or campaigns
+                </DialogDescription>
+              </DialogHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-4" data-testid="points-rule-form">
-              <Tabs value={formData.type} onValueChange={(value) => {
-                setFormData({ ...formData, type: value as 'product' | 'campaign' });
+              <Tabs value={activeTab} onValueChange={(value) => {
                 setActiveTab(value as 'product' | 'campaign');
+                setFormData({ ...formData, type: value as 'product' | 'campaign' });
               }}>
                 <TabsList className="grid w-full grid-cols-2" data-testid="tabs-type-selector">
                   <TabsTrigger value="product" data-testid="tab-product">Product Points</TabsTrigger>
@@ -347,188 +512,329 @@ export default function PointsSetupPage() {
                 </TabsList>
 
                 <TabsContent value="product" className="space-y-4">
-                  <div>
-                    <Label htmlFor="product-code">Product Code</Label>
-                    <Input
-                      id="product-code"
-                      placeholder="Enter product code (e.g., SKU123)"
-                      value={formData.productCode || ''}
-                      onChange={(e) => {
-                        const code = e.target.value;
-                        setFormData({ ...formData, productCode: code });
-
-                        // Auto-find product by code
-                        if (code.trim()) {
-                          const product = products.find(p => p.productCode === code.trim());
-                          if (product) {
-                            setFormData({
-                              ...formData,
-                              productCode: code,
-                              targetId: product.id,
-                              targetName: product.name,
-                              description: `Points rule for ${product.name} (${product.productCode})`
-                            });
-                          }
-                        }
-                      }}
-                      data-testid="input-product-code"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="product-name">Product Name *</Label>
-                    <Input
-                      id="product-name"
-                      placeholder="Enter product name"
-                      value={formData.targetName || ''}
-                      onChange={(e) => {
-                        const name = e.target.value;
-                        setFormData({
-                          ...formData,
-                          targetName: name,
-                          targetId: name ? 'manual-product' : '',
-                          description: `Points rule for ${name}${formData.productCode ? ` (${formData.productCode})` : ''}`
-                        });
-                      }}
-                      data-testid="input-product-name"
-                    />
-                  </div>
-
-                  {products.length > 0 && (
+                  <form onSubmit={handleSubmit} className="space-y-4" data-testid="points-rule-form">
                     <div>
-                      <Label htmlFor="product-select">Or Select from Existing Products</Label>
-                      <Select value={formData.targetId === 'manual-product' ? '' : formData.targetId} onValueChange={onTargetSelect}>
-                        <SelectTrigger data-testid="select-product">
-                          <SelectValue placeholder="Choose from existing products" />
+                      <Label htmlFor="product-code">Product Code</Label>
+                      <Input
+                        id="product-code"
+                        placeholder="Enter product code (e.g., SKU123)"
+                        value={formData.productCode || ''}
+                        onChange={(e) => {
+                          const code = e.target.value;
+                          setFormData({ ...formData, productCode: code });
+
+                          // Auto-find product by code
+                          if (code.trim()) {
+                            const product = products.find(p => p.productCode === code.trim());
+                            if (product) {
+                              setFormData({
+                                ...formData,
+                                productCode: code,
+                                targetId: product.id,
+                                targetName: product.name,
+                                description: `Points rule for ${product.name} (${product.productCode})`
+                              });
+                            }
+                          }
+                        }}
+                        data-testid="input-product-code"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="product-name">Product Name *</Label>
+                      <Input
+                        id="product-name"
+                        placeholder="Enter product name"
+                        value={formData.targetName || ''}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          setFormData({
+                            ...formData,
+                            targetName: name,
+                            targetId: name ? 'manual-product' : '',
+                            description: `Points rule for ${name}${formData.productCode ? ` (${formData.productCode})` : ''}`
+                          });
+                        }}
+                        data-testid="input-product-name"
+                      />
+                    </div>
+
+                    {products.length > 0 && (
+                      <div>
+                        <Label htmlFor="product-select">Or Select from Existing Products</Label>
+                        <Select value={formData.targetId === 'manual-product' ? '' : formData.targetId} onValueChange={onTargetSelect}>
+                          <SelectTrigger data-testid="select-product">
+                            <SelectValue placeholder="Choose from existing products" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {products.map((product) => (
+                              <SelectItem key={product.id} value={product.id} data-testid={`option-product-${product.id}`}>
+                                {product.productCode ? `[${product.productCode}] ` : ''}{product.name} - ${product.price}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <div>
+                      <Label htmlFor="points-type">Points Type</Label>
+                      <Select
+                        value={formData.pointsType}
+                        onValueChange={(value: 'fixed' | 'percentage') =>
+                          setFormData({ ...formData, pointsType: value })
+                        }
+                      >
+                        <SelectTrigger data-testid="select-points-type">
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {products.map((product) => (
-                            <SelectItem key={product.id} value={product.id} data-testid={`option-product-${product.id}`}>
-                              {product.productCode ? `[${product.productCode}] ` : ''}{product.name} - ${product.price}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="fixed" data-testid="option-fixed">Fixed Points</SelectItem>
+                          <SelectItem value="percentage" data-testid="option-percentage">Percentage of Purchase</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                  )}
 
-                  {formData.targetId && formData.targetName && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-green-800">
-                        <span className="font-medium">Selected:</span>
-                        {formData.productCode && (
-                          <span className="bg-green-100 px-2 py-1 rounded text-sm">
-                            {formData.productCode}
-                          </span>
-                        )}
-                        <span>{formData.targetName}</span>
-                        {formData.targetId === 'manual-product' && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Manual Entry</span>
-                        )}
-                      </div>
+                    <div>
+                      <Label htmlFor="points-value">
+                        {formData.pointsType === 'fixed' ? 'Points Amount' : 'Percentage (%)'}
+                      </Label>
+                      <Input
+                        id="points-value"
+                        type="number"
+                        value={formData.pointsValue}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          pointsValue: parseInt(e.target.value) || 0
+                        })}
+                        placeholder={formData.pointsType === 'fixed' ? "10" : "5"}
+                        data-testid="input-points-value"
+                      />
                     </div>
-                  )}
+
+                    <div>
+                      <Label htmlFor="min-quantity">Minimum Quantity</Label>
+                      <Input
+                        id="min-quantity"
+                        type="number"
+                        value={formData.minQuantity || 1}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          minQuantity: parseInt(e.target.value) || 1
+                        })}
+                        min="1"
+                        data-testid="input-min-quantity"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="description">Description (Optional)</Label>
+                      <Textarea
+                        id="description"
+                        value={formData.description || ''}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="e.g., Christmas offer: refer to buy two hoodies and get 1 free"
+                        className="resize-none"
+                        rows={2}
+                        data-testid="input-description"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={resetForm} data-testid="button-cancel">
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={saveRuleMutation.isPending || createPointRuleMutation.isPending}
+                        data-testid="button-save-rule"
+                      >
+                        {editingRule ? 'Update' : 'Save'} Rule
+                      </Button>
+                    </div>
+                  </form>
                 </TabsContent>
 
                 <TabsContent value="campaign" className="space-y-4">
-                  <div>
-                    <Label htmlFor="campaign-select">Select Campaign</Label>
-                    <Select value={formData.targetId} onValueChange={onTargetSelect}>
-                      <SelectTrigger data-testid="select-campaign">
-                        <SelectValue placeholder="Choose a campaign" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {campaigns.map((campaign) => (
-                          <SelectItem key={campaign.id} value={campaign.id} data-testid={`option-campaign-${campaign.id}`}>
-                            {campaign.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <form onSubmit={handleCampaignSubmit} className="space-y-6">
+                    {/* Campaign Basic Info */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Campaign Details</h3>
+                      
+                      <div>
+                        <Label htmlFor="campaign-name">Campaign Name *</Label>
+                        <Input
+                          id="campaign-name"
+                          placeholder="e.g., Summer Special Bundle"
+                          value={newCampaign.name}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, name: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="campaign-description">Campaign Description</Label>
+                        <Textarea
+                          id="campaign-description"
+                          placeholder="Describe your campaign..."
+                          value={newCampaign.description}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, description: e.target.value })}
+                          rows={2}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="campaign-points-type">Points Type</Label>
+                          <Select
+                            value={newCampaign.pointsType}
+                            onValueChange={(value: 'fixed' | 'percentage') =>
+                              setNewCampaign({ ...newCampaign, pointsType: value })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="fixed">Fixed Points</SelectItem>
+                              <SelectItem value="percentage">Percentage of Purchase</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="campaign-points-value">
+                            {newCampaign.pointsType === 'fixed' ? 'Points Amount' : 'Percentage (%)'}
+                          </Label>
+                          <Input
+                            id="campaign-points-value"
+                            type="number"
+                            value={newCampaign.pointsValue}
+                            onChange={(e) => setNewCampaign({
+                              ...newCampaign,
+                              pointsValue: parseInt(e.target.value) || 0
+                            })}
+                            placeholder={newCampaign.pointsType === 'fixed' ? "50" : "10"}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Select Existing Products */}
+                    {products.length > 0 && (
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-semibold">Select Existing Products</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded-lg p-4">
+                          {products.map((product) => (
+                            <div key={product.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`product-${product.id}`}
+                                checked={newCampaign.selectedProducts.includes(product.id)}
+                                onCheckedChange={() => toggleProductSelection(product.id)}
+                              />
+                              <Label htmlFor={`product-${product.id}`} className="text-sm">
+                                {product.productCode ? `[${product.productCode}] ` : ''}{product.name} - ₹{product.price}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Add New Products */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Add New Products</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 border rounded-lg bg-gray-50">
+                        <div>
+                          <Label htmlFor="new-product-name">Product Name</Label>
+                          <Input
+                            id="new-product-name"
+                            placeholder="Product name"
+                            value={newProduct.name}
+                            onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="new-product-code">Product Code</Label>
+                          <Input
+                            id="new-product-code"
+                            placeholder="SKU123"
+                            value={newProduct.productCode}
+                            onChange={(e) => setNewProduct({ ...newProduct, productCode: e.target.value.toUpperCase() })}
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="new-product-price">Price (₹)</Label>
+                          <Input
+                            id="new-product-price"
+                            placeholder="0.00"
+                            value={newProduct.price}
+                            onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
+                          />
+                        </div>
+                        
+                        <div className="flex items-end">
+                          <Button type="button" onClick={addNewProduct} className="w-full">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="new-product-description">Product Description (Optional)</Label>
+                        <Input
+                          id="new-product-description"
+                          placeholder="Product description"
+                          value={newProduct.description}
+                          onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                        />
+                      </div>
+
+                      {/* Show added products */}
+                      {newCampaign.newProducts.length > 0 && (
+                        <div className="space-y-2">
+                          <Label>New Products Added:</Label>
+                          <div className="space-y-2">
+                            {newCampaign.newProducts.map((product, index) => (
+                              <div key={index} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
+                                <span className="text-sm">
+                                  [{product.productCode}] {product.name} - ₹{product.price}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeNewProduct(index)}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={createCampaignMutation.isPending}
+                      >
+                        Create Campaign
+                      </Button>
+                    </div>
+                  </form>
                 </TabsContent>
               </Tabs>
-
-              <div>
-                <Label htmlFor="points-type">Points Type</Label>
-                <Select
-                  value={formData.pointsType}
-                  onValueChange={(value: 'fixed' | 'percentage') =>
-                    setFormData({ ...formData, pointsType: value })
-                  }
-                >
-                  <SelectTrigger data-testid="select-points-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fixed" data-testid="option-fixed">Fixed Points</SelectItem>
-                    <SelectItem value="percentage" data-testid="option-percentage">Percentage of Purchase</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="points-value">
-                  {formData.pointsType === 'fixed' ? 'Points Amount' : 'Percentage (%)'}
-                </Label>
-                <Input
-                  id="points-value"
-                  type="number"
-                  value={formData.pointsValue}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    pointsValue: parseInt(e.target.value) || 0
-                  })}
-                  placeholder={formData.pointsType === 'fixed' ? "10" : "5"}
-                  data-testid="input-points-value"
-                />
-              </div>
-
-              {formData.type === 'product' && (
-                <div>
-                  <Label htmlFor="min-quantity">Minimum Quantity</Label>
-                  <Input
-                    id="min-quantity"
-                    type="number"
-                    value={formData.minQuantity || 1}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      minQuantity: parseInt(e.target.value) || 1
-                    })}
-                    min="1"
-                    data-testid="input-min-quantity"
-                  />
-                </div>
-              )}
-
-              <div>
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description || ''}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="e.g., Christmas offer: refer to buy two hoodies and get 1 free"
-                  className="resize-none"
-                  rows={2}
-                  data-testid="input-description"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={resetForm} data-testid="button-cancel">
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={saveRuleMutation.isPending || createPointRuleMutation.isPending}
-                  data-testid="button-save-rule"
-                >
-                  {editingRule ? 'Update' : 'Save'} Rule
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
