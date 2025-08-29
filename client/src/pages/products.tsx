@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2, Package } from "lucide-react";
+import { Plus, Edit, Trash2, Package, Upload, Download } from "lucide-react";
+import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,39 +12,38 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { type Product, type InsertProduct } from "@shared/schema";
+import { type Product } from "@shared/schema";
 
 export default function ProductsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [formData, setFormData] = useState<InsertProduct>({
+  const [formData, setFormData] = useState({
     name: "",
     productCode: "",
     description: "",
-    price: "0",
+    price: 0,
     sku: "",
     category: "",
     pointCalculationType: "inherit",
-    fixedPoints: null,
-    percentageRate: null,
+    fixedPoints: undefined as number | undefined,
+    percentageRate: "",
     minimumQuantity: 1,
     bonusMultiplier: "1.00",
     isActive: true,
-    stockQuantity: -1
+    stockQuantity: 0
   });
 
-  const { data: products = [], isLoading } = useQuery({
+  const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
 
   const createProductMutation = useMutation({
-    mutationFn: (data: InsertProduct) => apiRequest("/api/products", {
-      method: "POST",
-      body: JSON.stringify(data)
-    }),
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/products", data),
     onSuccess: () => {
       toast({
         title: "Success",
@@ -62,11 +62,8 @@ export default function ProductsPage() {
   });
 
   const updateProductMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Product> }) => 
-      apiRequest(`/api/products/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data)
-      }),
+    mutationFn: ({ id, data }: { id: string; data: typeof formData }) => 
+      apiRequest("PUT", `/api/products/${id}`, data),
     onSuccess: () => {
       toast({
         title: "Success",
@@ -85,9 +82,7 @@ export default function ProductsPage() {
   });
 
   const deleteProductMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/products/${id}`, {
-      method: "DELETE"
-    }),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/products/${id}`),
     onSuccess: () => {
       toast({
         title: "Success",
@@ -104,21 +99,39 @@ export default function ProductsPage() {
     }
   });
 
+  const bulkCreateProductsMutation = useMutation({
+    mutationFn: (products: typeof formData[]) => apiRequest("POST", "/api/products/bulk", products),
+    onSuccess: (_, variables) => {
+      toast({
+        title: "Success",
+        description: `Successfully imported ${variables.length} products`
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to import products. Please check the file format.",
+        variant: "destructive"
+      });
+    }
+  });
+
   const resetForm = () => {
     setFormData({
       name: "",
       productCode: "",
       description: "",
-      price: "0",
+      price: 0,
       sku: "",
       category: "",
       pointCalculationType: "inherit",
-      fixedPoints: null,
-      percentageRate: null,
+      fixedPoints: undefined,
+      percentageRate: "",
       minimumQuantity: 1,
       bonusMultiplier: "1.00",
       isActive: true,
-      stockQuantity: -1
+      stockQuantity: 0
     });
     setEditingProduct(null);
     setIsDialogOpen(false);
@@ -140,18 +153,129 @@ export default function ProductsPage() {
       name: product.name,
       productCode: product.productCode || "",
       description: product.description || "",
-      price: product.price,
+      price: parseFloat(product.price),
       sku: product.sku || "",
       category: product.category || "",
       pointCalculationType: product.pointCalculationType || "inherit",
-      fixedPoints: product.fixedPoints,
-      percentageRate: product.percentageRate,
+      fixedPoints: product.fixedPoints || undefined,
+      percentageRate: product.percentageRate || "",
       minimumQuantity: product.minimumQuantity || 1,
       bonusMultiplier: product.bonusMultiplier || "1.00",
       isActive: product.isActive,
-      stockQuantity: product.stockQuantity || -1
+      stockQuantity: product.stockQuantity || 0
     });
     setIsDialogOpen(true);
+  };
+
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
+        
+        const products = jsonData.map((row, index) => {
+          // Map Excel columns to our product structure
+          const product = {
+            name: row["Product Name"] || row["name"] || "",
+            productCode: row["Product Code"] || row["productCode"] || `IMPORT-${index + 1}`,
+            description: row["Description"] || row["description"] || "",
+            price: parseFloat(row["Price"] || row["price"] || "0"),
+            category: row["Category"] || row["category"] || "",
+            sku: row["SKU"] || row["sku"] || "",
+            pointCalculationType: "inherit",
+            fixedPoints: row["Fixed Points"] ? parseInt(row["Fixed Points"]) : undefined,
+            percentageRate: row["Percentage Rate"] || "",
+            minimumQuantity: row["Minimum Quantity"] ? parseInt(row["Minimum Quantity"]) : 1,
+            bonusMultiplier: row["Bonus Multiplier"] || "1.00",
+            isActive: true,
+            stockQuantity: row["Stock Quantity"] ? parseInt(row["Stock Quantity"]) : 0
+          };
+          
+          // Validation
+          if (!product.name) {
+            throw new Error(`Row ${index + 1}: Product name is required`);
+          }
+          if (!product.productCode) {
+            throw new Error(`Row ${index + 1}: Product code is required`);
+          }
+          
+          return product;
+        });
+
+        if (products.length === 0) {
+          throw new Error("No valid products found in the Excel file");
+        }
+
+        // Bulk create products
+        bulkCreateProductsMutation.mutate(products);
+      } catch (error: any) {
+        toast({
+          title: "Import Error",
+          description: error.message || "Failed to parse Excel file",
+          variant: "destructive"
+        });
+      } finally {
+        setIsImporting(false);
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+    };
+    
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleExportTemplate = () => {
+    // Create a template with sample data
+    const templateData = [
+      {
+        "Product Name": "Sample Product 1",
+        "Product Code": "SAMPLE001",
+        "Description": "A sample product for demonstration",
+        "Price": "10.99",
+        "Category": "Electronics",
+        "SKU": "SKU001",
+        "Fixed Points": "5",
+        "Percentage Rate": "2.5",
+        "Minimum Quantity": "1",
+        "Bonus Multiplier": "1.0",
+        "Stock Quantity": "100"
+      },
+      {
+        "Product Name": "Sample Product 2",
+        "Product Code": "SAMPLE002",
+        "Description": "Another sample product",
+        "Price": "25.50",
+        "Category": "Books",
+        "SKU": "SKU002",
+        "Fixed Points": "",
+        "Percentage Rate": "",
+        "Minimum Quantity": "1",
+        "Bonus Multiplier": "1.0",
+        "Stock Quantity": "50"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+    
+    // Download the template
+    XLSX.writeFile(workbook, "products-import-template.xlsx");
+    
+    toast({
+      title: "Template Downloaded",
+      description: "Product import template has been downloaded"
+    });
   };
 
   if (isLoading) {
@@ -174,14 +298,42 @@ export default function ProductsPage() {
           <h1 className="text-2xl font-bold">Products</h1>
           <Badge variant="secondary">{products.length}</Badge>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-product">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleExportTemplate}
+            data-testid="button-download-template"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download Template
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting || bulkCreateProductsMutation.isPending}
+            data-testid="button-import-excel"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {isImporting || bulkCreateProductsMutation.isPending ? "Importing..." : "Import Excel"}
+          </Button>
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleExcelImport}
+            style={{ display: 'none' }}
+          />
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-product">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Product
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingProduct ? "Edit Product" : "Add New Product"}
@@ -235,7 +387,7 @@ export default function ProductsPage() {
                     min="0"
                     data-testid="input-product-price"
                     value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
                     required
                   />
                 </div>
@@ -281,7 +433,7 @@ export default function ProductsPage() {
                         min="0"
                         data-testid="input-fixed-points"
                         value={formData.fixedPoints || ""}
-                        onChange={(e) => setFormData({ ...formData, fixedPoints: parseInt(e.target.value) || null })}
+                        onChange={(e) => setFormData({ ...formData, fixedPoints: parseInt(e.target.value) || undefined })}
                       />
                     </div>
                   )}
@@ -297,7 +449,7 @@ export default function ProductsPage() {
                         max="100"
                         data-testid="input-percentage-rate"
                         value={formData.percentageRate || ""}
-                        onChange={(e) => setFormData({ ...formData, percentageRate: e.target.value || null })}
+                        onChange={(e) => setFormData({ ...formData, percentageRate: e.target.value })}
                       />
                     </div>
                   )}

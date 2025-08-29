@@ -827,6 +827,59 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  // Bulk product import
+  app.post("/api/products/bulk", requireAuth, async (req, res) => {
+    try {
+      const products = req.body;
+      
+      if (!Array.isArray(products) || products.length === 0) {
+        return res.status(400).json({ message: "Invalid data: expected non-empty array of products" });
+      }
+
+      const createdProducts = [];
+      const errors = [];
+
+      for (let i = 0; i < products.length; i++) {
+        try {
+          const validatedData = insertProductSchema.parse(products[i]);
+
+          // Ensure product code is uppercase for consistency
+          if (validatedData.productCode) {
+            validatedData.productCode = validatedData.productCode.toUpperCase();
+          }
+
+          const product = await storage.createProduct(validatedData);
+          createdProducts.push(product);
+          console.log(`✅ Bulk product created: ${product.name} with code: ${product.productCode}`);
+        } catch (error) {
+          console.error(`❌ Failed to create product at index ${i}:`, error);
+          errors.push({
+            index: i,
+            productName: products[i]?.name || `Product ${i + 1}`,
+            error: error instanceof z.ZodError ? error.errors : "Validation failed"
+          });
+        }
+      }
+
+      const response = {
+        created: createdProducts.length,
+        failed: errors.length,
+        total: products.length,
+        products: createdProducts,
+        errors: errors.length > 0 ? errors : undefined
+      };
+
+      console.log(`✅ Bulk import completed: ${createdProducts.length}/${products.length} products created successfully`);
+
+      // Return 201 if any products were created, 400 if all failed
+      const statusCode = createdProducts.length > 0 ? 201 : 400;
+      res.status(statusCode).json(response);
+    } catch (error) {
+      console.error("Bulk import failed:", error);
+      res.status(500).json({ message: "Bulk import failed" });
+    }
+  });
+
   app.put("/api/products/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
