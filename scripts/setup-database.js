@@ -1,9 +1,11 @@
 
-#!/usr/bin/env node
+import postgres from 'postgres';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const postgres = require('postgres');
-const fs = require('fs');
-const path = require('path');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Database setup script for Fruitbox
 async function setupDatabase() {
@@ -19,7 +21,7 @@ async function setupDatabase() {
   try {
     // Connect to database
     const sql = postgres(databaseUrl, {
-      ssl: process.env.NODE_ENV === 'production' ? 'require' : false,
+      ssl: 'require',
       max: 1,
     });
 
@@ -59,8 +61,8 @@ async function setupDatabase() {
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   setupDatabase();
 }
 
-module.exports = { setupDatabase };
+export { setupDatabase };
