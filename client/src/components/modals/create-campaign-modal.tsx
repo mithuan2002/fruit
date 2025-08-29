@@ -36,7 +36,7 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch products for selection
+  // Fetch active products for selection
   const { data: products = [], isLoading: isLoadingProducts } = useQuery<Product[]>({
     queryKey: ["/api/products/active"],
   });
@@ -44,7 +44,7 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
   const createCampaignMutation = useMutation({
     mutationFn: async (campaignData: typeof formData) => {
       const response = await apiRequest("POST", "/api/campaigns", campaignData);
-      return response.json();
+      return response;
     },
     onSuccess: () => {
       toast({
@@ -111,15 +111,6 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
       toast({
         title: "Error",
         description: "End date must be after start date.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (formData.selectedProducts.length === 0) {
-      toast({
-        title: "Error",
-        description: "Please select at least one product for this campaign.",
         variant: "destructive",
       });
       return;
@@ -214,9 +205,9 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
 
           <div className="border-t pt-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-medium">Select Products</h3>
+              <h3 className="font-medium">Select Products for Campaign</h3>
               <span className="text-sm text-muted-foreground">
-                {formData.selectedProducts.length} of {products.length} selected
+                {formData.selectedProducts.length} selected
               </span>
             </div>
             
@@ -228,8 +219,11 @@ export default function CreateCampaignModal({ isOpen, onClose }: CreateCampaignM
               <Card>
                 <CardContent className="text-center py-6">
                   <Package className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    No products available. Create products first to include in campaigns.
+                  <p className="text-sm text-muted-foreground mb-2">
+                    No products available for campaigns.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Go to Products page to add products first, then create campaigns.
                   </p>
                 </CardContent>
               </Card>

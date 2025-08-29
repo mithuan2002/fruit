@@ -758,8 +758,21 @@ export function setupRoutes(app: Express): Server {
     try {
       const validatedData = insertCampaignSchema.parse(req.body);
       const campaign = await storage.createCampaign(validatedData);
+      
+      routeLogger.info("CAMPAIGN-CREATE", "Campaign created successfully", {
+        campaignId: campaign.id,
+        campaignName: campaign.name,
+        pointType: campaign.pointCalculationType,
+        selectedProducts: req.body.selectedProducts?.length || 0
+      });
+      
       res.status(201).json(campaign);
     } catch (error) {
+      routeLogger.error("CAMPAIGN-CREATE", "Failed to create campaign", {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        data: req.body
+      });
+      
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }

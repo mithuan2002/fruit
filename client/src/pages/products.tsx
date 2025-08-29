@@ -295,7 +295,12 @@ export default function ProductsPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-2">
           <Package className="w-6 h-6" />
-          <h1 className="text-2xl font-bold">Products</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Products Inventory</h1>
+            <p className="text-sm text-muted-foreground">
+              Manage your product catalog - add products here first, then create campaigns with them
+            </p>
+          </div>
           <Badge variant="secondary">{products.length}</Badge>
         </div>
         <div className="flex items-center gap-2">
