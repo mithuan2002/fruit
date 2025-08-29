@@ -6,8 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Receipt, FileText, Zap, Phone, User } from 'lucide-react';
+import { Receipt, FileText, Zap, Phone, User, Camera, Upload, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import React from 'react';
+import Webcam from 'react-webcam';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 // Quick Entry Component
 export function QuickBillEntry({ onSubmit }: { onSubmit: (data: any) => void }) {
@@ -116,15 +123,6 @@ export function QuickBillEntry({ onSubmit }: { onSubmit: (data: any) => void }) 
     </Card>
   );
 }
-
-import React from 'react';
-import Webcam from 'react-webcam';
-import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Camera, Upload, CheckCircle } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface ExtractedBillData {
   products: Array<{
@@ -328,90 +326,6 @@ export default function OCRBillScanner({ onBillSubmitted }: OCRBillScannerProps)
       sum + (product.price * product.quantity), 0
     );
     setManualBillData(prev => ({ ...prev, totalAmount: total.toString() }));
-  };
-
-  const extractBillInfo = (text: string): Omit<ExtractedBillData, 'extractedText' | 'confidence'> => {
-    const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-
-    // Extract total amount
-    const totalPatterns = [
-      /(?:total|amount|grand\s*total|net\s*amount)[:\s]*₹?\s*(\d+(?:\.\d{2})?)/i,
-      /₹\s*(\d+(?:\.\d{2})?)\s*(?:total|amount|grand|net)/i,
-      /(\d+\.\d{2})\s*₹?\s*$/m,
-    ];
-
-    let totalAmount = '';
-    for (const pattern of totalPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        totalAmount = parseFloat(match[1]).toFixed(2);
-        break;
-      }
-    }
-
-    // Extract bill number
-    const billPatterns = [
-      /(?:bill|invoice|receipt|ref)[:\s#]*([A-Z0-9]{3,15})/i,
-      /(?:^|\s)([A-Z]{2,4}\d{3,10})(?:\s|$)/m,
-      /#\s*([A-Z0-9]{3,15})/i,
-    ];
-
-    let billNumber = '';
-    for (const pattern of billPatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        billNumber = match[1].trim();
-        break;
-      }
-    }
-
-    // Extract products with quantities
-    const products: Array<{ name: string; quantity: number; price?: number }> = [];
-
-    for (const line of lines) {
-      // Look for lines with product patterns
-      const productPatterns = [
-        // Pattern: Quantity x Product Name Price
-        /^(\d+)\s*×?\s*([A-Za-z\s]+?)\s+₹?(\d+(?:\.\d{2})?)/,
-        // Pattern: Product Name Quantity Price
-        /^([A-Za-z\s]+?)\s+(\d+)\s+₹?(\d+(?:\.\d{2})?)/,
-        // Pattern: Product Name Price (assume qty 1)
-        /^([A-Za-z\s]{3,30})\s+₹?(\d+(?:\.\d{2})?)$/,
-      ];
-
-      for (const pattern of productPatterns) {
-        const match = line.match(pattern);
-        if (match) {
-          if (pattern.source.includes('×')) {
-            // Quantity x Product format
-            const quantity = parseInt(match[1]);
-            const name = match[2].trim();
-            const price = parseFloat(match[3]);
-            if (name.length > 2 && quantity > 0) {
-              products.push({ name, quantity, price });
-            }
-          } else if (match.length === 4) {
-            // Product Quantity Price format
-            const name = match[1].trim();
-            const quantity = parseInt(match[2]);
-            const price = parseFloat(match[3]);
-            if (name.length > 2 && quantity > 0) {
-              products.push({ name, quantity, price });
-            }
-          } else {
-            // Product Price format (assume qty 1)
-            const name = match[1].trim();
-            const price = parseFloat(match[2]);
-            if (name.length > 2) {
-              products.push({ name, quantity: 1, price });
-            }
-          }
-          break;
-        }
-      }
-    }
-
-    return { products, totalAmount, billNumber };
   };
 
   const handleCustomerLookup = () => {
@@ -812,8 +726,7 @@ export default function OCRBillScanner({ onBillSubmitted }: OCRBillScannerProps)
                 </Button>
               </div>
             </TabsContent>
-
-            </Tabs>
+          </Tabs>
         </CardContent>
       </Card>
 
