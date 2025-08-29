@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { CheckCircle, XCircle, FileText, User, Calendar, Banknote, Receipt, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, FileText, User, Calendar, Banknote, Receipt, AlertTriangle, ShoppingBag } from 'lucide-react';
 import Header from '@/components/layout/header';
 import { Label } from '@/components/ui/label';
 
@@ -16,12 +16,8 @@ interface PendingBill {
   bill: {
     id: string;
     totalAmount: string;
-    invoiceNumber?: string;
-    storeName?: string;
-    billNumber?: string; // Added billNumber
-    products?: { name: string; quantity: number; price?: number }[]; // Added products
-    extractedText: string;
-    ocrConfidence: number;
+    campaignId?: string;
+    campaignName?: string;
     imageData?: string;
     referralCode?: string;
     submittedAt: string;
@@ -155,7 +151,7 @@ export default function BillVerification() {
       <div className="max-w-7xl mx-auto p-6">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Bill Verification</h1>
-          <p className="text-gray-600 mt-2">Review and approve customer bill submissions</p>
+          <p className="text-gray-600 mt-2">Review and approve customer bill submissions with campaign-based points</p>
         </div>
 
         {!pendingBills || pendingBills.length === 0 ? (
@@ -192,14 +188,10 @@ export default function BillVerification() {
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 gap-2 text-sm">
                       <div>
-                        <span className="text-gray-500">Invoice:</span>
-                        <p className="font-medium">{item.bill.invoiceNumber || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <span className="text-gray-500">Store:</span>
-                        <p className="font-medium">{item.bill.storeName || 'N/A'}</p>
+                        <span className="text-gray-500">Campaign:</span>
+                        <p className="font-medium">{item.bill.campaignName || 'N/A'}</p>
                       </div>
                     </div>
 
@@ -208,8 +200,8 @@ export default function BillVerification() {
                         {formatDate(item.bill.createdAt)}
                       </span>
                       <div className="flex items-center gap-2">
-                        <Badge variant={item.bill.ocrConfidence > 80 ? "default" : "secondary"} className="text-xs">
-                          {item.bill.ocrConfidence}% OCR
+                        <Badge variant="default" className="text-xs">
+                          Campaign-based
                         </Badge>
                         <span className="text-sm text-green-600 font-medium">
                           +{calculatePoints(item.bill.totalAmount)} pts
@@ -255,31 +247,28 @@ export default function BillVerification() {
                       <div className="bg-gray-50 p-3 rounded-md space-y-1">
                         <p><strong>Total Amount:</strong> ₹{selectedBill.bill.totalAmount}</p>
                         <p><strong>Points to Earn:</strong> {calculatePoints(selectedBill.bill.totalAmount)} points</p>
-                        <p><strong>Invoice Number:</strong> {selectedBill.bill.invoiceNumber || 'N/A'}</p>
-                        <p><strong>Store Name:</strong> {selectedBill.bill.storeName || 'N/A'}</p>
+                        <p><strong>Campaign:</strong> {selectedBill.bill.campaignName || 'N/A'}</p>
                         {selectedBill.bill.referralCode && (
                           <p><strong>Referral Code:</strong> {selectedBill.bill.referralCode}</p>
                         )}
                       </div>
                     </div>
 
-                    {/* OCR Data */}
-                    {selectedBill.bill.extractedText && (
-                      <div className="space-y-2">
-                        <h4 className="font-semibold flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          OCR Extracted Text
-                          <Badge variant={selectedBill.bill.ocrConfidence > 80 ? "default" : "secondary"}>
-                            {selectedBill.bill.ocrConfidence}% confidence
-                          </Badge>
-                        </h4>
-                        <Textarea
-                          value={selectedBill.bill.extractedText}
-                          readOnly
-                          className="h-32 text-sm bg-gray-50"
-                        />
+                    {/* Campaign Info */}
+                    <div className="space-y-2">
+                      <h4 className="font-semibold flex items-center gap-2">
+                        <ShoppingBag className="h-4 w-4" />
+                        Campaign Details
+                      </h4>
+                      <div className="bg-blue-50 p-3 rounded-md">
+                        <p className="text-sm text-blue-800">
+                          <strong>Selected Campaign:</strong> {selectedBill.bill.campaignName}
+                        </p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          Points will be calculated based on this campaign's rules
+                        </p>
                       </div>
-                    )}
+                    </div>
 
                     {/* Bill Image */}
                     {selectedBill.bill.imageData && (

@@ -1137,7 +1137,7 @@ export function setupRoutes(app: Express): Server {
 
   // OCR Bill Processing endpoints
 
-  // Submit bill for admin approval (simplified)
+  // Submit bill for admin approval (campaign-based)
   app.post("/api/bills/submit-for-approval", async (req: Request, res: Response) => {
     try {
       routeLogger.info("BILL-SUBMISSION", "New bill submission for approval", {
@@ -1150,17 +1150,15 @@ export function setupRoutes(app: Express): Server {
         customerName, 
         customerId,
         referralCode,
-        products,
-        totalAmount, 
-        billNumber,
-        extractedText,
-        ocrConfidence,
+        campaignId,
+        campaignName,
+        totalAmount,
         imageData
       } = req.body;
 
-      if (!customerPhone || !totalAmount || !products) {
+      if (!customerPhone || !totalAmount || !campaignId) {
         return res.status(400).json({ 
-          message: "Customer phone, total amount, and products are required" 
+          message: "Customer phone, total amount, and campaign are required" 
         });
       }
 
@@ -1192,14 +1190,12 @@ export function setupRoutes(app: Express): Server {
         });
       }
 
-      // Create pending bill record with structured data
+      // Create pending bill record with campaign data
       const billData = {
         customerId: customer.id,
         totalAmount: parseFloat(totalAmount),
-        billNumber: billNumber || null,
-        products: products || [],
-        extractedText: extractedText || '',
-        ocrConfidence: ocrConfidence || 0,
+        campaignId: campaignId,
+        campaignName: campaignName || 'Unknown Campaign',
         imageData: imageData || null,
         referralCode: referralCode || null,
         status: 'PENDING_APPROVAL',
@@ -1208,12 +1204,13 @@ export function setupRoutes(app: Express): Server {
 
       const pendingBill = await storage.createPendingBill(billData);
 
-      // Send admin notification
-      routeLogger.info("NOTIFICATION", "Bill submitted for admin approval", {
+      // Send cashier notification
+      routeLogger.info("NOTIFICATION", "Bill submitted for cashier approval", {
         billId: pendingBill.id,
         customerId: customer.id,
         totalAmount,
-        productsCount: products.length
+        campaignId,
+        campaignName
       });
 
       res.json({
@@ -1425,75 +1422,45 @@ export function setupRoutes(app: Express): Server {
         return res.status(404).json({ message: "Pending bill not found" });
       }
 
-      const { customerId, referralCode, totalAmount, billNumber, products, extractedText, ocrConfidence } = pendingBill;
+      const { customerId, referralCode, totalAmount, campaignId, campaignName } = pendingBill;
 
-      // Get customer and all relevant data for points calculation
+      // Get customer and campaign for points calculation
       const customer = await storage.getCustomer(customerId);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
 
-      // Get all products and campaigns for points calculation
-      const allProducts = await storage.getAllProducts();
+      // Get all campaigns for points calculation
       const activeCampaigns = await storage.getAllCampaigns();
-      const activeProductRules = allProducts.filter(p => p.isActive && p.pointCalculationType !== 'inherit');
+      const selectedCampaign = activeCampaigns.find(c => c.id === campaignId);
 
-      // Calculate points for each product based on configured rules
+      if (!selectedCampaign) {
+        return res.status(400).json({ message: "Selected campaign not found or inactive" });
+      }
+
+      // Calculate points based on campaign rules
       let totalPointsEarned = 0;
-      const itemPointsDetails = [];
+      let calculationMethod = "Default";
 
-      for (const billProduct of products || []) {
-        let productPoints = 0;
-        let calculationMethod = "Default";
-
-        // Find matching product rule by name (case-insensitive)
-        const matchingProduct = activeProductRules.find(p => 
-          p.name.toLowerCase().includes(billProduct.name.toLowerCase()) ||
-          billProduct.name.toLowerCase().includes(p.name.toLowerCase())
-        );
-
-        if (matchingProduct) {
-          // Use product-specific points calculation
-          if (matchingProduct.pointCalculationType === 'fixed') {
-            productPoints = (matchingProduct.fixedPoints || 0) * billProduct.quantity;
-            calculationMethod = `Fixed: ${matchingProduct.fixedPoints} points × ${billProduct.quantity}`;
-          } else if (matchingProduct.pointCalculationType === 'percentage') {
-            const rate = parseFloat(matchingProduct.percentageRate || '0');
-            const productTotal = (billProduct.price || 0) * billProduct.quantity;
-            productPoints = Math.floor((productTotal * rate) / 100);
-            calculationMethod = `${rate}% of ₹${productTotal}`;
-          }
-          
-          routeLogger.debug("POINTS-CALC", "Applied product rule", {
-            productName: billProduct.name,
-            rule: matchingProduct.name,
-            points: productPoints,
-            method: calculationMethod
-          });
-        } else {
-          // Use default calculation: ₹10 = 1 point
-          const productTotal = (billProduct.price || 0) * billProduct.quantity;
-          productPoints = Math.floor(productTotal / 10);
-          calculationMethod = `Default: ₹${productTotal} / 10`;
-        }
-
-        totalPointsEarned += productPoints;
-        itemPointsDetails.push({
-          productName: billProduct.name,
-          quantity: billProduct.quantity,
-          points: productPoints,
-          calculation: calculationMethod
-        });
-      }
-
-      // If no product-specific rules matched, use total bill amount
-      if (totalPointsEarned === 0) {
+      if (selectedCampaign.pointCalculationType === 'fixed') {
+        totalPointsEarned = selectedCampaign.rewardPerReferral;
+        calculationMethod = `Fixed: ${selectedCampaign.rewardPerReferral} points per transaction`;
+      } else if (selectedCampaign.pointCalculationType === 'percentage') {
+        const rate = parseFloat(selectedCampaign.percentageRate || '0');
+        totalPointsEarned = Math.floor((parseFloat(totalAmount) * rate) / 100);
+        calculationMethod = `${rate}% of ₹${totalAmount} = ${totalPointsEarned} points`;
+      } else {
+        // Fallback: ₹10 = 1 point
         totalPointsEarned = Math.floor(parseFloat(totalAmount) / 10);
-        routeLogger.info("POINTS-CALC", "Using fallback calculation", {
-          totalAmount,
-          pointsEarned: totalPointsEarned
-        });
+        calculationMethod = `Default: ₹${totalAmount} / 10 = ${totalPointsEarned} points`;
       }
+
+      routeLogger.info("POINTS-CALC", "Campaign-based points calculation", {
+        campaignName: selectedCampaign.name,
+        totalAmount,
+        pointsEarned: totalPointsEarned,
+        method: calculationMethod
+      });
 
       // Handle referral bonus
       let referrer = null;
@@ -1539,38 +1506,32 @@ export function setupRoutes(app: Express): Server {
       // Create the final bill record
       const billData = {
         customerId,
-        invoiceNumber: billNumber || null,
+        invoiceNumber: null,
         storeName: 'Store', // Default store name
         billDate: new Date(pendingBill.submittedAt),
         billTime: null,
         totalAmount: totalAmount,
         originalImageUrl: null,
-        ocrRawData: extractedText,
+        ocrRawData: `Campaign: ${campaignName}`,
         pointsEarned: totalPointsEarned,
         referralCode: referralCode || null,
         referrerId: referrer?.id || null,
         referrerPointsEarned,
         status: "processed" as const,
         isValid: true,
-        billHash: billNumber ? 
-          Buffer.from(`${billNumber}-${new Date().toISOString().split('T')[0]}`).toString('base64').replace(/[+/=]/g, '') : 
-          null
+        billHash: `${campaignId}-${customerId}-${new Date().toISOString().split('T')[0]}`
       };
 
       const bill = await storage.createBill(billData);
 
-      // Create individual bill items
-      if (products && products.length > 0) {
-        for (const product of products) {
-          await storage.createBillItem({
-            billId: bill.id,
-            itemName: product.name,
-            quantity: product.quantity,
-            unitPrice: (product.price || 0).toString(),
-            totalPrice: ((product.price || 0) * product.quantity).toString()
-          });
-        }
-      }
+      // Create a single bill item representing the campaign
+      await storage.createBillItem({
+        billId: bill.id,
+        itemName: campaignName,
+        quantity: 1,
+        unitPrice: totalAmount,
+        totalPrice: totalAmount
+      });
 
       // Mark pending bill as approved
       await storage.updatePendingBillStatus(billId, 'APPROVED', bill.id);
@@ -1580,7 +1541,7 @@ export function setupRoutes(app: Express): Server {
         customerId,
         pointsEarned: totalPointsEarned,
         referrerBonus: referrerPointsEarned,
-        itemsProcessed: itemPointsDetails.length
+        campaignUsed: campaignName
       });
 
       res.json({
@@ -1588,7 +1549,7 @@ export function setupRoutes(app: Express): Server {
         message: "Bill approved and points assigned automatically",
         bill: {
           id: bill.id,
-          invoiceNumber: bill.invoiceNumber,
+          campaignName: campaignName,
           totalAmount: bill.totalAmount,
           pointsEarned: totalPointsEarned,
           processedAt: bill.processedAt
@@ -1603,7 +1564,11 @@ export function setupRoutes(app: Express): Server {
           name: referrer.name,
           bonusPointsEarned: referrerPointsEarned
         } : null,
-        pointsBreakdown: itemPointsDetails
+        pointsCalculation: {
+          method: calculationMethod,
+          campaignUsed: selectedCampaign.name,
+          baseAmount: totalAmount
+        }
       });
 
     } catch (error) {
