@@ -117,20 +117,13 @@ export function QuickBillEntry({ onSubmit }: { onSubmit: (data: any) => void }) 
   );
 }
 
-import React, { useState, useRef, useCallback } from 'react';
+import React from 'react';
 import Webcam from 'react-webcam';
-import Tesseract from 'tesseract.js';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Camera, Upload, FileText, CheckCircle, Receipt, User, Phone } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Camera, Upload, CheckCircle } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface ExtractedBillData {
@@ -485,339 +478,347 @@ export default function OCRBillScanner({ onBillSubmitted }: OCRBillScannerProps)
             </TabsContent>
             
             <TabsContent value="manual" className="space-y-6">
-          {/* Image Capture Section */}
-          <div className="space-y-4">
-            <div className="flex gap-4">
-              <Button
-                onClick={() => setCameraMode(true)}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Camera className="h-4 w-4" />
-                Use Camera
-              </Button>
-              <Button
-                onClick={() => fileInputRef.current?.click()}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                Upload Image
-              </Button>
-            </div>
+              {/* Image Capture Section */}
+              <div className="space-y-4">
+                <div className="flex gap-4">
+                  <Button
+                    onClick={() => setCameraMode(true)}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Use Camera
+                  </Button>
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Upload Image
+                  </Button>
+                </div>
 
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
 
-            {cameraMode && (
-              <Card>
-                <CardContent className="p-4">
-                  <Webcam
-                    ref={webcamRef}
-                    screenshotFormat="image/jpeg"
-                    className="w-full max-w-md mx-auto rounded-lg"
-                  />
-                  <div className="flex gap-2 mt-4 justify-center">
-                    <Button onClick={capture}>
-                      <Camera className="h-4 w-4 mr-2" />
-                      Capture
-                    </Button>
-                    <Button variant="outline" onClick={() => setCameraMode(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {imagePreview && (
-              <Card>
-                <CardContent className="p-4">
-                  <img 
-                    src={imagePreview} 
-                    alt="Bill preview" 
-                    className="max-w-md mx-auto rounded-lg"
-                  />
-                </CardContent>
-              </Card>
-            )}
-
-            {isProcessingOCR && (
-              <Card>
-                <CardContent className="p-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      <span>Extracting bill data...</span>
-                    </div>
-                    <Progress value={ocrProgress} className="w-full" />
-                    <p className="text-sm text-muted-foreground">
-                      {ocrProgress}% complete
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Manual Entry Toggle */}
-            <div className="flex gap-4">
-              <Button
-                variant={useManualEntry ? "default" : "outline"}
-                onClick={() => setUseManualEntry(true)}
-                className="flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                Manual Entry
-              </Button>
-              <Button
-                variant={!useManualEntry ? "default" : "outline"}
-                onClick={() => setUseManualEntry(false)}
-                className="flex items-center gap-2"
-              >
-                <Camera className="h-4 w-4" />
-                Scan Bill
-              </Button>
-            </div>
-
-            {/* Manual Entry Form */}
-            {useManualEntry && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Enter Bill Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="storeName">Store Name</Label>
-                      <Input
-                        id="storeName"
-                        value={manualBillData.storeName}
-                        onChange={(e) => setManualBillData(prev => ({ ...prev, storeName: e.target.value }))}
-                        placeholder="Enter store name"
+                {cameraMode && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <Webcam
+                        ref={webcamRef}
+                        screenshotFormat="image/jpeg"
+                        className="w-full max-w-md mx-auto rounded-lg"
                       />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="billNumber">Bill Number</Label>
-                      <Input
-                        id="billNumber"
-                        value={manualBillData.billNumber}
-                        onChange={(e) => setManualBillData(prev => ({ ...prev, billNumber: e.target.value }))}
-                        placeholder="Enter bill number"
-                      />
-                    </div>
-                  </div>
+                      <div className="flex gap-2 mt-4 justify-center">
+                        <Button onClick={capture}>
+                          <Camera className="h-4 w-4 mr-2" />
+                          Capture
+                        </Button>
+                        <Button variant="outline" onClick={() => setCameraMode(false)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <Label>Products</Label>
-                      <Button type="button" onClick={addProduct} size="sm">
-                        Add Product
-                      </Button>
-                    </div>
-                    
-                    {manualBillData.products.map((product, index) => (
-                      <div key={index} className="grid grid-cols-12 gap-2 items-end">
-                        <div className="col-span-5">
+                {imagePreview && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <img 
+                        src={imagePreview} 
+                        alt="Bill preview" 
+                        className="max-w-md mx-auto rounded-lg"
+                      />
+                    </CardContent>
+                  </Card>
+                )}
+
+                {isProcessingOCR && (
+                  <Card>
+                    <CardContent className="p-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          <span>Extracting bill data...</span>
+                        </div>
+                        <Progress value={ocrProgress} className="w-full" />
+                        <p className="text-sm text-muted-foreground">
+                          {ocrProgress}% complete
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Manual Entry Toggle */}
+                <div className="flex gap-4">
+                  <Button
+                    variant={useManualEntry ? "default" : "outline"}
+                    onClick={() => setUseManualEntry(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Manual Entry
+                  </Button>
+                  <Button
+                    variant={!useManualEntry ? "default" : "outline"}
+                    onClick={() => setUseManualEntry(false)}
+                    className="flex items-center gap-2"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Scan Bill
+                  </Button>
+                </div>
+
+                {/* Manual Entry Form */}
+                {useManualEntry && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Enter Bill Details</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="storeName">Store Name</Label>
                           <Input
-                            placeholder="Product name"
-                            value={product.name}
-                            onChange={(e) => updateProduct(index, 'name', e.target.value)}
+                            id="storeName"
+                            value={manualBillData.storeName}
+                            onChange={(e) => setManualBillData(prev => ({ ...prev, storeName: e.target.value }))}
+                            placeholder="Enter store name"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="billNumber">Bill Number</Label>
                           <Input
-                            type="number"
-                            placeholder="Qty"
-                            value={product.quantity}
-                            onChange={(e) => updateProduct(index, 'quantity', parseInt(e.target.value) || 1)}
+                            id="billNumber"
+                            value={manualBillData.billNumber}
+                            onChange={(e) => setManualBillData(prev => ({ ...prev, billNumber: e.target.value }))}
+                            placeholder="Enter bill number"
                           />
-                        </div>
-                        <div className="col-span-3">
-                          <Input
-                            type="number"
-                            placeholder="Price"
-                            value={product.price}
-                            onChange={(e) => updateProduct(index, 'price', parseFloat(e.target.value) || 0)}
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeProduct(index)}
-                            disabled={manualBillData.products.length === 1}
-                          >
-                            Remove
-                          </Button>
                         </div>
                       </div>
-                    ))}
-                  </div>
 
-                  <div className="flex gap-4">
-                    <Button type="button" onClick={calculateTotal} variant="outline">
-                      Calculate Total
-                    </Button>
-                    <div className="space-y-2 flex-1">
-                      <Label htmlFor="totalAmount">Total Amount (₹)</Label>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <Label>Products</Label>
+                          <Button type="button" onClick={addProduct} size="sm">
+                            Add Product
+                          </Button>
+                        </div>
+                        
+                        {manualBillData.products.map((product, index) => (
+                          <div key={index} className="grid grid-cols-12 gap-2 items-end">
+                            <div className="col-span-5">
+                              <Input
+                                placeholder="Product name"
+                                value={product.name}
+                                onChange={(e) => updateProduct(index, 'name', e.target.value)}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Input
+                                type="number"
+                                placeholder="Qty"
+                                value={product.quantity}
+                                onChange={(e) => updateProduct(index, 'quantity', parseInt(e.target.value) || 1)}
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              <Input
+                                type="number"
+                                placeholder="Price"
+                                value={product.price}
+                                onChange={(e) => updateProduct(index, 'price', parseFloat(e.target.value) || 0)}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => removeProduct(index)}
+                                disabled={manualBillData.products.length === 1}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex gap-4">
+                        <Button type="button" onClick={calculateTotal} variant="outline">
+                          Calculate Total
+                        </Button>
+                        <div className="space-y-2 flex-1">
+                          <Label htmlFor="totalAmount">Total Amount (₹)</Label>
+                          <Input
+                            id="totalAmount"
+                            type="number"
+                            value={manualBillData.totalAmount}
+                            onChange={(e) => setManualBillData(prev => ({ ...prev, totalAmount: e.target.value }))}
+                            placeholder="Enter total amount"
+                          />
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={() => {
+                          // Convert manual data to extracted data format
+                          setExtractedData({
+                            products: manualBillData.products.filter(p => p.name),
+                            totalAmount: manualBillData.totalAmount,
+                            billNumber: manualBillData.billNumber,
+                            extractedText: `Manual entry - Store: ${manualBillData.storeName}`,
+                            confidence: 100
+                          });
+                          
+                          toast({
+                            title: 'Bill Data Entered',
+                            description: `Total: ₹${manualBillData.totalAmount}`,
+                          });
+                        }}
+                        disabled={!manualBillData.totalAmount}
+                        className="w-full"
+                      >
+                        Use This Data
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Customer Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Customer Information
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="customerPhone">Customer Phone *</Label>
+                    <div className="flex gap-2">
                       <Input
-                        id="totalAmount"
-                        type="number"
-                        value={manualBillData.totalAmount}
-                        onChange={(e) => setManualBillData(prev => ({ ...prev, totalAmount: e.target.value }))}
-                        placeholder="Enter total amount"
+                        id="customerPhone"
+                        placeholder="Enter phone number"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
                       />
+                      <Button
+                        onClick={handleCustomerLookup}
+                        disabled={findCustomerMutation.isPending || customerPhone.length < 10}
+                      >
+                        <Phone className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
 
-                  <Button
-                    onClick={() => {
-                      // Convert manual data to extracted data format
-                      setExtractedData({
-                        products: manualBillData.products.filter(p => p.name),
-                        totalAmount: manualBillData.totalAmount,
-                        billNumber: manualBillData.billNumber,
-                        extractedText: `Manual entry - Store: ${manualBillData.storeName}`,
-                        confidence: 100
-                      });
-                      
-                      toast({
-                        title: 'Bill Data Entered',
-                        description: `Total: ₹${manualBillData.totalAmount}`,
-                      });
-                    }}
-                    disabled={!manualBillData.totalAmount}
-                    className="w-full"
-                  >
-                    Use This Data
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerName">Customer Name</Label>
+                    <Input
+                      id="customerName"
+                      placeholder="Auto-filled or enter manually"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                    />
+                  </div>
+                </div>
 
-          <Separator />
-
-          {/* Customer Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Customer Information
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="customerPhone">Customer Phone *</Label>
-                <div className="flex gap-2">
+                <div className="space-y-2">
+                  <Label htmlFor="referralCode">Referral Code (Optional)</Label>
                   <Input
-                    id="customerPhone"
-                    placeholder="Enter phone number"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    id="referralCode"
+                    placeholder="Enter referral code if applicable"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
                   />
-                  <Button
-                    onClick={handleCustomerLookup}
-                    disabled={findCustomerMutation.isPending || customerPhone.length < 10}
-                  >
-                    <Phone className="h-4 w-4" />
-                  </Button>
                 </div>
+
+                {customerId && (
+                  <Badge variant="secondary" className="w-fit">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Existing Customer Found
+                  </Badge>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="customerName">Customer Name</Label>
-                <Input
-                  id="customerName"
-                  placeholder="Auto-filled or enter manually"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                />
-              </div>
-            </div>
+              <Separator />
 
-            <div className="space-y-2">
-              <Label htmlFor="referralCode">Referral Code (Optional)</Label>
-              <Input
-                id="referralCode"
-                placeholder="Enter referral code if applicable"
-                value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-              />
-            </div>
+              {/* Extracted Bill Data */}
+              {extractedData && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Extracted Bill Data</h3>
 
-            {customerId && (
-              <Badge variant="secondary" className="w-fit">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Existing Customer Found
-              </Badge>
-            )}
-          </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Total Amount</Label>
+                      <div className="p-2 bg-muted rounded">₹{extractedData.totalAmount}</div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Bill Number</Label>
+                      <div className="p-2 bg-muted rounded">{extractedData.billNumber || 'Not found'}</div>
+                    </div>
+                  </div>
 
-          <Separator />
+                  <div className="space-y-2">
+                    <Label>Products Found ({extractedData.products.length})</Label>
+                    <div className="border rounded p-4 max-h-40 overflow-y-auto">
+                      {extractedData.products.length > 0 ? (
+                        <ul className="space-y-1">
+                          {extractedData.products.map((product, index) => (
+                            <li key={index} className="text-sm">
+                              {product.quantity}× {product.name} 
+                              {product.price && ` - ₹${product.price.toFixed(2)}`}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-muted-foreground text-sm">No products extracted</p>
+                      )}
+                    </div>
+                  </div>
 
-          {/* Extracted Bill Data */}
-          {extractedData && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Extracted Bill Data</h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Total Amount</Label>
-                  <div className="p-2 bg-muted rounded">₹{extractedData.totalAmount}</div>
+                  <Badge variant={extractedData.confidence > 80 ? "default" : "secondary"}>
+                    {extractedData.confidence}% OCR confidence
+                  </Badge>
                 </div>
-                <div className="space-y-2">
-                  <Label>Bill Number</Label>
-                  <div className="p-2 bg-muted rounded">{extractedData.billNumber || 'Not found'}</div>
-                </div>
+              )}
+
+              <Separator />
+
+              {/* Actions */}
+              <div className="flex gap-4">
+                <Button
+                  onClick={handleSubmitBill}
+                  disabled={!extractedData || !customerPhone || submitBillMutation.isPending}
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  Submit for Admin Approval
+                </Button>
+
+                <Button variant="outline" onClick={resetForm}>
+                  Reset
+                </Button>
               </div>
+            </TabsContent>
 
-              <div className="space-y-2">
-                <Label>Products Found ({extractedData.products.length})</Label>
-                <div className="border rounded p-4 max-h-40 overflow-y-auto">
-                  {extractedData.products.length > 0 ? (
-                    <ul className="space-y-1">
-                      {extractedData.products.map((product, index) => (
-                        <li key={index} className="text-sm">
-                          {product.quantity}× {product.name} 
-                          {product.price && ` - ₹${product.price.toFixed(2)}`}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-muted-foreground text-sm">No products extracted</p>
-                  )}
-                </div>
+            <TabsContent value="scan" className="space-y-6">
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">OCR scanning is currently disabled. Please use Manual Entry instead.</p>
               </div>
-
-              <Badge variant={extractedData.confidence > 80 ? "default" : "secondary"}>
-                {extractedData.confidence}% OCR confidence
-              </Badge>
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Actions */}
-          <div className="flex gap-4">
-            <Button
-              onClick={handleSubmitBill}
-              disabled={!extractedData || !customerPhone || submitBillMutation.isPending}
-              className="flex items-center gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              Submit for Admin Approval
-            </Button>
-
-            <Button variant="outline" onClick={resetForm}>
-              Reset
-            </Button>
-          </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
