@@ -841,7 +841,13 @@ export function setupRoutes(app: Express): Server {
 
       for (let i = 0; i < products.length; i++) {
         try {
-          const validatedData = insertProductSchema.parse(products[i]);
+          // Ensure price is a number
+          const productData = {
+            ...products[i],
+            price: typeof products[i].price === 'string' ? parseFloat(products[i].price) : products[i].price
+          };
+          
+          const validatedData = insertProductSchema.parse(productData);
 
           // Ensure product code is uppercase for consistency
           if (validatedData.productCode) {
@@ -856,7 +862,7 @@ export function setupRoutes(app: Express): Server {
           errors.push({
             index: i,
             productName: products[i]?.name || `Product ${i + 1}`,
-            error: error instanceof z.ZodError ? error.errors : "Validation failed"
+            error: error instanceof z.ZodError ? error.errors : String(error)
           });
         }
       }
