@@ -157,6 +157,7 @@ export interface OCRBillScannerProps {
 }
 
 export default function OCRBillScanner({ onBillSubmitted }: OCRBillScannerProps) {
+  const [activeTab, setActiveTab] = useState('quick');
   const [cameraMode, setCameraMode] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -164,7 +165,7 @@ export default function OCRBillScanner({ onBillSubmitted }: OCRBillScannerProps)
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [useManualEntry, setUseManualEntry] = useState(false);
+  const [useManualEntry, setUseManualEntry] = useState(true);
   const [manualBillData, setManualBillData] = useState({
     totalAmount: '',
     billNumber: '',
@@ -464,11 +465,10 @@ export default function OCRBillScanner({ onBillSubmitted }: OCRBillScannerProps)
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="quick" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="quick">Quick Entry</TabsTrigger>
               <TabsTrigger value="manual">Manual Entry</TabsTrigger>
-              <TabsTrigger value="scan">Scan Bill</TabsTrigger>
             </TabsList>
             
             <TabsContent value="quick" className="space-y-6">
@@ -813,12 +813,7 @@ export default function OCRBillScanner({ onBillSubmitted }: OCRBillScannerProps)
               </div>
             </TabsContent>
 
-            <TabsContent value="scan" className="space-y-6">
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">OCR scanning is currently disabled. Please use Manual Entry instead.</p>
-              </div>
-            </TabsContent>
-          </Tabs>
+            </Tabs>
         </CardContent>
       </Card>
 
