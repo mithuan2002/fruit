@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Trash2, Target, Gift, Calculator } from "lucide-react";
-import { Link } from "wouter";
+import { Plus, Edit, Trash2, Package, Upload, Download } from "lucide-react";
+import * as XLSX from 'xlsx';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,674 +9,557 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { type Product, type Campaign } from "@shared/schema";
+import { type Product } from "@shared/schema";
 
-interface PointRule {
-  id?: string;
-  type: 'product' | 'campaign';
-  targetId: string;
-  targetName: string;
-  productCode?: string;
-  pointsType: 'fixed' | 'percentage';
-  pointsValue: number;
-  minQuantity?: number;
-  description?: string;
-  isActive: boolean;
-}
-
-export default function PointsSetupPage() {
+export default function ProductsPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState<PointRule | null>(null);
-  const [activeTab, setActiveTab] = useState<'product' | 'campaign'>('product');
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [formData, setFormData] = useState<PointRule>({
-    type: 'product',
-    targetId: '',
-    targetName: '',
-    productCode: '',
-    pointsType: 'fixed',
-    pointsValue: 10,
-    minQuantity: 1,
-    description: '',
-    isActive: true
+  const [formData, setFormData] = useState({
+    name: "",
+    productCode: "",
+    description: "",
+    price: 0,
+    sku: "",
+    category: "",
+    pointCalculationType: "inherit",
+    fixedPoints: undefined as number | undefined,
+    percentageRate: "",
+    minimumQuantity: 1,
+    bonusMultiplier: "1.00",
+    isActive: true,
+    stockQuantity: 0
   });
 
-  const { data: products = [] } = useQuery<Product[]>({
+  const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
 
-  const { data: campaigns = [] } = useQuery<Campaign[]>({
-    queryKey: ["/api/campaigns"],
-  });
-
-  // Mock point rules data - in a real app this would come from the database
-  const { data: pointRules = [] } = useQuery<PointRule[]>({
-    queryKey: ["/api/point-rules"],
-    queryFn: () => {
-      // For demo, return mock data based on existing products and campaigns
-      const mockRules: PointRule[] = [];
-
-      // Add some example product rules
-      products.slice(0, 3).forEach((product, index) => {
-        mockRules.push({
-          id: `product-${product.id}`,
-          type: 'product',
-          targetId: product.id,
-          targetName: product.name,
-          pointsType: index % 2 === 0 ? 'fixed' : 'percentage',
-          pointsValue: index % 2 === 0 ? 10 : 5,
-          minQuantity: 1,
-          description: `Points rule for ${product.name}`,
-          isActive: true
-        });
+  const createProductMutation = useMutation({
+    mutationFn: (data: typeof formData) => apiRequest("POST", "/api/products", data),
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Product created successfully"
       });
-
-      // Add some example campaign rules
-      campaigns.slice(0, 2).forEach((campaign, index) => {
-        mockRules.push({
-          id: `campaign-${campaign.id}`,
-          type: 'campaign',
-          targetId: campaign.id,
-          targetName: campaign.name,
-          pointsType: 'fixed',
-          pointsValue: 50,
-          description: `Points rule for ${campaign.name}`,
-          isActive: true
-        });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      resetForm();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create product",
+        variant: "destructive"
       });
-
-      return mockRules;
     }
   });
 
-  const saveRuleMutation = useMutation({
-    mutationFn: async (ruleData: PointRule) => {
-      console.log('Saving rule:', ruleData);
-
-      // For campaign rules, use the campaign API endpoint
-      if (ruleData.type === 'campaign' && editingRule) {
-        const response = await fetch(`/api/campaigns/${editingRule.targetId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pointCalculationType: ruleData.pointsType,
-            rewardPerReferral: ruleData.pointsType === 'fixed' ? ruleData.pointsValue : 0,
-            percentageRate: ruleData.pointsType === 'percentage' ? ruleData.pointsValue.toString() : null
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to update campaign');
-        }
-
-        return { success: true, message: 'Campaign points updated successfully' };
-      }
-
-      // For new rules or product rules, use the point-rules endpoint
-      const url = editingRule && ruleData.type === 'product' ? `/api/point-rules/${editingRule.id}` : '/api/point-rules';
-      const method = editingRule && ruleData.type === 'product' ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ruleData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to ${editingRule ? 'update' : 'create'} point rule`);
-      }
-
-      return response.json();
-    },
-    onSuccess: (data) => {
-      console.log('Point rule saved:', data);
+  const updateProductMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: typeof formData }) => 
+      apiRequest("PUT", `/api/products/${id}`, data),
+    onSuccess: () => {
       toast({
         title: "Success",
-        description: data.message || `Point rule ${editingRule ? 'updated' : 'created'} successfully`,
+        description: "Product updated successfully"
       });
-
-      // Refresh the point rules data
-      queryClient.invalidateQueries({ queryKey: ["/api/point-rules"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-
-      // Reset form
       resetForm();
     },
-    onError: (error: Error) => {
-      console.error('Failed to save point rule:', error);
+    onError: () => {
       toast({
         title: "Error",
-        description: error.message,
-        variant: "destructive",
+        description: "Failed to update product",
+        variant: "destructive"
       });
-    },
+    }
   });
 
-  const createPointRuleMutation = useMutation({
-    mutationFn: async (ruleData: PointRule) => {
-      const response = await fetch("/api/point-rules", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(ruleData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create point rule");
-      }
-
-      return response.json();
-    },
-    onSuccess: (data) => {
+  const deleteProductMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/products/${id}`),
+    onSuccess: () => {
       toast({
-        title: "Points Rule Added",
-        description: data.message || `Successfully added points rule for ${formData.targetName}`,
+        title: "Success",
+        description: "Product deleted successfully"
       });
-
-      // Reset form
-      setFormData({
-        type: 'product',
-        targetId: '',
-        targetName: '',
-        productCode: '',
-        pointsType: 'fixed',
-        pointsValue: 10,
-        minQuantity: 1,
-        description: '',
-        isActive: true
-      });
-
-      setIsDialogOpen(false);
-      setEditingRule(null);
-
-      // Refresh queries
-      queryClient.invalidateQueries({ queryKey: ["/api/point-rules"] });
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
     },
-    onError: (error: any) => {
+    onError: () => {
       toast({
         title: "Error",
-        description: error.message || "Failed to add points rule",
-        variant: "destructive",
+        description: "Failed to delete product",
+        variant: "destructive"
       });
+    }
+  });
+
+  const bulkCreateProductsMutation = useMutation({
+    mutationFn: (products: typeof formData[]) => apiRequest("POST", "/api/products/bulk", products),
+    onSuccess: (_, variables) => {
+      toast({
+        title: "Success",
+        description: `Successfully imported ${variables.length} products`
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
     },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to import products. Please check the file format.",
+        variant: "destructive"
+      });
+    }
   });
 
   const resetForm = () => {
     setFormData({
-      type: activeTab,
-      targetId: '',
-      targetName: '',
-      productCode: '',
-      pointsType: 'fixed',
-      pointsValue: 10,
-      minQuantity: 1,
-      description: '',
-      isActive: true
+      name: "",
+      productCode: "",
+      description: "",
+      price: 0,
+      sku: "",
+      category: "",
+      pointCalculationType: "inherit",
+      fixedPoints: undefined,
+      percentageRate: "",
+      minimumQuantity: 1,
+      bonusMultiplier: "1.00",
+      isActive: true,
+      stockQuantity: 0
     });
-    setEditingRule(null);
+    setEditingProduct(null);
     setIsDialogOpen(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.targetName || !formData.pointsValue) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
+    if (editingProduct) {
+      updateProductMutation.mutate({ id: editingProduct.id, data: formData });
+    } else {
+      createProductMutation.mutate(formData);
     }
-
-    // Use the saveRuleMutation for both creation and updating
-    saveRuleMutation.mutate(formData);
   };
 
-  const editRule = (rule: PointRule) => {
-    setEditingRule(rule);
+  const startEdit = (product: Product) => {
+    setEditingProduct(product);
     setFormData({
-      ...rule,
-      targetId: rule.targetId || rule.id || '',
-      type: rule.type
+      name: product.name,
+      productCode: product.productCode || "",
+      description: product.description || "",
+      price: parseFloat(product.price),
+      sku: product.sku || "",
+      category: product.category || "",
+      pointCalculationType: product.pointCalculationType || "inherit",
+      fixedPoints: product.fixedPoints || undefined,
+      percentageRate: product.percentageRate || "",
+      minimumQuantity: product.minimumQuantity || 1,
+      bonusMultiplier: product.bonusMultiplier || "1.00",
+      isActive: product.isActive,
+      stockQuantity: product.stockQuantity || 0
     });
-    setActiveTab(rule.type);
     setIsDialogOpen(true);
   };
 
-  const onTargetSelect = (targetId: string) => {
-    const target = formData.type === 'product'
-      ? products.find(p => p.id === targetId)
-      : campaigns.find(c => c.id === targetId);
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    if (target) {
-      const productCode = formData.type === 'product' ? (target as any).productCode : undefined;
-      setFormData({
-        ...formData,
-        targetId,
-        targetName: target.name,
-        productCode: productCode || '',
-        description: `Points rule for ${target.name}${productCode ? ` (${productCode})` : ''}`
-      });
-    }
+    setIsImporting(true);
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
+
+        const products = jsonData.map((row, index) => {
+          // Map Excel columns to our product structure
+          const product = {
+            name: row["Product Name"] || row["name"] || "",
+            productCode: row["Product Code"] || row["productCode"] || `IMPORT-${index + 1}`,
+            description: row["Description"] || row["description"] || "",
+            price: parseFloat(row["Price"] || row["price"] || "0"),
+            category: row["Category"] || row["category"] || "",
+            sku: row["SKU"] || row["sku"] || "",
+            pointCalculationType: "inherit",
+            fixedPoints: row["Fixed Points"] ? parseInt(row["Fixed Points"]) : undefined,
+            percentageRate: row["Percentage Rate"] || "",
+            minimumQuantity: row["Minimum Quantity"] ? parseInt(row["Minimum Quantity"]) : 1,
+            bonusMultiplier: row["Bonus Multiplier"] || "1.00",
+            isActive: true,
+            stockQuantity: row["Stock Quantity"] ? parseInt(row["Stock Quantity"]) : 0
+          };
+
+          // Validation
+          if (!product.name) {
+            throw new Error(`Row ${index + 1}: Product name is required`);
+          }
+          if (!product.productCode) {
+            throw new Error(`Row ${index + 1}: Product code is required`);
+          }
+
+          return product;
+        });
+
+        if (products.length === 0) {
+          throw new Error("No valid products found in the Excel file");
+        }
+
+        // Bulk create products
+        bulkCreateProductsMutation.mutate(products);
+      } catch (error: any) {
+        toast({
+          title: "Import Error",
+          description: error.message || "Failed to parse Excel file",
+          variant: "destructive"
+        });
+      } finally {
+        setIsImporting(false);
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
   };
 
-  const getPointsDisplay = (rule: PointRule) => {
-    if (rule.pointsType === 'fixed') {
-      return `${rule.pointsValue} points`;
-    } else {
-      return `${rule.pointsValue}% of purchase`;
-    }
+  const handleExportTemplate = () => {
+    // Create a template with sample data
+    const templateData = [
+      {
+        "Product Name": "Sample Product 1",
+        "Product Code": "SAMPLE001",
+        "Description": "A sample product for demonstration",
+        "Price": "10.99",
+        "Category": "Electronics",
+        "SKU": "SKU001",
+        "Fixed Points": "5",
+        "Percentage Rate": "2.5",
+        "Minimum Quantity": "1",
+        "Bonus Multiplier": "1.0",
+        "Stock Quantity": "100"
+      },
+      {
+        "Product Name": "Sample Product 2",
+        "Product Code": "SAMPLE002",
+        "Description": "Another sample product",
+        "Price": "25.50",
+        "Category": "Books",
+        "SKU": "SKU002",
+        "Fixed Points": "",
+        "Percentage Rate": "",
+        "Minimum Quantity": "1",
+        "Bonus Multiplier": "1.0",
+        "Stock Quantity": "50"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+
+    // Download the template
+    XLSX.writeFile(workbook, "products-import-template.xlsx");
+
+    toast({
+      title: "Template Downloaded",
+      description: "Product import template has been downloaded"
+    });
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <div className="flex items-center space-x-2 mb-6">
+          <Package className="w-6 h-6" />
+          <h1 className="text-2xl font-bold">Products</h1>
+        </div>
+        <div className="text-center py-12">Loading products...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6" data-testid="points-setup-page">
+    <div className="max-w-6xl mx-auto p-6 space-y-6" data-testid="products-page">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white" data-testid="page-title">
-            Points Setup
+            Products Inventory
           </h1>
           <p className="text-gray-600 dark:text-gray-300" data-testid="page-description">
-            Set up and manage points rewards for products and campaigns in one simple interface
+            Manage your product catalog. Import products via Excel or add them manually.
           </p>
         </div>
-
         <div className="flex items-center gap-3">
-          <Link href="/points-setup-guide">
-            <Button variant="outline" size="sm">
-              <Target className="h-4 w-4 mr-2" />
-              Setup Guide
-            </Button>
-          </Link>
+          <Badge variant="secondary">{products.length} Products</Badge>
+        </div>
+      </div>
+
+      {/* Import/Export Actions */}
+      <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Package className="w-5 h-5 text-blue-600" />
+            <span className="font-medium">Product Management</span>
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Bulk import via Excel or add products individually
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleExportTemplate}
+            data-testid="button-download-template"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download Template
+          </Button>
+
+          <Button 
+            variant="outline" 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting || bulkCreateProductsMutation.isPending}
+            data-testid="button-import-excel"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {isImporting || bulkCreateProductsMutation.isPending ? "Importing..." : "Import Excel"}
+          </Button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleExcelImport}
+            style={{ display: 'none' }}
+          />
 
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button
-                onClick={() => {
-                  setEditingRule(null); // Clear editing state when opening for new rule
-                  setFormData({ // Reset form for new rule
-                    type: 'product', // Default to product
-                    targetId: '',
-                    targetName: '',
-                    productCode: '',
-                    pointsType: 'fixed',
-                    pointsValue: 10,
-                    minQuantity: 1,
-                    description: '',
-                    isActive: true
-                  });
-                  setActiveTab('product'); // Set default active tab
-                }}
-                className="flex items-center gap-2"
-                data-testid="button-add-points-rule"
-              >
-              <Plus className="w-4 h-4" />
-              Add Points Rule
+              <Button data-testid="button-add-product">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Product
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle data-testid="dialog-title">
-                {editingRule ? 'Edit Points Rule' : 'Add Points Rule'}
-              </DialogTitle>
-              <DialogDescription data-testid="dialog-description">
-                Configure how customers earn points for products or campaigns
-              </DialogDescription>
-            </DialogHeader>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingProduct ? "Edit Product" : "Add New Product"}
+                </DialogTitle>
+                <DialogDescription>
+                  Enter product details and configure point calculation rules
+                </DialogDescription>
+              </DialogHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-4" data-testid="points-rule-form">
-              <Tabs value={formData.type} onValueChange={(value) => {
-                setFormData({ ...formData, type: value as 'product' | 'campaign' });
-                setActiveTab(value as 'product' | 'campaign');
-              }}>
-                <TabsList className="grid w-full grid-cols-2" data-testid="tabs-type-selector">
-                  <TabsTrigger value="product" data-testid="tab-product">Product Points</TabsTrigger>
-                  <TabsTrigger value="campaign" data-testid="tab-campaign">Campaign Points</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="product" className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="product-code">Product Code</Label>
+                    <Label htmlFor="name">Product Name *</Label>
                     <Input
-                      id="product-code"
-                      placeholder="Enter product code (e.g., SKU123)"
-                      value={formData.productCode || ''}
-                      onChange={(e) => {
-                        const code = e.target.value;
-                        setFormData({ ...formData, productCode: code });
-
-                        // Auto-find product by code
-                        if (code.trim()) {
-                          const product = products.find(p => p.productCode === code.trim());
-                          if (product) {
-                            setFormData({
-                              ...formData,
-                              productCode: code,
-                              targetId: product.id,
-                              targetName: product.name,
-                              description: `Points rule for ${product.name} (${product.productCode})`
-                            });
-                          }
-                        }
-                      }}
-                      data-testid="input-product-code"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="product-name">Product Name *</Label>
-                    <Input
-                      id="product-name"
-                      placeholder="Enter product name"
-                      value={formData.targetName || ''}
-                      onChange={(e) => {
-                        const name = e.target.value;
-                        setFormData({
-                          ...formData,
-                          targetName: name,
-                          targetId: name ? 'manual-product' : '',
-                          description: `Points rule for ${name}${formData.productCode ? ` (${formData.productCode})` : ''}`
-                        });
-                      }}
+                      id="name"
                       data-testid="input-product-name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
                     />
                   </div>
-
-                  {products.length > 0 && (
-                    <div>
-                      <Label htmlFor="product-select">Or Select from Existing Products</Label>
-                      <Select value={formData.targetId === 'manual-product' ? '' : formData.targetId} onValueChange={onTargetSelect}>
-                        <SelectTrigger data-testid="select-product">
-                          <SelectValue placeholder="Choose from existing products" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {products.map((product) => (
-                            <SelectItem key={product.id} value={product.id} data-testid={`option-product-${product.id}`}>
-                              {product.productCode ? `[${product.productCode}] ` : ''}{product.name} - ${product.price}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {formData.targetId && formData.targetName && (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-green-800">
-                        <span className="font-medium">Selected:</span>
-                        {formData.productCode && (
-                          <span className="bg-green-100 px-2 py-1 rounded text-sm">
-                            {formData.productCode}
-                          </span>
-                        )}
-                        <span>{formData.targetName}</span>
-                        {formData.targetId === 'manual-product' && (
-                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Manual Entry</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="campaign" className="space-y-4">
                   <div>
-                    <Label htmlFor="campaign-select">Select Campaign</Label>
-                    <Select value={formData.targetId} onValueChange={onTargetSelect}>
-                      <SelectTrigger data-testid="select-campaign">
-                        <SelectValue placeholder="Choose a campaign" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {campaigns.map((campaign) => (
-                          <SelectItem key={campaign.id} value={campaign.id} data-testid={`option-campaign-${campaign.id}`}>
-                            {campaign.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="productCode">Product Code *</Label>
+                    <Input
+                      id="productCode"
+                      data-testid="input-product-code"
+                      value={formData.productCode || ''}
+                      onChange={(e) => setFormData({ ...formData, productCode: e.target.value })}
+                      required
+                    />
                   </div>
-                </TabsContent>
-              </Tabs>
+                </div>
 
-              <div>
-                <Label htmlFor="points-type">Points Type</Label>
-                <Select
-                  value={formData.pointsType}
-                  onValueChange={(value: 'fixed' | 'percentage') =>
-                    setFormData({ ...formData, pointsType: value })
-                  }
-                >
-                  <SelectTrigger data-testid="select-points-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="fixed" data-testid="option-fixed">Fixed Points</SelectItem>
-                    <SelectItem value="percentage" data-testid="option-percentage">Percentage of Purchase</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="points-value">
-                  {formData.pointsType === 'fixed' ? 'Points Amount' : 'Percentage (%)'}
-                </Label>
-                <Input
-                  id="points-value"
-                  type="number"
-                  value={formData.pointsValue}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    pointsValue: parseInt(e.target.value) || 0
-                  })}
-                  placeholder={formData.pointsType === 'fixed' ? "10" : "5"}
-                  data-testid="input-points-value"
-                />
-              </div>
-
-              {formData.type === 'product' && (
                 <div>
-                  <Label htmlFor="min-quantity">Minimum Quantity</Label>
-                  <Input
-                    id="min-quantity"
-                    type="number"
-                    value={formData.minQuantity || 1}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      minQuantity: parseInt(e.target.value) || 1
-                    })}
-                    min="1"
-                    data-testid="input-min-quantity"
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    data-testid="input-product-description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
-              )}
 
-              <div>
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description || ''}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="e.g., Christmas offer: refer to buy two hoodies and get 1 free"
-                  className="resize-none"
-                  rows={2}
-                  data-testid="input-description"
-                />
-              </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="price">Price *</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      data-testid="input-product-price"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="category">Category</Label>
+                    <Input
+                      id="category"
+                      data-testid="input-product-category"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="sku">SKU</Label>
+                    <Input
+                      id="sku"
+                      data-testid="input-product-sku"
+                      value={formData.sku}
+                      onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                    />
+                  </div>
+                </div>
 
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={resetForm} data-testid="button-cancel">
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={saveRuleMutation.isPending || createPointRuleMutation.isPending}
-                  data-testid="button-save-rule"
-                >
-                  {editingRule ? 'Update' : 'Save'} Rule
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="stockQuantity">Stock Quantity</Label>
+                    <Input
+                      id="stockQuantity"
+                      type="number"
+                      min="0"
+                      data-testid="input-stock-quantity"
+                      value={formData.stockQuantity}
+                      onChange={(e) => setFormData({ ...formData, stockQuantity: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bonusMultiplier">Bonus Multiplier</Label>
+                    <Input
+                      id="bonusMultiplier"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      data-testid="input-bonus-multiplier"
+                      value={formData.bonusMultiplier}
+                      onChange={(e) => setFormData({ ...formData, bonusMultiplier: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button type="button" variant="outline" onClick={resetForm}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    data-testid="button-submit-product"
+                    disabled={createProductMutation.isPending || updateProductMutation.isPending}
+                  >
+                    {editingProduct ? "Update Product" : "Create Product"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
-      {/* Quick Setup Examples */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card className="border-green-200 bg-green-50 dark:bg-green-900/20" data-testid="card-example-fixed">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Target className="w-5 h-5 text-green-600" />
-              <h3 className="font-semibold text-green-800 dark:text-green-300">Fixed Points</h3>
-            </div>
-            <p className="text-sm text-green-700 dark:text-blue-400">
-              Give exactly 10 points for each product purchased
+      {products.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No products yet</h3>
+            <p className="text-muted-foreground mb-4">
+              Start by importing products via Excel or add them manually
             </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-900/20" data-testid="card-example-percentage">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Calculator className="w-5 h-5 text-blue-600" />
-              <h3 className="font-semibold text-blue-800 dark:text-blue-300">Percentage Points</h3>
-            </div>
-            <p className="text-sm text-blue-700 dark:text-blue-400">
-              Give 5% of purchase value as points (e.g., $20 = 1 point)
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-purple-200 bg-purple-50 dark:bg-purple-900/20" data-testid="card-example-campaign">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Gift className="w-5 h-5 text-purple-600" />
-              <h3 className="font-semibold text-purple-800 dark:text-purple-300">Campaign Special</h3>
-            </div>
-            <p className="text-sm text-purple-700 dark:text-purple-400">
-              Special campaign: "Buy 2 hoodies, get 1 free" = 100 points
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Current Points Rules */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white" data-testid="current-rules-title">
-          Current Points Rules
-        </h2>
-
-        {pointRules.length === 0 ? (
-          <Card data-testid="card-no-rules">
-            <CardContent className="p-8 text-center">
-              <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">
-                No points rules configured
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Add points rules to start rewarding customers for purchases and referrals
-              </p>
-              <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-rule">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Points Rule
+            <div className="flex gap-2 justify-center">
+              <Button onClick={() => fileInputRef.current?.click()}>
+                <Upload className="w-4 h-4 mr-2" />
+                Import Excel
               </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pointRules.map((rule) => (
-              <Card
-                key={rule.id}
-                className={rule.isActive ? '' : 'opacity-60'}
-                data-testid={`card-rule-${rule.id}`}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-base" data-testid={`text-rule-name-${rule.id}`}>
-                        {rule.targetName}
-                      </CardTitle>
-                      <CardDescription data-testid={`text-rule-type-${rule.id}`}>
-                        {rule.type === 'product' ? 'Product Rule' : 'Campaign Rule'}
-                      </CardDescription>
-                    </div>
-                    <Badge
-                      variant={rule.type === 'product' ? 'default' : 'secondary'}
-                      data-testid={`badge-type-${rule.id}`}
-                    >
-                      {rule.type}
-                    </Badge>
+              <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Manually
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {products.map((product: Product) => (
+            <Card key={product.id} data-testid={`card-product-${product.id}`}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="text-lg">{product.name}</CardTitle>
+                    <CardDescription>
+                      {product.productCode && `Code: ${product.productCode}`}
+                      {product.sku && ` • SKU: ${product.sku}`}
+                    </CardDescription>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Points:</span>
-                      <span
-                        className="font-semibold text-green-600"
-                        data-testid={`text-points-display-${rule.id}`}
-                      >
-                        {getPointsDisplay(rule)}
-                      </span>
+                  <Badge variant={product.isActive ? "default" : "secondary"}>
+                    {product.isActive ? "Active" : "Inactive"}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="font-medium">Price:</span>
+                    <span>${parseFloat(product.price).toFixed(2)}</span>
+                  </div>
+                  {product.category && (
+                    <div className="flex justify-between">
+                      <span className="font-medium">Category:</span>
+                      <span>{product.category}</span>
                     </div>
-
-                    {rule.minQuantity && rule.minQuantity > 1 && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Min Qty:</span>
-                        <span data-testid={`text-min-qty-${rule.id}`}>
-                          {rule.minQuantity}
-                        </span>
-                      </div>
-                    )}
-
-                    {rule.description && (
-                      <p
-                        className="text-xs text-gray-500 dark:text-gray-400 mt-2"
-                        data-testid={`text-description-${rule.id}`}
-                      >
-                        {rule.description}
+                  )}
+                  <div className="flex justify-between">
+                    <span className="font-medium">Stock:</span>
+                    <span>{product.stockQuantity || 0}</span>
+                  </div>
+                  {product.description && (
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {product.description}
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                </div>
 
-                  <div className="flex gap-2 mt-4">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => editRule(rule)}
-                      data-testid={`button-edit-${rule.id}`}
-                    >
-                      <Edit className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-red-600 hover:text-red-700"
-                      onClick={() => {
-                        // Add delete functionality here if needed
-                      }}
-                      data-testid={`button-delete-${rule.id}`}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+                <div className="flex justify-end space-x-2 mt-4">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => startEdit(product)}
+                    data-testid={`button-edit-product-${product.id}`}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="destructive" 
+                    onClick={() => deleteProductMutation.mutate(product.id)}
+                    data-testid={`button-delete-product-${product.id}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -9,7 +9,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Campaigns from "@/pages/campaigns";
 import Customers from "@/pages/customers";
-import PointsSetup from "@/pages/points-setup";
+import PointsSetupPage from "@/pages/points-setup"; // Renamed from PointsSetup
 import Reports from "@/pages/reports";
 import POSIntegration from "@/pages/pos-integration";
 import CustomerRegistration from "@/pages/customer-registration";
@@ -50,7 +50,7 @@ function Router() {
             <Route path="/dashboard" component={Dashboard} />
             <Route path="/campaigns" component={Campaigns} />
             <Route path="/customers" component={Customers} />
-            <Route path="/points-setup" component={PointsSetup} />
+            <Route path="/points-setup" component={PointsSetupPage} /> {/* Updated route */}
             <Route path="/reports" component={Reports} />
             <Route path="/pos-integration" component={POSIntegration} />
             <Route path="/qr-generator" component={QRGenerator} />

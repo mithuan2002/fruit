@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart, QrCode, LogOut, Store, Settings, Target } from "lucide-react";
+import { Gift, BarChart3, Megaphone, Users, Ticket, PieChart, QrCode, LogOut, Store, Settings, Target, Package } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -8,7 +8,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: BarChart3 },
   { name: "Campaigns", href: "/campaigns", icon: Megaphone },
   { name: "Customers", href: "/customers", icon: Users },
-  { name: "Points Setup", href: "/points-setup", icon: Target },
+  { name: "Products", href: "/points-setup", icon: Package },
   { name: "QR Generator", href: "/qr-generator", icon: QrCode },
   { name: "POS Integration", href: "/pos-integration", icon: Store },
   { name: "Settings", href: "/settings", icon: Settings },

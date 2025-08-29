@@ -758,21 +758,21 @@ export function setupRoutes(app: Express): Server {
     try {
       const validatedData = insertCampaignSchema.parse(req.body);
       const campaign = await storage.createCampaign(validatedData);
-      
+
       routeLogger.info("CAMPAIGN-CREATE", "Campaign created successfully", {
         campaignId: campaign.id,
         campaignName: campaign.name,
         pointType: campaign.pointCalculationType,
         selectedProducts: req.body.selectedProducts?.length || 0
       });
-      
+
       res.status(201).json(campaign);
     } catch (error) {
       routeLogger.error("CAMPAIGN-CREATE", "Failed to create campaign", {
         error: error instanceof Error ? error.message : 'Unknown error',
         data: req.body
       });
-      
+
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
@@ -798,12 +798,14 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
-  // Product routes
+  // Products endpoints
   app.get("/api/products", async (req, res) => {
     try {
       const products = await storage.getAllProducts();
+      console.log(`Fetched products: ${products.length}`);
       res.json(products);
     } catch (error) {
+      console.error('Failed to fetch products:', error);
       res.status(500).json({ message: "Failed to fetch products" });
     }
   });
@@ -844,7 +846,7 @@ export function setupRoutes(app: Express): Server {
   app.post("/api/products/bulk", requireAuth, async (req, res) => {
     try {
       const products = req.body;
-      
+
       if (!Array.isArray(products) || products.length === 0) {
         return res.status(400).json({ message: "Invalid data: expected non-empty array of products" });
       }
@@ -859,7 +861,7 @@ export function setupRoutes(app: Express): Server {
             ...products[i],
             price: typeof products[i].price === 'string' ? parseFloat(products[i].price) : products[i].price
           };
-          
+
           const validatedData = insertProductSchema.parse(productData);
 
           // Ensure product code is uppercase for consistency
@@ -1263,7 +1265,7 @@ export function setupRoutes(app: Express): Server {
       if (!customer) {
         // Generate unique referral code for new customer
         const customerReferralCode = await storage.generateUniqueCode();
-        
+
         const newCustomer = await storage.createCustomer({
           name: customerName || `Customer ${customerPhone}`,
           phoneNumber: customerPhone,
@@ -1272,7 +1274,7 @@ export function setupRoutes(app: Express): Server {
           totalSpent: 0
         });
         customer = newCustomer;
-        
+
         routeLogger.info("BILL-SUBMISSION", "New customer created", {
           customerId: customer.id,
           name: customer.name,
@@ -1322,7 +1324,7 @@ export function setupRoutes(app: Express): Server {
         requestId: req.requestId,
         error: error instanceof Error ? error.message : "Unknown error"
       });
-      
+
       res.status(500).json({ 
         message: "Failed to submit bill for approval",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -1379,7 +1381,6 @@ export function setupRoutes(app: Express): Server {
       const billData = {
         customerId,
         invoiceNumber: ocrResult.invoiceNumber,
-        storeId: ocrResult.storeId,
         storeName: ocrResult.storeName,
         billDate: new Date(ocrResult.billDate),
         billTime: ocrResult.billTime,
@@ -1500,7 +1501,7 @@ export function setupRoutes(app: Express): Server {
   app.post("/api/admin/approve-bill/:billId", async (req: Request, res: Response) => {
     try {
       const { billId } = req.params;
-      
+
       routeLogger.info("ADMIN-APPROVAL", "Processing bill approval", {
         requestId: req.requestId,
         billId
@@ -1562,7 +1563,7 @@ export function setupRoutes(app: Express): Server {
           const referralCampaign = activeCampaigns.find(c => 
             c.isActive && c.pointCalculationType === 'percentage'
           );
-          
+
           if (referralCampaign) {
             const bonusRate = parseFloat(referralCampaign.percentageRate || '10');
             referrerPointsEarned = Math.floor((totalPointsEarned * bonusRate) / 100);
@@ -1667,7 +1668,7 @@ export function setupRoutes(app: Express): Server {
         billId: req.params.billId,
         error: error instanceof Error ? error.message : "Unknown error"
       });
-      
+
       res.status(500).json({ 
         message: "Failed to approve bill",
         error: error instanceof Error ? error.message : "Unknown error"
