@@ -569,6 +569,15 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
   startDate: z.union([z.date(), z.string().transform(str => new Date(str))]),
   endDate: z.union([z.date(), z.string().transform(str => new Date(str))]),
   pointCalculationType: z.enum(["fixed", "percentage", "tier"]).default("fixed"),
+  maximumPoints: z.union([
+    z.string().transform((val) => val === "" ? undefined : parseInt(val)),
+    z.number(),
+    z.undefined()
+  ]).optional(),
+  minimumPurchase: z.union([
+    z.string().transform((val) => val === "" ? "0" : val),
+    z.number().transform((val) => val.toString())
+  ]).optional(),
 });
 
 export const insertCouponSchema = createInsertSchema(coupons).omit({
