@@ -578,6 +578,17 @@ export const insertCampaignSchema = createInsertSchema(campaigns).omit({
     z.string().transform((val) => val === "" ? "0" : val),
     z.number().transform((val) => val.toString())
   ]).optional(),
+  percentageRate: z.union([
+    z.string().transform((val) => val === "" ? null : val),
+    z.null(),
+    z.undefined()
+  ]).optional(),
+  budget: z.union([
+    z.string().transform((val) => val === "" ? null : val),
+    z.number().transform((val) => val.toString()),
+    z.null(),
+    z.undefined()
+  ]).optional(),
 });
 
 export const insertCouponSchema = createInsertSchema(coupons).omit({
