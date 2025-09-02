@@ -3,28 +3,21 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Header from "@/components/layout/header";
-import OCRBillScanner from "@/components/ocr-bill-scanner";
+import BillPhotoUploader from "@/components/bill-photo-uploader";
 import { CheckCircle, Receipt, TrendingUp, Users, Gift } from "lucide-react";
 
 interface ProcessedBillResult {
   success: boolean;
-  bill: {
+  billSubmission: {
     id: string;
-    invoiceNumber: string;
-    storeName: string;
-    totalAmount: string;
-    pointsEarned: number;
-    processedAt: string;
+    billNumber: string;
+    totalAmount: number;
+    verificationStatus: string;
+    submittedAt: string;
   };
   customer: {
     id: string;
     name: string;
-    newPointsBalance: number;
-  };
-  referrer?: {
-    id: string;
-    name: string;
-    bonusPointsEarned: number;
   };
 }
 
@@ -32,20 +25,20 @@ export default function BillScanner() {
   const [recentBills, setRecentBills] = useState<ProcessedBillResult[]>([]);
   const { toast } = useToast();
 
-  const handleBillProcessed = (result: ProcessedBillResult) => {
+  const handleBillSubmitted = (result: ProcessedBillResult) => {
     setRecentBills(prev => [result, ...prev.slice(0, 4)]); // Keep last 5 bills
     
     toast({
-      title: "Bill Processed Successfully!",
-      description: `${result.customer.name} earned ${result.bill.pointsEarned} points`,
+      title: "Bill Submitted Successfully!",
+      description: `${result.customer.name}'s bill is now pending verification`,
     });
   };
 
   return (
     <>
       <Header
-        title="Bill Scanner"
-        description="Scan customer bills to automatically assign points and process referrals"
+        title="Bill Submission"
+        description="Submit customer bills for admin verification and point allocation"
         showCreateButton={false}
       />
 
@@ -59,7 +52,7 @@ export default function BillScanner() {
                 <div className="flex items-center">
                   <Receipt className="h-8 w-8 text-blue-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Bills Processed Today</p>
+                    <p className="text-sm font-medium text-gray-600">Bills Submitted Today</p>
                     <p className="text-2xl font-bold text-gray-900">{recentBills.length}</p>
                   </div>
                 </div>
@@ -71,9 +64,9 @@ export default function BillScanner() {
                 <div className="flex items-center">
                   <Gift className="h-8 w-8 text-green-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Points Awarded</p>
+                    <p className="text-sm font-medium text-gray-600">Bills Pending</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {recentBills.reduce((sum, bill) => sum + bill.bill.pointsEarned, 0)}
+                      {recentBills.filter(bill => bill.billSubmission.verificationStatus === 'pending').length}
                     </p>
                   </div>
                 </div>
@@ -101,7 +94,7 @@ export default function BillScanner() {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Sales</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      ₹{recentBills.reduce((sum, bill) => sum + parseFloat(bill.bill.totalAmount), 0).toFixed(2)}
+                      ₹{recentBills.reduce((sum, bill) => sum + bill.billSubmission.totalAmount, 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -110,22 +103,22 @@ export default function BillScanner() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* OCR Scanner */}
+            {/* Bill Photo Uploader */}
             <div className="lg:col-span-2">
-              <OCRBillScanner onBillProcessed={handleBillProcessed} />
+              <BillPhotoUploader onBillSubmitted={handleBillSubmitted} />
             </div>
 
             {/* Recent Bills */}
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg font-semibold">Recent Bills</CardTitle>
-                  <CardDescription>Latest processed bills and points awarded</CardDescription>
+                  <CardTitle className="text-lg font-semibold">Recent Submissions</CardTitle>
+                  <CardDescription>Latest bill submissions and their status</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {recentBills.length === 0 ? (
                     <p className="text-gray-500 text-center py-8">
-                      No bills processed yet. Scan your first bill to get started!
+                      No bills submitted yet. Upload your first bill to get started!
                     </p>
                   ) : (
                     recentBills.map((bill, index) => (
@@ -133,27 +126,24 @@ export default function BillScanner() {
                         <div className="flex justify-between items-start">
                           <div>
                             <p className="font-medium">{bill.customer.name}</p>
-                            <p className="text-sm text-gray-600">₹{bill.bill.totalAmount}</p>
+                            <p className="text-sm text-gray-600">₹{bill.billSubmission.totalAmount}</p>
                           </div>
-                          <Badge variant="secondary">
-                            +{bill.bill.pointsEarned} pts
+                          <Badge 
+                            variant={bill.billSubmission.verificationStatus === 'pending' ? 'outline' : 
+                                   bill.billSubmission.verificationStatus === 'approved' ? 'default' : 'destructive'}
+                          >
+                            {bill.billSubmission.verificationStatus}
                           </Badge>
                         </div>
                         
-                        {bill.bill.invoiceNumber && (
+                        {bill.billSubmission.billNumber && (
                           <p className="text-xs text-gray-500">
-                            Invoice: {bill.bill.invoiceNumber}
+                            Bill: {bill.billSubmission.billNumber}
                           </p>
                         )}
                         
-                        {bill.referrer && (
-                          <div className="text-xs bg-green-50 text-green-700 p-2 rounded">
-                            Referral bonus: {bill.referrer.name} earned +{bill.referrer.bonusPointsEarned} pts
-                          </div>
-                        )}
-                        
                         <p className="text-xs text-gray-400">
-                          {new Date(bill.bill.processedAt).toLocaleTimeString()}
+                          {new Date(bill.billSubmission.submittedAt).toLocaleTimeString()}
                         </p>
                       </div>
                     ))

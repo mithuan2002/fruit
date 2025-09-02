@@ -29,8 +29,8 @@ import {
   type InsertSaleItem,
   type Bill,
   type InsertBill,
-  type BillItem,
-  type InsertBillItem,
+  type BillSubmission,
+  type InsertBillSubmission,
   customers,
   campaigns,
   coupons,
@@ -46,7 +46,7 @@ import {
   sales,
   saleItems,
   bills,
-  billItems,
+  billSubmissions,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -1219,31 +1219,40 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bills.id, billId));
   }
 
-  // Bill Item operations
-  async getBillItem(id: string): Promise<BillItem | undefined> {
-    const [item] = await db.select().from(billItems).where(eq(billItems.id, id));
-    return item || undefined;
-  }
-
-  async getBillItemsByBill(billId: string): Promise<BillItem[]> {
-    return await db.select().from(billItems).where(eq(billItems.billId, billId));
-  }
-
-  async createBillItem(billItem: InsertBillItem): Promise<BillItem> {
-    const [item] = await db
-      .insert(billItems)
-      .values(billItem)
+  // Bill submission operations
+  async submitBill(data: InsertBillSubmission): Promise<BillSubmission> {
+    const [submission] = await db
+      .insert(billSubmissions)
+      .values(data)
       .returning();
-    return item;
+    return submission;
   }
 
-  async updateBillItem(id: string, updates: Partial<BillItem>): Promise<BillItem | undefined> {
-    const [item] = await db
-      .update(billItems)
-      .set(updates)
-      .where(eq(billItems.id, id))
+  async getBillSubmission(id: string): Promise<BillSubmission | undefined> {
+    const [submission] = await db.select().from(billSubmissions).where(eq(billSubmissions.id, id));
+    return submission || undefined;
+  }
+
+  async getBillSubmissionsByStatus(status: string): Promise<BillSubmission[]> {
+    return await db.select().from(billSubmissions).where(eq(billSubmissions.verificationStatus, status));
+  }
+
+  async updateBillSubmissionStatus(id: string, data: {
+    verificationStatus: string;
+    adminNotes?: string;
+    pointsAwarded?: number;
+    verifiedBy?: string;
+    verifiedAt?: Date;
+  }): Promise<BillSubmission | undefined> {
+    const [submission] = await db
+      .update(billSubmissions)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(billSubmissions.id, id))
       .returning();
-    return item || undefined;
+    return submission || undefined;
   }
 
   // Pending Bill operations

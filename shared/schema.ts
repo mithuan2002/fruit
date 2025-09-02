@@ -116,15 +116,12 @@ export const bills = pgTable("bills", {
   referralCode: text("referral_code"), // If this was a purchase
   referrerId: varchar("referrer_id").references(() => customers.id, { onDelete: "set null" }),
 
-  // OCR extracted data
-  invoiceNumber: text("invoice_number"),
-  billNumber: text("bill_number"), // Unique bill identifier
+  // Bill submission data
+  billNumber: text("bill_number"), // User provided or generated
   storeName: text("store_name"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   billDate: timestamp("bill_date"),
-  extractedText: text("extracted_text"), // Full OCR text for debugging
-  extractedItems: text("extracted_items"), // JSON string of extracted items
-  ocrConfidence: decimal("ocr_confidence", { precision: 5, scale: 2 }), // OCR accuracy percentage
+  notes: text("notes"), // Additional notes from customer
 
   // Processing data
   pointsEarned: integer("points_earned").notNull().default(0),
@@ -135,8 +132,10 @@ export const bills = pgTable("bills", {
   processedAt: timestamp("processed_at"),
 
   // Metadata
-  imageUrl: text("image_url"), // Store the scanned image
-  ocrConfidence: decimal("ocr_confidence", { precision: 5, scale: 2 }), // OCR accuracy percentage
+  imageUrl: text("image_url"), // Store the bill photo
+  verificationStatus: text("verification_status").notNull().default("pending"), // pending, approved, rejected
+  verifiedBy: varchar("verified_by"), // Admin who verified
+  verifiedAt: timestamp("verified_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -144,7 +143,7 @@ export const bills = pgTable("bills", {
   referrerIdx: index("bills_referrer_idx").on(table.referrerId),
   statusIdx: index("bills_status_idx").on(table.status),
   dateIdx: index("bills_date_idx").on(table.createdAt),
-  invoiceIdx: index("bills_invoice_idx").on(table.invoiceNumber),
+  billNumberIdx: index("bills_bill_number_idx").on(table.billNumber),
 }));
 
 // Products table for product-specific point calculations
@@ -327,24 +326,27 @@ export const sessions = pgTable(
 
 
 
-// Bill items table for line-item details (if OCR can extract them)
-export const billItems = pgTable("bill_items", {
+// Bill submissions for manual verification
+export const billSubmissions = pgTable("bill_submissions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  billId: varchar("bill_id").notNull().references(() => bills.id, { onDelete: "cascade" }),
-  // Item details from OCR
-  itemName: text("item_name").notNull(),
-  itemCode: text("item_code"), // Product code if available
-  quantity: integer("quantity").notNull().default(1),
-  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
-  totalPrice: decimal("total_price", { precision: 10, scale: 2 }).notNull(),
-  // Additional OCR data
-  category: text("category"), // If OCR can detect item category
-  notes: text("notes"), // Any additional OCR-extracted info
+  customerId: varchar("customer_id").notNull().references(() => customers.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  billNumber: text("bill_number"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  imageUrl: text("image_url").notNull(), // Bill photo
+  customerNotes: text("customer_notes"),
+  verificationStatus: text("verification_status").notNull().default("pending"), // pending, approved, rejected
+  adminNotes: text("admin_notes"), // Admin comments during verification
+  pointsAwarded: integer("points_awarded").notNull().default(0),
+  verifiedBy: varchar("verified_by"),
+  verifiedAt: timestamp("verified_at"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  billIdx: index("bill_items_bill_idx").on(table.billId),
-  nameIdx: index("bill_items_name_idx").on(table.itemName),
-  codeIdx: index("bill_items_code_idx").on(table.itemCode),
+  customerIdx: index("bill_submissions_customer_idx").on(table.customerId),
+  campaignIdx: index("bill_submissions_campaign_idx").on(table.campaignId),
+  statusIdx: index("bill_submissions_status_idx").on(table.verificationStatus),
+  dateIdx: index("bill_submissions_date_idx").on(table.createdAt),
 }));
 
 // Cashier users table for discount redemption tracking
@@ -522,14 +524,18 @@ export const billsRelations = relations(bills, ({ one, many }) => ({
     fields: [bills.referrerId],
     references: [customers.id],
   }),
-  items: many(billItems),
+  // items removed - no longer using billItems
   discountTransactions: many(discountTransactions),
 }));
 
-export const billItemsRelations = relations(billItems, ({ one }) => ({
-  bill: one(bills, {
-    fields: [billItems.billId],
-    references: [bills.id],
+export const billSubmissionsRelations = relations(billSubmissions, ({ one }) => ({
+  customer: one(customers, {
+    fields: [billSubmissions.customerId],
+    references: [customers.id],
+  }),
+  campaign: one(campaigns, {
+    fields: [billSubmissions.campaignId],
+    references: [campaigns.id],
   }),
 }));
 
@@ -705,9 +711,13 @@ export const insertBillSchema = createInsertSchema(bills).omit({
   updatedAt: true,
 });
 
-export const insertBillItemSchema = createInsertSchema(billItems).omit({
+export const insertBillSubmissionSchema = createInsertSchema(billSubmissions).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
+  pointsAwarded: true,
+  verifiedBy: true,
+  verifiedAt: true,
 });
 
 export const insertDiscountTransactionSchema = createInsertSchema(discountTransactions).omit({
@@ -786,8 +796,8 @@ export type InsertSaleItem = z.infer<typeof insertSaleItemSchema>;
 export type Bill = typeof bills.$inferSelect;
 export type InsertBill = z.infer<typeof insertBillSchema>;
 
-export type BillItem = typeof billItems.$inferSelect;
-export type InsertBillItem = z.infer<typeof insertBillItemSchema>;
+export type BillSubmission = typeof billSubmissions.$inferSelect;
+export type InsertBillSubmission = z.infer<typeof insertBillSubmissionSchema>;
 
 export type Cashier = typeof cashiers.$inferSelect;
 export type InsertCashier = z.infer<typeof insertCashierSchema>;

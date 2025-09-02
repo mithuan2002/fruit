@@ -11,8 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Progress } from '@/components/ui/progress';
 import { Camera, Upload, FileText, CheckCircle, AlertCircle, Gift, Scan, User, Phone, Receipt } from 'lucide-react';
 import Webcam from 'react-webcam';
-import Tesseract from 'tesseract.js';
-import OCRBillScanner from '@/components/ocr-bill-scanner';
+import BillPhotoUploader from '@/components/bill-photo-uploader';
 
 interface Customer {
   id: string;
