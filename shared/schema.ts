@@ -118,10 +118,13 @@ export const bills = pgTable("bills", {
 
   // OCR extracted data
   invoiceNumber: text("invoice_number"),
+  billNumber: text("bill_number"), // Unique bill identifier
   storeName: text("store_name"),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   billDate: timestamp("bill_date"),
   extractedText: text("extracted_text"), // Full OCR text for debugging
+  extractedItems: text("extracted_items"), // JSON string of extracted items
+  ocrConfidence: decimal("ocr_confidence", { precision: 5, scale: 2 }), // OCR accuracy percentage
 
   // Processing data
   pointsEarned: integer("points_earned").notNull().default(0),

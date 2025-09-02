@@ -1245,12 +1245,16 @@ export function setupRoutes(app: Express): Server {
         campaignId,
         campaignName,
         totalAmount,
+        billNumber,
+        extractedItems,
+        extractedText,
+        ocrConfidence,
         imageData
       } = req.body;
 
-      if (!customerPhone || !totalAmount || !campaignId) {
+      if (!customerPhone || !totalAmount || !campaignId || !billNumber || !extractedItems || extractedItems.length === 0) {
         return res.status(400).json({ 
-          message: "Customer phone, total amount, and campaign are required" 
+          message: "Customer phone, total amount, campaign, bill number, and extracted items are required" 
         });
       }
 
@@ -1282,12 +1286,16 @@ export function setupRoutes(app: Express): Server {
         });
       }
 
-      // Create pending bill record with campaign data
+      // Create pending bill record with enhanced extracted data
       const billData = {
         customerId: customer.id,
         totalAmount: parseFloat(totalAmount),
         campaignId: campaignId,
         campaignName: campaignName || 'Unknown Campaign',
+        billNumber: billNumber,
+        extractedItems: JSON.stringify(extractedItems),
+        extractedText: extractedText || '',
+        ocrConfidence: ocrConfidence || 0,
         imageData: imageData || null,
         referralCode: referralCode || null,
         status: 'PENDING_APPROVAL',
@@ -1307,11 +1315,14 @@ export function setupRoutes(app: Express): Server {
 
       res.json({
         success: true,
-        message: "Bill submitted for approval successfully",
+        message: "Bill submitted for admin verification successfully",
         bill: {
           id: pendingBill.id,
           status: 'PENDING_APPROVAL',
           submittedAt: pendingBill.submittedAt,
+          billNumber: billNumber,
+          extractedItems: extractedItems,
+          verifiedTotal: parseFloat(totalAmount),
         },
         customer: {
           id: customer.id,
@@ -1594,35 +1605,41 @@ export function setupRoutes(app: Express): Server {
         });
       }
 
-      // Create the final bill record
+      // Create the final bill record with extracted details
       const billData = {
         customerId,
-        invoiceNumber: null,
-        storeName: 'Store', // Default store name
+        invoiceNumber: pendingBill.invoiceNumber,
+        billNumber: pendingBill.billNumber,
+        storeName: pendingBill.storeName || 'Store',
         billDate: new Date(pendingBill.submittedAt),
         billTime: null,
         totalAmount: totalAmount,
-        originalImageUrl: null,
-        ocrRawData: `Campaign: ${campaignName}`,
+        extractedText: pendingBill.extractedText,
+        extractedItems: pendingBill.extractedItems,
+        ocrConfidence: pendingBill.ocrConfidence,
+        imageUrl: pendingBill.imageData, // Store the bill image
         pointsEarned: totalPointsEarned,
         referralCode: referralCode || null,
         referrerId: referrer?.id || null,
-        referrerPointsEarned,
+        referrerBonusPoints: referrerPointsEarned,
         status: "processed" as const,
-        isValid: true,
-        billHash: `${campaignId}-${customerId}-${new Date().toISOString().split('T')[0]}`
+        processedAt: new Date(),
+        billHash: `${pendingBill.billNumber}-${customerId}-${new Date().toISOString().split('T')[0]}`
       };
 
       const bill = await storage.createBill(billData);
 
-      // Create a single bill item representing the campaign
-      await storage.createBillItem({
-        billId: bill.id,
-        itemName: campaignName,
-        quantity: 1,
-        unitPrice: totalAmount,
-        totalPrice: totalAmount
-      });
+      // Create bill items from extracted data
+      const extractedItems = JSON.parse(pendingBill.extractedItems || '[]');
+      for (const item of extractedItems) {
+        await storage.createBillItem({
+          billId: bill.id,
+          itemName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice.toString(),
+          totalPrice: item.totalPrice.toString()
+        });
+      }
 
       // Mark pending bill as approved
       await storage.updatePendingBillStatus(billId, 'APPROVED', bill.id);

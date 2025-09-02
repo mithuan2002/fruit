@@ -56,12 +56,12 @@ import { eq, desc, and, count, sum, sql } from "drizzle-orm";
 interface PendingBill {
   bill: {
     id: string;
+    billNumber: string | null;
     totalAmount: string;
-    invoiceNumber: string | null;
-    storeName: string | null;
+    extractedItems: string;
     extractedText: string | null;
-    ocrConfidence: number | null;
-    imageData: string | null;
+    ocrConfidence: string | null;
+    imageUrl: string | null;
     referralCode: string | null;
     submittedAt: string;
     createdAt: string;
@@ -78,9 +78,11 @@ export class StorageService {
   async submitPendingBill(billData: {
     customerId: string;
     totalAmount: string;
+    billNumber?: string | null;
     invoiceNumber?: string | null;
     storeName?: string | null;
     extractedText?: string;
+    extractedItems?: string;
     ocrConfidence?: number;
     imageData?: string | null;
     referralCode?: string | null;
@@ -100,11 +102,13 @@ export class StorageService {
       id,
       customerId: billData.customerId,
       totalAmount: billData.totalAmount,
+      billNumber: billData.billNumber,
       invoiceNumber: billData.invoiceNumber,
       storeName: billData.storeName,
       extractedText: billData.extractedText || '',
-      ocrConfidence: billData.ocrConfidence || 0,
-      imageData: billData.imageData,
+      extractedItems: billData.extractedItems || '[]',
+      ocrConfidence: billData.ocrConfidence?.toString() || '0',
+      imageUrl: billData.imageData, // Store base64 image data temporarily
       referralCode: billData.referralCode,
       status: 'PENDING',
       pointsEarned: 0, // Will be calculated upon approval
@@ -118,8 +122,24 @@ export class StorageService {
 
   async getPendingBills() {
     return await db.select({
-      bill: bills,
-      customer: customers
+      bill: {
+        id: bills.id,
+        billNumber: bills.billNumber,
+        totalAmount: bills.totalAmount,
+        extractedItems: bills.extractedItems,
+        extractedText: bills.extractedText,
+        ocrConfidence: bills.ocrConfidence,
+        imageUrl: bills.imageUrl,
+        referralCode: bills.referralCode,
+        submittedAt: bills.createdAt,
+        createdAt: bills.createdAt,
+      },
+      customer: {
+        id: customers.id,
+        name: customers.name,
+        phoneNumber: customers.phoneNumber,
+        points: customers.points,
+      }
     })
     .from(bills)
     .leftJoin(customers, eq(bills.customerId, customers.id))
@@ -1053,7 +1073,7 @@ export class DatabaseStorage implements IStorage {
     return sale || undefined;
   }
 
-  async getAllSales(): Promise<Sale[]> {
+  async getAllSales(): Promise<Sale[]>{
     return await db.select().from(sales).orderBy(desc(sales.createdAt));
   }
 
@@ -1158,14 +1178,14 @@ export class DatabaseStorage implements IStorage {
       .select({
         bill: {
           id: bills.id,
+          billNumber: bills.billNumber,
           totalAmount: bills.totalAmount,
-          invoiceNumber: bills.invoiceNumber,
-          storeName: bills.storeName,
+          extractedItems: bills.extractedItems,
           extractedText: bills.extractedText,
           ocrConfidence: bills.ocrConfidence,
-          imageData: bills.imageData,
+          imageUrl: bills.imageUrl,
           referralCode: bills.referralCode,
-          submittedAt: bills.submittedAt,
+          submittedAt: bills.createdAt,
           createdAt: bills.createdAt,
         },
         customer: {
@@ -1230,9 +1250,11 @@ export class DatabaseStorage implements IStorage {
   async createPendingBill(billData: {
     customerId: string;
     totalAmount: string;
+    billNumber?: string | null;
     invoiceNumber?: string | null;
     storeName?: string | null;
     extractedText?: string;
+    extractedItems?: string;
     ocrConfidence?: number;
     imageData?: string | null;
     referralCode?: string | null;
@@ -1252,11 +1274,13 @@ export class DatabaseStorage implements IStorage {
       id,
       customerId: billData.customerId,
       totalAmount: billData.totalAmount,
+      billNumber: billData.billNumber,
       invoiceNumber: billData.invoiceNumber,
       storeName: billData.storeName,
       extractedText: billData.extractedText || '',
-      ocrConfidence: billData.ocrConfidence || 0,
-      imageData: billData.imageData,
+      extractedItems: billData.extractedItems || '[]',
+      ocrConfidence: billData.ocrConfidence?.toString() || '0',
+      imageUrl: billData.imageData, // Store base64 image data temporarily
       referralCode: billData.referralCode,
       status: 'PENDING',
       pointsEarned: 0, // Will be calculated upon approval

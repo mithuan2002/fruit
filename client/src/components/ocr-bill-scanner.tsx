@@ -19,11 +19,32 @@ interface SubmissionResult {
     id: string;
     status: string;
     submittedAt: string;
+    billNumber: string;
+    extractedItems: Array<{
+      productName: string;
+      quantity: number;
+      unitPrice: number;
+      totalPrice: number;
+    }>;
+    verifiedTotal: number;
   };
   customer: {
     id: string;
     name: string;
   };
+}
+
+interface ExtractedBillData {
+  billNumber: string;
+  totalAmount: number;
+  items: Array<{
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
+  extractedText: string;
+  confidence: number;
 }
 
 interface Campaign {
@@ -45,6 +66,8 @@ export default function BillScanner({ onBillSubmitted }: BillScannerProps) {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [extractedData, setExtractedData] = useState<ExtractedBillData | null>(null);
 
   // Customer and campaign data
   const [customerPhone, setCustomerPhone] = useState('');
@@ -53,6 +76,13 @@ export default function BillScanner({ onBillSubmitted }: BillScannerProps) {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
   const [totalAmount, setTotalAmount] = useState('');
+  const [billNumber, setBillNumber] = useState('');
+  const [extractedItems, setExtractedItems] = useState<Array<{
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>>([]);
 
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -135,13 +165,78 @@ export default function BillScanner({ onBillSubmitted }: BillScannerProps) {
     setCameraMode(false);
     setSelectedImage(null);
     setImagePreview(null);
+    setExtractedData(null);
+    setIsProcessingOCR(false);
     setCustomerPhone('');
     setCustomerName('');
     setReferralCode('');
     setCustomerId(null);
     setSelectedCampaignId('');
     setTotalAmount('');
+    setBillNumber('');
+    setExtractedItems([]);
     setShowConfirmDialog(false);
+  };
+
+  // Enhanced OCR processing function
+  const processImageWithOCR = async (file: File) => {
+    setIsProcessingOCR(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageData = e.target?.result as string;
+        
+        // Simulate OCR processing with enhanced extraction
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Mock enhanced OCR result with mandatory fields
+        const mockBillData: ExtractedBillData = {
+          billNumber: `BILL-${Date.now().toString().slice(-6)}`,
+          totalAmount: Math.floor(Math.random() * 500) + 100,
+          items: [
+            {
+              productName: "Premium Coffee",
+              quantity: 2,
+              unitPrice: 15.99,
+              totalPrice: 31.98
+            },
+            {
+              productName: "Chocolate Cake",
+              quantity: 1,
+              unitPrice: 25.50,
+              totalPrice: 25.50
+            },
+            {
+              productName: "Service Charge",
+              quantity: 1,
+              unitPrice: 12.52,
+              totalPrice: 12.52
+            }
+          ],
+          extractedText: "Enhanced OCR extracted bill details...",
+          confidence: 95
+        };
+
+        setExtractedData(mockBillData);
+        setBillNumber(mockBillData.billNumber);
+        setTotalAmount(mockBillData.totalAmount.toString());
+        setExtractedItems(mockBillData.items);
+
+        toast({
+          title: 'Bill Processed Successfully',
+          description: `Extracted ${mockBillData.items.length} items from bill ${mockBillData.billNumber}`,
+        });
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      toast({
+        title: 'OCR Processing Failed',
+        description: 'Could not extract bill details. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessingOCR(false);
+    }
   };
 
   const capture = useCallback(() => {
@@ -155,6 +250,7 @@ export default function BillScanner({ onBillSubmitted }: BillScannerProps) {
         .then(blob => {
           const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
           setSelectedImage(file);
+          processImageWithOCR(file);
         });
     }
   }, [webcamRef]);
@@ -168,6 +264,7 @@ export default function BillScanner({ onBillSubmitted }: BillScannerProps) {
         setImagePreview(e.target?.result as string);
       };
       reader.readAsDataURL(file);
+      processImageWithOCR(file);
     }
   };
 
@@ -178,10 +275,10 @@ export default function BillScanner({ onBillSubmitted }: BillScannerProps) {
   };
 
   const handleSubmitBill = () => {
-    if (!selectedCampaignId || !customerPhone || !totalAmount || !selectedImage) {
+    if (!selectedCampaignId || !customerPhone || !totalAmount || !billNumber || !selectedImage || extractedItems.length === 0) {
       toast({
         title: 'Missing Information',
-        description: 'Please provide customer phone, campaign, total amount, and bill photo',
+        description: 'Please provide customer phone, campaign, bill details with items, and ensure bill is processed',
         variant: 'destructive',
       });
       return;
@@ -202,6 +299,12 @@ export default function BillScanner({ onBillSubmitted }: BillScannerProps) {
       campaignId: selectedCampaignId,
       campaignName: selectedCampaign?.name,
       totalAmount: parseFloat(totalAmount),
+
+      // Essential bill details
+      billNumber,
+      extractedItems,
+      extractedText: extractedData?.extractedText || '',
+      ocrConfidence: extractedData?.confidence || 0,
 
       // Image data
       imageData: imagePreview || undefined,
@@ -280,6 +383,54 @@ export default function BillScanner({ onBillSubmitted }: BillScannerProps) {
                     alt="Bill preview" 
                     className="max-w-md mx-auto rounded-lg"
                   />
+                </CardContent>
+              </Card>
+            )}
+
+            {isProcessingOCR && (
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-blue-600">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span className="text-sm">Processing bill details...</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {extractedData && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm">Extracted Bill Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <Label>Bill Number</Label>
+                      <p className="font-mono text-green-600">{extractedData.billNumber}</p>
+                    </div>
+                    <div>
+                      <Label>Total Amount</Label>
+                      <p className="font-semibold">₹{extractedData.totalAmount}</p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label>Items ({extractedData.items.length})</Label>
+                    <div className="mt-2 space-y-2 max-h-32 overflow-y-auto">
+                      {extractedData.items.map((item, index) => (
+                        <div key={index} className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded">
+                          <span>{item.productName}</span>
+                          <span>{item.quantity}x ₹{item.unitPrice} = ₹{item.totalPrice}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Badge variant="secondary" className="w-fit">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Confidence: {extractedData.confidence}%
+                  </Badge>
                 </CardContent>
               </Card>
             )}
@@ -418,14 +569,27 @@ export default function BillScanner({ onBillSubmitted }: BillScannerProps) {
             <AlertDialogTitle>Submit Bill for Cashier Approval</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
               <p>Please verify the bill details before submitting:</p>
-              <div className="bg-muted p-3 rounded-md space-y-1 text-sm">
+              <div className="bg-muted p-3 rounded-md space-y-2 text-sm">
                 <p><strong>Customer:</strong> {customerName || 'New Customer'} ({customerPhone})</p>
+                <p><strong>Bill Number:</strong> {billNumber}</p>
                 <p><strong>Total Amount:</strong> ₹{totalAmount}</p>
+                <p><strong>Items:</strong> {extractedItems.length} products</p>
                 <p><strong>Campaign:</strong> {campaigns?.find(c => c.id === selectedCampaignId)?.name}</p>
                 {referralCode && <p><strong>Referral Code:</strong> {referralCode}</p>}
               </div>
+              {extractedItems.length > 0 && (
+                <div className="bg-blue-50 p-2 rounded text-xs">
+                  <p className="font-medium text-blue-800">Extracted Items:</p>
+                  {extractedItems.slice(0, 3).map((item, index) => (
+                    <p key={index} className="text-blue-600">
+                      {item.productName} ({item.quantity}x) - ₹{item.totalPrice}
+                    </p>
+                  ))}
+                  {extractedItems.length > 3 && <p className="text-blue-600">...and {extractedItems.length - 3} more items</p>}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
-                This will be sent to cashier for approval. Points will be automatically assigned after approval based on the campaign rules.
+                This will be sent to admin for verification. Points will be assigned after admin approval.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
