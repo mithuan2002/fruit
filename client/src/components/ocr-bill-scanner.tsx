@@ -93,10 +93,15 @@ export default function BillScanner({ onBillSubmitted }: BillScannerProps) {
   const { data: campaigns, isLoading: campaignsLoading } = useQuery({
     queryKey: ['/api/campaigns/active'],
     queryFn: async (): Promise<Campaign[]> => {
-      const response = await fetch('/api/campaigns/active');
+      const response = await fetch('/api/campaigns/active', { 
+        cache: 'no-cache',
+        headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+      });
       if (!response.ok) throw new Error('Failed to fetch campaigns');
       return response.json();
     },
+    staleTime: 0, // Always refetch
+    cacheTime: 0, // Don't cache
   });
 
   // Find customer by phone

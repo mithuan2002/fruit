@@ -173,24 +173,24 @@ export default function CustomerApp() {
 
     try {
       console.log('Starting OCR processing for file:', file.name, 'Size:', file.size);
-      
+
       // Preprocess image for better OCR results
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
-      
+
       const processedFile = await new Promise<File>((resolve) => {
         img.onload = () => {
           // Scale image for better OCR
           const scale = Math.min(1920 / img.width, 1080 / img.height, 2);
           canvas.width = img.width * scale;
           canvas.height = img.height * scale;
-          
+
           // Apply image enhancements
           ctx!.imageSmoothingEnabled = false;
           ctx!.filter = 'contrast(1.5) brightness(1.2)';
           ctx!.drawImage(img, 0, 0, canvas.width, canvas.height);
-          
+
           canvas.toBlob((blob) => {
             resolve(new File([blob!], file.name, { type: 'image/jpeg' }));
           }, 'image/jpeg', 0.95);
@@ -243,7 +243,7 @@ export default function CustomerApp() {
         description: 'Please try a clearer image or enter details manually',
         variant: 'destructive',
       });
-      
+
       // Still show some feedback even if OCR fails
       setExtractedData({
         extractedText: 'OCR processing failed',
@@ -257,8 +257,8 @@ export default function CustomerApp() {
 
   const extractBillInfo = (text: string): Partial<ExtractedBillData> => {
     const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-    const cleanText = text.replace(/[^\w\s₹$.,:-]/g, ' ').replace(/\s+/g, ' ');
-    
+    const cleanText = text.replace(/[^\w\s₹.,:-]/g, ' ').replace(/\s+/g, ' ');
+
     // Enhanced patterns for better detection
     const totalPatterns = [
       // Indian formats
@@ -274,14 +274,14 @@ export default function CustomerApp() {
       // Numbers with decimal points (likely prices)
       /(?:^|\s)(\d+\.\d{2})(?:\s|$)/m,
     ];
-    
+
     const invoicePatterns = [
       /(?:invoice|bill|receipt|ref|order|txn)[:\s#]*([A-Z0-9]{3,15})/i,
       /(?:inv|rcpt|ref)[:\s#]*([A-Z0-9]{3,15})/i,
       /(?:^|\s)([A-Z]{2,4}\d{3,10})(?:\s|$)/m,
       /#\s*([A-Z0-9]{3,15})/i,
     ];
-    
+
     const storePatterns = [
       // First few lines that look like store names
       /^([A-Z][A-Za-z\s&.,]{2,30})$/m,
@@ -628,7 +628,7 @@ export default function CustomerApp() {
                       )}
                     </div>
                   )}
-                  
+
                   {/* Raw OCR text */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">Full OCR Text:</label>
