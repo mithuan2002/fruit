@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { Camera, Upload, FileText, CheckCircle, AlertCircle, Gift, Scan, User, Phone, Receipt } from 'lucide-react';
 import Webcam from 'react-webcam';
 import Tesseract from 'tesseract.js';
+import OCRBillScanner from '@/components/ocr-bill-scanner';
 
 interface Customer {
   id: string;
@@ -227,8 +228,8 @@ export default function CustomerApp() {
         storeName: extractedInfo.storeName || '',
       });
 
-      const successMessage = extractedInfo.totalAmount 
-        ? `Found amount: ₹${extractedInfo.totalAmount}` 
+      const successMessage = extractedInfo.totalAmount
+        ? `Found amount: ₹${extractedInfo.totalAmount}`
         : 'Text extracted - please verify details';
 
       toast({
@@ -329,10 +330,10 @@ export default function CustomerApp() {
     }
 
     // Extract store name from first few meaningful lines
-    const meaningfulLines = lines.filter(line => 
-      line.length > 2 && 
-      line.length < 50 && 
-      !/^\d+$/.test(line) && 
+    const meaningfulLines = lines.filter(line =>
+      line.length > 2 &&
+      line.length < 50 &&
+      !/^\d+$/.test(line) &&
       !line.match(/^\d+\.\d{2}$/) &&
       !line.toLowerCase().includes('total') &&
       !line.toLowerCase().includes('amount')
@@ -432,6 +433,17 @@ export default function CustomerApp() {
     );
   }
 
+  const handleBillSubmitted = (result: ProcessedBillResult) => {
+    console.log('Bill submitted successfully:', result);
+    setShowBillScanner(false);
+    // Invalidate queries to refetch customer data and show updated points
+    queryClient.invalidateQueries({ queryKey: [`/api/customer/dashboard/${customerId}`] });
+    toast({
+      title: 'Bill Submitted for Approval!',
+      description: `You will earn ${result.bill.pointsEarned} points upon approval.`,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {!showBillScanner ? (
@@ -485,8 +497,8 @@ export default function CustomerApp() {
 
             {/* Actions */}
             <div className="space-y-3">
-              <Button 
-                onClick={() => setShowBillScanner(true)} 
+              <Button
+                onClick={() => setShowBillScanner(true)}
                 className="w-full h-12 text-lg"
                 data-testid="button-scan-bill"
               >
@@ -502,195 +514,22 @@ export default function CustomerApp() {
           </div>
         </div>
       ) : (
-        // Bill Scanner Interface
+        // Bill Scanner Interface - Use the full OCR Bill Scanner
         <div className="p-4">
-          <div className="max-w-md mx-auto space-y-6">
+          <div className="max-w-4xl mx-auto">
             {/* Header */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mb-6">
               <Button variant="ghost" size="sm" onClick={() => setShowBillScanner(false)}>
-                ← Back
+                ← Back to Dashboard
               </Button>
               <div>
-                <h2 className="text-xl font-bold">Scan Your Bill</h2>
-                <p className="text-sm text-gray-600">Upload receipt to earn points</p>
+                <h2 className="text-xl font-bold">Submit Your Bill</h2>
+                <p className="text-sm text-gray-600">Upload receipt for cashier approval to earn points</p>
               </div>
             </div>
 
-            {/* Image Capture */}
-            <Card>
-              <CardContent className="p-4 space-y-4">
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => setCameraMode(true)}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <Camera className="h-4 w-4 mr-2" />
-                    Camera
-                  </Button>
-                  <Button
-                    onClick={() => fileInputRef.current?.click()}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload
-                  </Button>
-                </div>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-
-                {cameraMode && (
-                  <div className="space-y-3">
-                    <Webcam
-                      ref={webcamRef}
-                      screenshotFormat="image/jpeg"
-                      videoConstraints={{ 
-                        facingMode: { ideal: 'environment' },
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                      }}
-                      className="w-full rounded-lg"
-                    />
-                    <div className="flex gap-2">
-                      <Button onClick={capture} className="flex-1">
-                        <Camera className="h-4 w-4 mr-2" />
-                        Capture
-                      </Button>
-                      <Button variant="outline" onClick={() => setCameraMode(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {imagePreview && (
-                  <div className="space-y-2">
-                    <img src={imagePreview} alt="Bill preview" className="w-full rounded-lg" />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setImagePreview(null);
-                        setSelectedImage(null);
-                        setExtractedData(null);
-                      }}
-                    >
-                      Remove Image
-                    </Button>
-                  </div>
-                )}
-
-                {isProcessingOCR && (
-                  <div className="space-y-3 p-4 bg-blue-50 rounded-lg border">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800">Processing with OCR...</span>
-                    </div>
-                    <Progress value={ocrProgress} className="w-full" />
-                    <p className="text-xs text-blue-600">{ocrProgress}% complete</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Extracted Data */}
-            {extractedData && (
-              <Card className="border-green-200 bg-green-50">
-                <CardHeader>
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-green-800">OCR Results</span>
-                    <Badge variant={extractedData.confidence > 80 ? "default" : "secondary"}>
-                      {extractedData.confidence}% confidence
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {/* Show extracted key values */}
-                  {(extractedData.totalAmount || extractedData.invoiceNumber || extractedData.storeName) && (
-                    <div className="space-y-2 p-3 bg-white rounded-md border">
-                      <h4 className="text-sm font-medium text-gray-700">Detected Information:</h4>
-                      {extractedData.totalAmount && (
-                        <p className="text-sm"><span className="font-medium">Amount:</span> ₹{extractedData.totalAmount}</p>
-                      )}
-                      {extractedData.invoiceNumber && (
-                        <p className="text-sm"><span className="font-medium">Invoice:</span> {extractedData.invoiceNumber}</p>
-                      )}
-                      {extractedData.storeName && (
-                        <p className="text-sm"><span className="font-medium">Store:</span> {extractedData.storeName}</p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Raw OCR text */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Full OCR Text:</label>
-                    <textarea
-                      value={extractedData.extractedText}
-                      readOnly
-                      className="h-24 text-xs w-full p-2 border rounded-md bg-white resize-none"
-                      placeholder="No text extracted"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Manual Data Entry */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Bill Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <Label htmlFor="totalAmount">Total Amount *</Label>
-                  <Input
-                    id="totalAmount"
-                    placeholder="0.00"
-                    value={manualData.totalAmount}
-                    onChange={(e) => setManualData(prev => ({ ...prev, totalAmount: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="invoiceNumber">Invoice Number</Label>
-                  <Input
-                    id="invoiceNumber"
-                    placeholder="INV123456"
-                    value={manualData.invoiceNumber}
-                    onChange={(e) => setManualData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="storeName">Store Name</Label>
-                  <Input
-                    id="storeName"
-                    placeholder="Store Name"
-                    value={manualData.storeName}
-                    onChange={(e) => setManualData(prev => ({ ...prev, storeName: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="referralCode">Referral Code (Optional)</Label>
-                  <Input
-                    id="referralCode"
-                    placeholder="Enter referral code if applicable"
-                    value={referralCode}
-                    onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Removed Process Bill Button */}
-            {/* The 'Process Bill & Earn Points' button is removed to prevent customers from processing bills */}
-
+            {/* OCR Bill Scanner Component */}
+            <OCRBillScanner customerId={customerId} onBillSubmitted={handleBillSubmitted} />
           </div>
         </div>
       )}
