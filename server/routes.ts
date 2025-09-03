@@ -1,4 +1,5 @@
 import type { Express, Request, Response } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import {
@@ -2144,11 +2145,20 @@ export function setupRoutes(app: Express): Server {
     });
   });
 
-  // Serve PWA assets
-  app.use("/pwa-icons", express.static(path.join(__dirname, "..", "public", "pwa-icons")));
-  app.use("/pwa-icon-192.png", express.static(path.join(__dirname, "..", "public", "pwa-icon-192.png")));
-  app.use("/pwa-icon-512.png", express.static(path.join(__dirname, "..", "public", "pwa-icon-512.png")));
-  app.use("/manifest.json", express.static(path.join(__dirname, "..", "public", "manifest.json")));
+  // Serve PWA assets using app.use with static middleware
+  const publicPath = path.join(__dirname, "..", "public");
+  app.use("/pwa-icons", (req, res, next) => {
+    res.sendFile(path.join(publicPath, "pwa-icons", req.path));
+  });
+  app.use("/pwa-icon-192.png", (req, res) => {
+    res.sendFile(path.join(publicPath, "pwa-icon-192.png"));
+  });
+  app.use("/pwa-icon-512.png", (req, res) => {
+    res.sendFile(path.join(publicPath, "pwa-icon-512.png"));
+  });
+  app.use("/manifest.json", (req, res) => {
+    res.sendFile(path.join(publicPath, "manifest.json"));
+  });
 
   // Serve static files
   app.use(express.static(path.join(__dirname, "..", "public")));

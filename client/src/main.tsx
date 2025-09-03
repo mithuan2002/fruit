@@ -8,8 +8,8 @@ import { queryClient } from './lib/queryClient';
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      // Register service worker for PWA functionality
-      if (true) {
+      // Only register service worker in production
+      if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') {
         const registration = await navigator.serviceWorker.register('/sw.js', {
           scope: '/'
         });
