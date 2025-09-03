@@ -145,7 +145,17 @@ export default function CustomerRegistration() {
       return;
     }
 
-    // Try native install prompt first
+    // Check if running in Replit preview
+    if (window.location.hostname.includes('replit.dev')) {
+      toast({
+        title: "📱 Add to Home Screen",
+        description: "Open this page in your mobile browser, then use 'Add to Home Screen' option",
+        duration: 5000,
+      });
+      return;
+    }
+
+    // Try native install prompt
     if ((window as any).deferredPrompt) {
       try {
         const deferredPrompt = (window as any).deferredPrompt;
@@ -157,16 +167,17 @@ export default function CustomerRegistration() {
             description: "Fruitbox is now on your home screen!",
           });
           localStorage.setItem('pwa-installed', 'true');
-          return;
+        } else {
+          showManualInstallInstructions();
         }
         (window as any).deferredPrompt = null;
       } catch (error) {
         console.error('PWA install error:', error);
+        showManualInstallInstructions();
       }
+    } else {
+      showManualInstallInstructions();
     }
-    
-    // Always show manual instructions if native prompt doesn't work
-    showManualInstallInstructions();
   };
 
   const installPWA = async () => {
@@ -181,27 +192,6 @@ export default function CustomerRegistration() {
 
     let title = "📱 Add to Home Screen";
     let instructions = "";
-
-    if (isIOS) {
-      instructions = "1. Tap the Share button (📤) at the bottom\n2. Scroll down and tap 'Add to Home Screen'\n3. Tap 'Add' to confirm";
-    } else if (isAndroid && isChrome) {
-      instructions = "1. Tap the menu (⋮) in the top-right corner\n2. Tap 'Add to Home screen'\n3. Tap 'Add' to confirm";
-    } else if (isAndroid) {
-      instructions = "1. Tap the browser menu\n2. Look for 'Add to Home screen' option\n3. Follow the prompts to add";
-    } else {
-      instructions = "1. Look for 'Add to Home Screen' in your browser menu\n2. Follow the prompts to install the app";
-    }
-
-    if (isReplit) {
-      instructions = "Since you're in Replit preview:\n1. Copy this URL\n2. Open in your mobile browser\n3. Then follow the 'Add to Home Screen' steps";
-    }
-
-    toast({
-      title: title,
-      description: instructions,
-      duration: 8000,
-    });
-  };ctions = "";
 
     if (isReplit) {
       title = "🔗 Open in Mobile Browser";
