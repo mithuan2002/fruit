@@ -71,7 +71,7 @@ export default function CustomerDashboard({ customerId }: CustomerDashboardProps
   const queryClient = useQueryClient();
 
   // Fetch customer data
-  const { data: customer, isLoading: customerLoading } = useQuery({
+  const { data: customer, isLoading: customerLoading, error: customerError } = useQuery({
     queryKey: ['/api/customer/dashboard', customerId],
     queryFn: async (): Promise<Customer> => {
       const response = await fetch(`/api/customer/dashboard/${customerId}`);
@@ -79,16 +79,26 @@ export default function CustomerDashboard({ customerId }: CustomerDashboardProps
       const data = await response.json();
       return data.customer;
     },
+    retry: 3,
+    retryDelay: 1000
   });
 
   // Fetch customer's bill submissions
-  const { data: billSubmissions, isLoading: billsLoading } = useQuery({
+  const { data: billSubmissions = [], isLoading: billsLoading } = useQuery({
     queryKey: ['/api/customer/bills', customerId],
     queryFn: async (): Promise<BillSubmission[]> => {
-      const response = await fetch(`/api/customer/${customerId}/bills`);
-      if (!response.ok) throw new Error('Failed to fetch bills');
-      return response.json();
+      try {
+        const response = await fetch(`/api/customer/${customerId}/bills`);
+        if (!response.ok) throw new Error('Failed to fetch bills');
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error('Error fetching bills:', error);
+        return []; // Return empty array on error
+      }
     },
+    retry: 2,
+    retryDelay: 1000
   });
 
   // Fetch active campaigns
@@ -165,10 +175,6 @@ export default function CustomerDashboard({ customerId }: CustomerDashboardProps
     }
   };
 
-  // Format membership tier for display
-  const membershipTier = (customer?.membershipTier || 'bronze').toUpperCase();
-  const pointsProgress = customer ? Math.min((customer.points / 1000) * 100, 100) : 0;
-
   if (customerLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
@@ -180,14 +186,25 @@ export default function CustomerDashboard({ customerId }: CustomerDashboardProps
     );
   }
 
-  if (!customer) {
+  if (customerError || (!customerLoading && !customer)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="text-center py-12">
             <User className="h-12 w-12 mx-auto mb-4 text-gray-400" />
             <h3 className="text-lg font-semibold mb-2">Customer Not Found</h3>
-            <p className="text-gray-600">Unable to load customer dashboard</p>
+            <p className="text-gray-600">
+              {customerError 
+                ? 'Unable to load customer dashboard. Please try refreshing the page.' 
+                : 'Customer not found.'}
+            </p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="mt-4"
+              variant="outline"
+            >
+              Refresh Page
+            </Button>
           </CardContent>
         </Card>
       </div>
