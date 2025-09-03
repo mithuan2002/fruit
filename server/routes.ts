@@ -2137,7 +2137,8 @@ export function setupRoutes(app: Express): Server {
 
   // PWA Service Worker route
   app.get("/service-worker.js", (req, res) => {
-    res.sendFile(path.join(__dirname, "..", "public", "service-worker.js"), {
+    const currentDir = path.dirname(new URL(import.meta.url).pathname);
+    res.sendFile(path.join(currentDir, "..", "public", "service-worker.js"), {
       headers: {
         'Service-Worker-Allowed': '/',
         'Content-Type': 'application/javascript'
@@ -2146,7 +2147,8 @@ export function setupRoutes(app: Express): Server {
   });
 
   // Serve PWA assets using app.use with static middleware
-  const publicPath = path.join(__dirname, "..", "public");
+  const currentDir = path.dirname(new URL(import.meta.url).pathname);
+  const publicPath = path.join(currentDir, "..", "public");
   app.use("/pwa-icons", (req, res, next) => {
     res.sendFile(path.join(publicPath, "pwa-icons", req.path));
   });
@@ -2161,11 +2163,12 @@ export function setupRoutes(app: Express): Server {
   });
 
   // Serve static files
-  app.use(express.static(path.join(__dirname, "..", "public")));
+  app.use(express.static(path.join(currentDir, "..", "public")));
 
   // Catch-all for PWA routing - ensure client-side routing handles this
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+    const currentDir = path.dirname(new URL(import.meta.url).pathname);
+    res.sendFile(path.join(currentDir, "..", "public", "index.html"));
   });
 
   const httpServer = createServer(app);
