@@ -2073,7 +2073,21 @@ export function setupRoutes(app: Express): Server {
       lang: "en",
       dir: "ltr",
       prefer_related_applications: false,
-      display_override: ["standalone", "minimal-ui"],
+      display_override: ["standalone", "fullscreen", "minimal-ui"],
+      protocol_handlers: [
+        {
+          protocol: "web+fruitbox",
+          url: "/customer-app?code=%s"
+        }
+      ],
+      screenshots: [
+        {
+          src: "/pwa-icon-512.png",
+          sizes: "512x512",
+          type: "image/png",
+          form_factor: "narrow"
+        }
+      ],
       icons: [
         {
           src: "/pwa-icon-192.png",
@@ -2094,6 +2108,13 @@ export function setupRoutes(app: Express): Server {
           short_name: "Rewards",
           description: "View your coupon and points",
           url: "/customer-app",
+          icons: [{ src: "/pwa-icon-192.png", sizes: "192x192" }]
+        },
+        {
+          name: "Scan Bill",
+          short_name: "Scan",
+          description: "Quick bill scanning for points",
+          url: "/bill-scanner",
           icons: [{ src: "/pwa-icon-192.png", sizes: "192x192" }]
         },
         {

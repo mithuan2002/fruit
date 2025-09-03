@@ -316,9 +316,14 @@ export default function CustomerRegistration() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-md border-0 shadow-xl">
         <CardHeader className="text-center bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-t-lg">
-          <CardTitle className="text-2xl font-bold">Welcome to Fruitbox</CardTitle>
+          <div className="mb-4">
+            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Gift className="h-8 w-8 text-white" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-bold">Join Fruitbox Rewards</CardTitle>
           <CardDescription className="text-indigo-100">
-            Register to get your unique coupon code
+            Earn points on every purchase • Refer friends for bonus rewards
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">

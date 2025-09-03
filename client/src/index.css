@@ -3,6 +3,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* PWA Offline Indicator */
+body.offline::before {
+  content: "📴 You're offline - some features may be limited";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #fbbf24;
+  color: #92400e;
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 9999;
+}
+
+body.offline {
+  padding-top: 40px;
+}
+
 :root {
   --background: hsl(0 0% 100%);
   --foreground: hsl(240 10% 3.9%);
