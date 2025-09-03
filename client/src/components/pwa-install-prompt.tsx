@@ -18,51 +18,98 @@ export default function PWAInstallPrompt() {
     // Check if already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     const isInstalled = localStorage.getItem('pwa-installed') === 'true';
+    const promptDismissed = localStorage.getItem('pwa-prompt-dismissed') === 'true';
     
-    if (isStandalone || isInstalled) {
+    if (isStandalone || isInstalled || promptDismissed) {
       setIsInstalled(true);
       return;
     }
 
+    // Check if in Replit environment
+    const isReplit = window.location.hostname.includes('replit.dev');
+    
     // Listen for beforeinstallprompt event
     const handleBeforeInstall = (e: Event) => {
+      console.log('PWA install prompt available');
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       
-      // Show prompt after a short delay
+      // Show prompt after a short delay, unless in Replit
       setTimeout(() => {
-        setShowPrompt(true);
+        if (!isReplit) {
+          setShowPrompt(true);
+        }
       }, 3000);
     };
 
+    // Listen for custom PWA installable event
+    const handlePWAInstallable = () => {
+      console.log('PWA installable event received');
+      if (!isReplit && !promptDismissed) {
+        setShowPrompt(true);
+      }
+    };
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    window.addEventListener('pwa-installable', handlePWAInstallable);
+    
+    // Show manual prompt for Replit or mobile browsers after delay
+    if (isReplit || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      setTimeout(() => {
+        if (!isInstalled && !promptDismissed) {
+          setShowPrompt(true);
+        }
+      }, 5000);
+    }
     
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('pwa-installable', handlePWAInstallable);
     };
   }, []);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      
-      if (outcome === 'accepted') {
-        localStorage.setItem('pwa-installed', 'true');
-        setIsInstalled(true);
+    const isReplit = window.location.hostname.includes('replit.dev');
+    
+    if (deferredPrompt && !isReplit) {
+      try {
+        await deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        
+        if (outcome === 'accepted') {
+          localStorage.setItem('pwa-installed', 'true');
+          setIsInstalled(true);
+        }
+        
+        setDeferredPrompt(null);
+        setShowPrompt(false);
+      } catch (error) {
+        console.error('PWA install error:', error);
+        showManualInstructions();
       }
-      
-      setDeferredPrompt(null);
-      setShowPrompt(false);
     } else {
-      // Fallback for iOS/other browsers
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        alert('To install: Tap the Share button → Add to Home Screen');
-      } else {
-        alert('To install: Look for "Add to Home Screen" in your browser menu');
-      }
+      showManualInstructions();
     }
+  };
+
+  const showManualInstructions = () => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    const isReplit = window.location.hostname.includes('replit.dev');
+    
+    let instructions = "";
+    if (isReplit) {
+      instructions = "Open this page in your mobile browser, then use 'Add to Home Screen'";
+    } else if (isIOS) {
+      instructions = "Tap the Share button (📤) → Add to Home Screen";
+    } else if (isAndroid) {
+      instructions = "Tap the menu (⋮) → Add to Home screen";
+    } else {
+      instructions = "Look for 'Add to Home Screen' in your browser menu";
+    }
+
+    alert(`📱 Add to Home Screen\n\n${instructions}`);
+    setShowPrompt(false);
   };
 
   const handleDismiss = () => {

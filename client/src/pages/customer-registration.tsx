@@ -138,7 +138,20 @@ export default function CustomerRegistration() {
   const attemptPWAInstall = async () => {
     // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
-      console.log("PWA already installed");
+      toast({
+        title: "Already installed! 📱",
+        description: "Fruitbox is already on your home screen!",
+      });
+      return;
+    }
+
+    // Check if running in Replit preview
+    if (window.location.hostname.includes('replit.dev')) {
+      toast({
+        title: "📱 Add to Home Screen",
+        description: "Open this page in your mobile browser, then use 'Add to Home Screen' option",
+        duration: 5000,
+      });
       return;
     }
 
@@ -146,18 +159,20 @@ export default function CustomerRegistration() {
     if ((window as any).deferredPrompt) {
       try {
         const deferredPrompt = (window as any).deferredPrompt;
-        deferredPrompt.prompt();
+        await deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
           toast({
             title: "Perfect! 🎉",
             description: "Fruitbox is now on your home screen!",
           });
+          localStorage.setItem('pwa-installed', 'true');
         } else {
           showManualInstallInstructions();
         }
         (window as any).deferredPrompt = null;
       } catch (error) {
+        console.error('PWA install error:', error);
         showManualInstallInstructions();
       }
     } else {
@@ -272,7 +287,7 @@ export default function CustomerRegistration() {
                   className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
                   size="sm"
                 >
-                  📌 Pin to Home Screen
+                  📱 Add to Home Screen
                 </Button>
                 <p className="text-xs text-purple-600 mt-2 text-center">
                   Works like an app, but lighter and faster!
