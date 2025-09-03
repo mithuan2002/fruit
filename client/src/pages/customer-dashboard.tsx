@@ -42,6 +42,7 @@ interface Customer {
   totalSpent: number;
   lastActivity: string;
   createdAt: string;
+  membershipTier?: string; // Added membershipTier
 }
 
 interface BillSubmission {
@@ -113,7 +114,7 @@ export default function CustomerDashboard({ customerId }: CustomerDashboardProps
   const shareReferralCode = () => {
     if (customer?.referralCode && navigator.share) {
       navigator.share({
-        title: `Join ${customer.name}'s referral program`,
+        title: `Join ${customer.name}s referral program`,
         text: `Use my referral code ${customer.referralCode} to get started and earn points!`,
         url: window.location.origin + `/register?referral=${customer.referralCode}`,
       });
@@ -164,6 +165,8 @@ export default function CustomerDashboard({ customerId }: CustomerDashboardProps
     }
   };
 
+  // Format membership tier for display
+  const membershipTier = (customer?.membershipTier || 'bronze').toUpperCase();
   const pointsProgress = customer ? Math.min((customer.points / 1000) * 100, 100) : 0;
 
   if (customerLoading) {
@@ -359,7 +362,7 @@ export default function CustomerDashboard({ customerId }: CustomerDashboardProps
                   <Button 
                     variant="outline" 
                     className="h-20 flex flex-col items-center gap-2"
-                    onClick={() => setSelectedTab('rewards')}
+                    onClick={() => setSelectedTab('referrals')}
                   >
                     <Gift className="h-6 w-6" />
                     Redeem Points
