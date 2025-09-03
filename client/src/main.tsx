@@ -8,11 +8,8 @@ import { queryClient } from './lib/queryClient';
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      // Only register service worker if not in development mode or if specifically enabled
-      const isDev = import.meta.env.DEV;
-      const enableSW = !isDev || localStorage.getItem('enable-sw') === 'true';
-      
-      if (enableSW) {
+      // Register service worker for PWA functionality
+      if (true) {
         const registration = await navigator.serviceWorker.register('/sw.js', {
           scope: '/'
         });
@@ -35,8 +32,6 @@ if ('serviceWorker' in navigator) {
         // Wait for service worker to be ready
         await navigator.serviceWorker.ready;
         console.log('Service Worker is ready');
-      } else {
-        console.log('Service Worker registration skipped in development');
       }
 
       // Handle PWA install prompt (works with or without SW)

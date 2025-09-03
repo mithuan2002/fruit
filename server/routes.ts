@@ -25,6 +25,7 @@ import bcrypt from "bcryptjs";
 import session from "express-session";
 import MemoryStore from "memorystore";
 import { eq } from "drizzle-orm"; // Assuming drizzle-orm is used for database operations
+import path from "path"; // Added for service worker route
 
 // Logging setup
 const routeLogger = {
@@ -1385,7 +1386,7 @@ export function setupRoutes(app: Express): Server {
             customerId,
             campaignId
           );
-          
+
           if (existingReferral) {
             return res.status(400).json({
               message: `You have already used ${referrer.name}'s referral code for this campaign. Each referral code can only be used once per campaign.`,
@@ -1462,13 +1463,13 @@ export function setupRoutes(app: Express): Server {
   app.get("/api/bills/submissions/pending", async (req: Request, res: Response) => {
     try {
       const submissions = await storage.getBillSubmissionsByStatus('pending');
-      
+
       // Enrich with customer and campaign data
       const enrichedSubmissions = await Promise.all(
         submissions.map(async (submission) => {
           const customer = await storage.getCustomer(submission.customerId);
           const campaign = await storage.getCampaign(submission.campaignId);
-          
+
           return {
             ...submission,
             customer: customer ? {
@@ -1552,7 +1553,7 @@ export function setupRoutes(app: Express): Server {
                 if (!existingReferral) {
                   // Calculate referrer points (10% of customer points or campaign-specific)
                   const referrerPoints = Math.floor(pointsAwarded * 0.1);
-                  
+
                   // Award points to referrer
                   await storage.updateCustomer(referrer.id, {
                     points: referrer.points + referrerPoints,
@@ -2024,7 +2025,7 @@ export function setupRoutes(app: Express): Server {
   app.get("/api/customer/:customerId/bills", async (req, res) => {
     try {
       const { customerId } = req.params;
-      
+
       const customer = await storage.getCustomer(customerId);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
@@ -2032,7 +2033,7 @@ export function setupRoutes(app: Express): Server {
 
       // Get all bill submissions for this customer
       const billSubmissions = await storage.getBillSubmissionsByCustomer?.(customerId) || [];
-      
+
       // Format for the dashboard
       const formattedBills = billSubmissions.map((bill: any) => ({
         id: bill.id,
@@ -2131,6 +2132,30 @@ export function setupRoutes(app: Express): Server {
 
     res.setHeader('Content-Type', 'application/manifest+json');
     res.json(manifest);
+  });
+
+  // PWA Service Worker route
+  app.get("/service-worker.js", (req, res) => {
+    res.sendFile(path.join(__dirname, "..", "public", "service-worker.js"), {
+      headers: {
+        'Service-Worker-Allowed': '/',
+        'Content-Type': 'application/javascript'
+      }
+    });
+  });
+
+  // Serve PWA assets
+  app.use("/pwa-icons", express.static(path.join(__dirname, "..", "public", "pwa-icons")));
+  app.use("/pwa-icon-192.png", express.static(path.join(__dirname, "..", "public", "pwa-icon-192.png")));
+  app.use("/pwa-icon-512.png", express.static(path.join(__dirname, "..", "public", "pwa-icon-512.png")));
+  app.use("/manifest.json", express.static(path.join(__dirname, "..", "public", "manifest.json")));
+
+  // Serve static files
+  app.use(express.static(path.join(__dirname, "..", "public")));
+
+  // Catch-all for PWA routing - ensure client-side routing handles this
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, "..", "public", "index.html"));
   });
 
   const httpServer = createServer(app);

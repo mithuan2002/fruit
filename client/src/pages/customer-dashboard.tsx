@@ -211,8 +211,10 @@ export default function CustomerDashboard({ customerId }: CustomerDashboardProps
     );
   }
 
-  // Safe variables after customer data is loaded
-  const membershipTier = customer ? (customer.membershipTier || 'bronze').toUpperCase() : 'BRONZE';
+  // Format membership tier for display
+  const membershipTier = customer?.membershipTier 
+    ? customer.membershipTier.toUpperCase() 
+    : 'BRONZE';
   const pointsProgress = customer ? Math.min((customer.points / 1000) * 100, 100) : 0;
 
   return (

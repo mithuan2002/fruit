@@ -20,7 +20,7 @@ export default function PWAInstallPrompt() {
     const isInstalled = localStorage.getItem('pwa-installed') === 'true';
     const promptDismissed = localStorage.getItem('pwa-prompt-dismissed') === 'true';
     
-    if (isStandalone || isInstalled || promptDismissed) {
+    if (isStandalone || isInstalled) {
       setIsInstalled(true);
       return;
     }
@@ -34,18 +34,16 @@ export default function PWAInstallPrompt() {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       
-      // Show prompt after a short delay, unless in Replit
+      // Show prompt after a short delay
       setTimeout(() => {
-        if (!isReplit) {
-          setShowPrompt(true);
-        }
-      }, 3000);
+        setShowPrompt(true);
+      }, 2000);
     };
 
     // Listen for custom PWA installable event
     const handlePWAInstallable = () => {
       console.log('PWA installable event received');
-      if (!isReplit && !promptDismissed) {
+      if (!promptDismissed) {
         setShowPrompt(true);
       }
     };
@@ -53,13 +51,14 @@ export default function PWAInstallPrompt() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     window.addEventListener('pwa-installable', handlePWAInstallable);
     
-    // Show manual prompt for Replit or mobile browsers after delay
-    if (isReplit || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+    // Always show manual prompt for mobile browsers after delay
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
       setTimeout(() => {
         if (!isInstalled && !promptDismissed) {
           setShowPrompt(true);
         }
-      }, 5000);
+      }, 3000);
     }
     
     return () => {

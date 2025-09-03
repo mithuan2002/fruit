@@ -63,15 +63,15 @@ export default function CustomerRegistration() {
     onSuccess: async (data) => {
       // Store customer ID for PWA access
       localStorage.setItem('fruitbox_customer_id', data.id);
-      
+
       // Auto-install PWA
       await attemptPWAInstall();
-      
+
       // Redirect to customer app after a short delay
       setTimeout(() => {
         window.location.href = `/customer-app?customerId=${data.id}`;
       }, 2000);
-      
+
       toast({
         title: data.isExistingCustomer ? "Welcome back!" : "PWA Installing...",
         description: data.isExistingCustomer ? "Redirecting to your rewards..." : "Setting up your rewards app...",
@@ -187,21 +187,43 @@ export default function CustomerRegistration() {
   const showManualInstallInstructions = () => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isAndroid = /Android/.test(navigator.userAgent);
-    
+    const isChrome = /Chrome/.test(navigator.userAgent);
+    const isReplit = window.location.hostname.includes('replit.dev');
+
+    let title = "📱 Add to Home Screen";
     let instructions = "";
-    if (isIOS) {
-      instructions = "Tap the Share button → Add to Home Screen";
+
+    if (isReplit) {
+      title = "🔗 Open in Mobile Browser";
+      instructions = "1. Copy this URL and open in your mobile browser\n2. Then use 'Add to Home Screen'\n3. For best experience, use Chrome or Safari";
+    } else if (isIOS) {
+      instructions = "1. Tap the Share button (📤) at the bottom\n2. Scroll down and tap 'Add to Home Screen'\n3. Tap 'Add' to confirm";
+    } else if (isAndroid && isChrome) {
+      instructions = "1. Tap the menu (⋮) in the top right\n2. Tap 'Add to Home screen'\n3. Tap 'Add' to confirm";
     } else if (isAndroid) {
-      instructions = "Tap the menu (⋮) → Add to Home screen";
+      instructions = "1. Open browser menu\n2. Look for 'Add to Home screen' option\n3. Follow the prompts";
     } else {
-      instructions = "Use your browser's 'Add to Home Screen' option";
+      instructions = "1. Look for 'Install' or 'Add to Home Screen' in your browser menu\n2. Follow the installation prompts";
     }
 
     toast({
-      title: "📱 Pin to Home Screen",
+      title,
       description: instructions,
-      duration: 5000,
+      duration: 10000,
     });
+
+    // Copy URL to clipboard if in Replit
+    if (isReplit) {
+      navigator.clipboard.writeText(window.location.href).then(() => {
+        setTimeout(() => {
+          toast({
+            title: "URL Copied! 📋",
+            description: "Paste this in your mobile browser to install the app",
+            duration: 5000,
+          });
+        }, 1000);
+      });
+    }
   };
 
   const handleNewRegistration = () => {
@@ -273,7 +295,7 @@ export default function CustomerRegistration() {
             {/* PWA Installation and Notification Prompts */}
             <div className="space-y-3 pt-4 border-t border-gray-200">
               <h4 className="font-semibold text-gray-800 text-center">Quick Access</h4>
-              
+
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
                 <div className="flex items-center justify-center space-x-2 mb-3">
                   <Sparkles className="text-purple-600" size={20} />
@@ -284,10 +306,17 @@ export default function CustomerRegistration() {
                 </p>
                 <Button 
                   onClick={installPWA}
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white mb-2"
                   size="sm"
                 >
                   📱 Add to Home Screen
+                </Button>
+                <Button 
+                  onClick={() => window.location.href = `/customer-app?customerId=${registrationData?.id}`}
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                  size="sm"
+                >
+                  🚀 Launch Your Dashboard
                 </Button>
                 <p className="text-xs text-purple-600 mt-2 text-center">
                   Works like an app, but lighter and faster!
