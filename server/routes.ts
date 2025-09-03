@@ -1343,6 +1343,277 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  // Submit bill photo for admin verification
+  app.post("/api/bills/submit", async (req: Request, res: Response) => {
+    try {
+      const {
+        customerId,
+        campaignId,
+        billNumber,
+        totalAmount,
+        imageUrl,
+        customerNotes,
+        referralCode
+      } = req.body;
+
+      if (!customerId || !campaignId || !totalAmount || !imageUrl) {
+        return res.status(400).json({
+          message: "Customer ID, campaign ID, total amount, and image URL are required"
+        });
+      }
+
+      // Verify customer exists
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Verify campaign exists
+      const campaign = await storage.getCampaign(campaignId);
+      if (!campaign) {
+        return res.status(404).json({ message: "Campaign not found" });
+      }
+
+      // Check if referral code is provided and validate campaign-specific usage
+      let referrer = null;
+      if (referralCode) {
+        referrer = await storage.getCustomerByReferralCode(referralCode);
+        if (referrer) {
+          // Check if this customer has already used this referrer's code for this campaign
+          const existingReferral = await storage.checkExistingReferral(
+            referrer.id,
+            customerId,
+            campaignId
+          );
+          
+          if (existingReferral) {
+            return res.status(400).json({
+              message: `You have already used ${referrer.name}'s referral code for this campaign. Each referral code can only be used once per campaign.`,
+              error: "REFERRAL_ALREADY_USED"
+            });
+          }
+        } else {
+          return res.status(400).json({
+            message: "Invalid referral code",
+            error: "INVALID_REFERRAL_CODE"
+          });
+        }
+      }
+
+      // Create bill submission record
+      const submissionData = {
+        customerId,
+        campaignId,
+        billNumber: billNumber || null,
+        totalAmount: parseFloat(totalAmount),
+        imageUrl,
+        customerNotes: customerNotes || null,
+        verificationStatus: 'pending' as const,
+        pointsAwarded: 0,
+        referralCode: referralCode || null,
+      };
+
+      const submission = await storage.submitBill(submissionData);
+
+      routeLogger.info("BILL-SUBMISSION", "Bill submitted for verification", {
+        submissionId: submission.id,
+        customerId,
+        campaignId,
+        totalAmount,
+        hasReferralCode: !!referralCode,
+        referrerName: referrer?.name
+      });
+
+      res.json({
+        success: true,
+        message: "Bill submitted successfully for admin verification",
+        submission: {
+          id: submission.id,
+          status: submission.verificationStatus,
+          submittedAt: submission.createdAt,
+        },
+        customer: {
+          id: customer.id,
+          name: customer.name,
+        },
+        campaign: {
+          id: campaign.id,
+          name: campaign.name,
+        },
+        referrer: referrer ? {
+          id: referrer.id,
+          name: referrer.name,
+        } : null
+      });
+
+    } catch (error) {
+      routeLogger.error("BILL-SUBMISSION", "Failed to submit bill", {
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+
+      res.status(500).json({
+        message: "Failed to submit bill for verification",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get pending bill submissions for admin verification
+  app.get("/api/bills/submissions/pending", async (req: Request, res: Response) => {
+    try {
+      const submissions = await storage.getBillSubmissionsByStatus('pending');
+      
+      // Enrich with customer and campaign data
+      const enrichedSubmissions = await Promise.all(
+        submissions.map(async (submission) => {
+          const customer = await storage.getCustomer(submission.customerId);
+          const campaign = await storage.getCampaign(submission.campaignId);
+          
+          return {
+            ...submission,
+            customer: customer ? {
+              id: customer.id,
+              name: customer.name,
+              phoneNumber: customer.phoneNumber,
+            } : null,
+            campaign: campaign ? {
+              id: campaign.id,
+              name: campaign.name,
+              rewardPerReferral: campaign.rewardPerReferral,
+            } : null,
+          };
+        })
+      );
+
+      res.json(enrichedSubmissions);
+    } catch (error) {
+      routeLogger.error("GET-PENDING-SUBMISSIONS", "Failed to fetch pending submissions", {
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+
+      res.status(500).json({
+        message: "Failed to fetch pending submissions",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Verify bill submission (approve/reject)
+  app.post("/api/bills/submissions/:id/verify", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status, adminNotes, pointsAwarded } = req.body;
+
+      if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Status must be 'approved' or 'rejected'" });
+      }
+
+      // Get the submission
+      const submission = await storage.getBillSubmission(id);
+      if (!submission) {
+        return res.status(404).json({ message: "Submission not found" });
+      }
+
+      if (submission.verificationStatus !== 'pending') {
+        return res.status(400).json({ message: "Submission has already been verified" });
+      }
+
+      // Update submission status
+      const updatedSubmission = await storage.updateBillSubmissionStatus(id, {
+        verificationStatus: status,
+        adminNotes: adminNotes || null,
+        pointsAwarded: status === 'approved' ? (pointsAwarded || 0) : 0,
+        verifiedBy: 'admin', // TODO: Get from session
+        verifiedAt: new Date(),
+      });
+
+      if (status === 'approved' && pointsAwarded > 0) {
+        // Award points to customer
+        const customer = await storage.getCustomer(submission.customerId);
+        if (customer) {
+          await storage.updateCustomer(customer.id, {
+            points: customer.points + pointsAwarded,
+            pointsEarned: customer.pointsEarned + pointsAwarded,
+          });
+
+          // Handle referral points if referral code was used
+          if (submission.referralCode) {
+            const referrer = await storage.getCustomerByReferralCode(submission.referralCode);
+            if (referrer) {
+              const campaign = await storage.getCampaign(submission.campaignId);
+              if (campaign) {
+                // Check again to prevent race conditions
+                const existingReferral = await storage.checkExistingReferral(
+                  referrer.id,
+                  customer.id,
+                  campaign.id
+                );
+
+                if (!existingReferral) {
+                  // Calculate referrer points (10% of customer points or campaign-specific)
+                  const referrerPoints = Math.floor(pointsAwarded * 0.1);
+                  
+                  // Award points to referrer
+                  await storage.updateCustomer(referrer.id, {
+                    points: referrer.points + referrerPoints,
+                    pointsEarned: referrer.pointsEarned + referrerPoints,
+                    totalReferrals: referrer.totalReferrals + 1,
+                  });
+
+                  // Create referral record
+                  await storage.createCampaignReferral({
+                    referrerId: referrer.id,
+                    referredCustomerId: customer.id,
+                    campaignId: campaign.id,
+                    referralCode: submission.referralCode,
+                    pointsEarned: referrerPoints,
+                    saleAmount: submission.totalAmount,
+                  });
+
+                  routeLogger.info("REFERRAL-POINTS", "Referral points awarded", {
+                    referrerId: referrer.id,
+                    referrerName: referrer.name,
+                    referredCustomerId: customer.id,
+                    referredCustomerName: customer.name,
+                    campaignId: campaign.id,
+                    campaignName: campaign.name,
+                    pointsAwarded: referrerPoints,
+                    saleAmount: submission.totalAmount,
+                  });
+                }
+              }
+            }
+          }
+
+          routeLogger.info("BILL-VERIFIED", "Bill approved and points awarded", {
+            submissionId: id,
+            customerId: customer.id,
+            customerName: customer.name,
+            pointsAwarded,
+            newPointsBalance: customer.points + pointsAwarded,
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: status === 'approved' ? 'Bill approved and points awarded' : 'Bill rejected',
+        submission: updatedSubmission,
+      });
+
+    } catch (error) {
+      routeLogger.error("BILL-VERIFICATION", "Failed to verify submission", {
+        submissionId: req.params.id,
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+
+      res.status(500).json({
+        message: "Failed to verify submission",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Process bill with OCR and assign points (for admin use)
   app.post("/api/bills/process", async (req: Request, res: Response) => {
     try {

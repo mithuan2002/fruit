@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, boolean, decimal, index, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, boolean, decimal, index, uuid, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -87,6 +87,8 @@ export const referrals = pgTable("referrals", {
   referredIdx: index("referrals_referred_idx").on(table.referredCustomerId),
   statusIdx: index("referrals_status_idx").on(table.status),
   dateIdx: index("referrals_date_idx").on(table.createdAt),
+  // Unique constraint to prevent same customer from using same referrer's code multiple times per campaign
+  uniqueReferralPerCampaign: uniqueIndex("unique_referral_per_campaign").on(table.referrerId, table.referredCustomerId, table.campaignId),
 }));
 
 export const whatsappMessages = pgTable("whatsapp_messages", {

@@ -25,6 +25,7 @@ import Landing from "@/pages/landing";
 import Settings from "@/pages/settings";
 import BillScanner from "@/pages/bill-scanner";
 import CashierDashboard from "@/pages/cashier-dashboard";
+import AdminBillVerification from "@/components/admin-bill-verification";
 
 import Sidebar from "@/components/layout/sidebar";
 
@@ -62,6 +63,7 @@ function Router() {
           <Route path="/auth" component={Auth} />
           <Route path="/onboarding" component={Onboarding} />
           <Route path="/bill-scanner" component={BillScanner} />
+          <Route path="/bill-verification" component={AdminBillVerification} />
           <Route path="/cashier" component={CashierDashboard} />
           <Route path="/landing" component={Landing} />
           <Route component={Dashboard} />

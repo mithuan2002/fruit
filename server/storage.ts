@@ -1255,6 +1255,46 @@ export class DatabaseStorage implements IStorage {
     return submission || undefined;
   }
 
+  // Campaign-specific referral tracking methods
+  async checkExistingReferral(referrerId: string, referredCustomerId: string, campaignId: string): Promise<boolean> {
+    const [existing] = await db
+      .select()
+      .from(referrals)
+      .where(
+        and(
+          eq(referrals.referrerId, referrerId),
+          eq(referrals.referredCustomerId, referredCustomerId),
+          eq(referrals.campaignId, campaignId)
+        )
+      )
+      .limit(1);
+    return !!existing;
+  }
+
+  async createCampaignReferral(data: {
+    referrerId: string;
+    referredCustomerId: string;
+    campaignId: string;
+    referralCode: string;
+    pointsEarned: number;
+    saleAmount: number;
+  }): Promise<any> {
+    const [referral] = await db
+      .insert(referrals)
+      .values({
+        referrerId: data.referrerId,
+        referredCustomerId: data.referredCustomerId,
+        campaignId: data.campaignId,
+        referralCode: data.referralCode,
+        pointsEarned: data.pointsEarned,
+        saleAmount: data.saleAmount.toString(),
+        status: 'completed',
+        completedAt: new Date(),
+      })
+      .returning();
+    return referral;
+  }
+
   // Pending Bill operations
   async createPendingBill(billData: {
     customerId: string;
