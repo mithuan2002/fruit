@@ -291,21 +291,7 @@ export class StorageService {
   }
 }
 
-export interface OCRResult {
-  invoiceNumber: string;
-  storeId: string;
-  storeName: string;
-  billDate: string;
-  billTime: string;
-  totalAmount: number;
-  items: Array<{
-    name: string;
-    quantity: number;
-    price: number;
-    total: number;
-  }>;
-  rawData: string;
-}
+// OCR functionality removed - bills are now simple photo uploads
 
 export interface IStorage {
   // Customer operations
@@ -438,8 +424,10 @@ export interface IStorage {
   createBillItem(billItem: InsertBillItem): Promise<BillItem>;
   updateBillItem(id: string, updates: Partial<BillItem>): Promise<BillItem | undefined>;
 
-  // OCR Processing
-  processOCRData(imageData: string): Promise<OCRResult>;
+  // OCR processing removed - bills are now photo uploads only
+  
+  // Bill submissions for dashboard
+  getBillSubmissionsByCustomer(customerId: string): Promise<any[]>;
 }
 
 // Database logging utility
@@ -1460,37 +1448,59 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // OCR Processing function (mock implementation)
-  async processOCRData(imageData: string): Promise<OCRResult> {
-    // Mock OCR result - in production this would use Tesseract.js or cloud OCR
-    const mockResult: OCRResult = {
-      invoiceNumber: `INV-${Date.now()}`,
-      storeId: "STORE-001",
-      storeName: "Demo Store",
-      billDate: new Date().toISOString(),
-      billTime: new Date().toLocaleTimeString(),
-      totalAmount: Math.floor(Math.random() * 500) + 100, // Random amount between 100-600
-      items: [
-        {
-          name: "Sample Item 1",
-          quantity: 1,
-          price: 50,
-          total: 50
-        },
-        {
-          name: "Sample Item 2",
-          quantity: 2,
-          price: 25,
-          total: 50
-        }
-      ],
-      rawData: "Mock OCR extracted text data..."
-    };
+  // OCR functionality completely removed - using simple photo uploads now
 
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    return mockResult;
+  // Bill submissions for customer dashboard
+  async getBillSubmissionsByCustomer(customerId: string) {
+    try {
+      // Try to fetch from billSubmissions table first
+      try {
+        const submissions = await db.select({
+          id: billSubmissions.id,
+          billNumber: billSubmissions.billNumber,
+          shopName: billSubmissions.shopName,
+          totalAmount: billSubmissions.totalAmount,
+          imageUrl: billSubmissions.imageUrl,
+          verificationStatus: billSubmissions.verificationStatus,
+          pointsAwarded: billSubmissions.pointsAwarded,
+          adminNotes: billSubmissions.adminNotes,
+          createdAt: billSubmissions.createdAt,
+          campaignId: billSubmissions.campaignId,
+          campaignName: campaigns.name
+        })
+        .from(billSubmissions)
+        .leftJoin(campaigns, eq(billSubmissions.campaignId, campaigns.id))
+        .where(eq(billSubmissions.customerId, customerId))
+        .orderBy(desc(billSubmissions.createdAt));
+        
+        return submissions;
+      } catch (billSubmissionsError) {
+        console.log('billSubmissions table not available, falling back to bills table');
+        
+        // Fallback to regular bills table
+        const regularBills = await db.select({
+          id: bills.id,
+          billNumber: bills.invoiceNumber,
+          shopName: bills.storeName,
+          totalAmount: bills.totalAmount,
+          imageUrl: sql`''`, // No image URL in old bills
+          verificationStatus: sql`'approved'`, // Assume old bills are approved
+          pointsAwarded: bills.pointsEarned,
+          adminNotes: sql`null`,
+          createdAt: bills.createdAt,
+          campaignId: sql`null`,
+          campaignName: sql`'Legacy'`
+        })
+        .from(bills)
+        .where(eq(bills.customerId, customerId))
+        .orderBy(desc(bills.createdAt));
+        
+        return regularBills;
+      }
+    } catch (error) {
+      console.error('Error fetching bill submissions:', error);
+      return [];
+    }
   }
 
   // Add missing methods

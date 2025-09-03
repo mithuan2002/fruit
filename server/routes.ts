@@ -2020,6 +2020,43 @@ export function setupRoutes(app: Express): Server {
     }
   });
 
+  // Get customer's bill submissions for the new dashboard
+  app.get("/api/customer/:customerId/bills", async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      
+      const customer = await storage.getCustomer(customerId);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Get all bill submissions for this customer
+      const billSubmissions = await storage.getBillSubmissionsByCustomer?.(customerId) || [];
+      
+      // Format for the dashboard
+      const formattedBills = billSubmissions.map((bill: any) => ({
+        id: bill.id,
+        billNumber: bill.billNumber || null,
+        shopName: bill.shopName || null,
+        totalAmount: parseFloat(bill.totalAmount.toString()),
+        imageUrl: bill.imageUrl,
+        verificationStatus: bill.verificationStatus,
+        pointsAwarded: bill.pointsAwarded || 0,
+        adminNotes: bill.adminNotes || null,
+        createdAt: bill.createdAt,
+        campaign: {
+          id: bill.campaignId,
+          name: bill.campaignName || 'Unknown Campaign'
+        }
+      }));
+
+      res.json(formattedBills);
+    } catch (error) {
+      console.error("Failed to fetch customer bills:", error);
+      res.status(500).json({ message: "Failed to load bills" });
+    }
+  });
+
   // PWA manifest endpoint
   app.get("/api/pwa/manifest", (req, res) => {
     const manifest = {
