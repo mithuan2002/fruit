@@ -8,13 +8,12 @@ import { queryClient } from './lib/queryClient';
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      // Only register service worker in production
-      if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') {
-        const registration = await navigator.serviceWorker.register('/sw.js', {
-          scope: '/'
-        });
+      // Register service worker in all environments
+      const registration = await navigator.serviceWorker.register('/sw.js', {
+        scope: '/'
+      });
 
-        console.log('Service Worker registered successfully:', registration.scope);
+      console.log('Service Worker registered successfully:', registration.scope);
 
         // Listen for updates
         registration.addEventListener('updatefound', () => {
